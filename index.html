@@ -69,6 +69,10 @@
   .nota{margin:8px 0 0 6px;font-size:12px;background:rgba(232,163,61,.12);
     border-left:3px solid var(--warn);padding:7px 9px;border-radius:0 8px 8px 0;color:#F2D9AC}
   .cont{margin:8px 0 0 6px;font-size:12px;color:var(--txt2)}
+  .etapas{display:flex;flex-wrap:wrap;gap:5px;margin:9px 0 0 6px}
+  .etapas span{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px}
+  .etapas .ok{background:rgba(30,142,90,.2);color:#5BD79B}
+  .etapas .falta{background:rgba(232,163,61,.15);color:#F0BE6E}
 
   .acts{display:flex;gap:7px;margin:11px 0 0 6px;flex-wrap:wrap}
   button{font:inherit;border:none;border-radius:10px;padding:9px 12px;font-size:12.5px;
@@ -117,6 +121,7 @@
     border:1.5px dashed var(--line);background:#0F2C4A;color:var(--txt2)}
   .b-cam{border-style:solid;background:#17456E;color:var(--acc)}
   .ya{font-size:11.5px;color:#5BD79B;margin:-4px 0 10px}
+  .pista{font-size:11.5px;color:var(--txt3);margin:-4px 0 8px}
   .thumbs{display:flex;gap:7px;flex-wrap:wrap;margin:-4px 0 12px}
   .th{position:relative;width:66px;height:66px;border-radius:9px;overflow:hidden;
     border:1px solid var(--line);background:#0F2C4A}
@@ -419,6 +424,10 @@ function pintar(){
       ${dir?`<div class="dir"><svg width="13" height="13" viewBox="0 0 24 24" fill="#6E8CAD"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6a2.5 2.5 0 010 5.5z"/></svg><span>${esc(dir)}</span></div>`:""}
       ${(pers||tel)?`<div class="cont">👤 ${esc(pers)}${pers&&tel?" · ":""}${esc(tel)}</div>`:""}
       ${nt?`<div class="nota">⚠️ ${esc(nt)}</div>`:""}
+      ${(cerrado||Object.keys(x._ev||{}).length)?`<div class="etapas">${
+        BLOQUES.map(b=>`<span class="${(x._ev&&x._ev[b.tipo])?"ok":"falta"}">${
+          (x._ev&&x._ev[b.tipo])?"✓":"○"} ${b.tipo==="REPORTE"?"Reporte":b.titulo.replace(/^\d+ · /,"").replace(/ (del|el) servicio/,"")}</span>`).join("")
+      }</div>`:""}
       <div class="acts">
         <button class="b-map" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${dest}','_blank')">📍 Cómo llegar</button>
         ${tel?`<button class="b-tel" onclick="location.href='tel:${tel}'">📞 Llamar</button>`:""}
@@ -433,14 +442,33 @@ function pintar(){
   }).join("");
 }
 
-/* ============ hoja de cierre ============ */
-let cie = null;   // {srv, estatus, fotos:[], reportes:[]}
+/* ============ hoja de cierre ============
+   La evidencia del servicio se toma en tres momentos —antes, durante y
+   despues— mas el formato de reporte que firma el cliente. Los cuatro son
+   obligatorios para cerrar el TKT. */
+const BLOQUES = [
+  {campo:"antes",    tipo:"ANTES",    titulo:"1 · Antes del servicio",
+   pista:"Como se encontró el equipo y el sitio"},
+  {campo:"durante",  tipo:"DURANTE",  titulo:"2 · Durante el servicio",
+   pista:"El trabajo en proceso, maniobras, mediciones"},
+  {campo:"despues",  tipo:"DESPUES",  titulo:"3 · Después del servicio",
+   pista:"Como quedó el equipo y el sitio"},
+  {campo:"reportes", tipo:"REPORTE",  titulo:"4 · Reporte firmado",
+   pista:"Formato que firmó el cliente", pdf:true}
+];
+
+let cie = null;   // {srv, estatus, antes:[], durante:[], despues:[], reportes:[]}
 
 function abrirCierre(coord, id, estatus){
   const srv=semana.find(s=>s.coord===coord && s.id===id); if(!srv) return;
-  cie={srv:srv, estatus:estatus, fotos:[], reportes:[]};
+  cie={srv:srv, estatus:estatus, antes:[], durante:[], despues:[], reportes:[]};
   document.getElementById("mCierre").style.display="flex";
   pintarCierre();
+}
+
+/* ¿ese bloque ya está cubierto, sea con lo ya subido o con lo que trae ahora? */
+function cubierto(b){
+  return ((cie.srv._ev && cie.srv._ev[b.tipo]) ? 1 : 0) + cie[b.campo].length > 0;
 }
 function cerrarHoja(){
   document.getElementById("mCierre").style.display="none"; cie=null;
@@ -448,47 +476,38 @@ function cerrarHoja(){
 
 function pintarCierre(){
   const s=cie.srv, esRep=cie.estatus==="REPROGRAMADO";
-  const yaFoto=(s._ev&&s._ev.FOTO)||cie.fotos.length;
-  const yaRep =(s._ev&&s._ev.REPORTE)||cie.reportes.length;
-  const listo = esRep ? true : (yaFoto && yaRep);
+  const faltan = esRep ? [] : BLOQUES.filter(b=>!cubierto(b));
+  const listo = faltan.length===0;
+
+  const bloque = b => {
+    const ok=cubierto(b), ya=s._ev&&s._ev[b.tipo];
+    return `
+      <div class="lbl">${b.titulo}
+        <span class="req ${ok?"listo":""}">${ok?"listo":"obligatorio"}</span></div>
+      <p class="pista">${b.pista}</p>
+      <div class="dos">
+        <button class="b-cam" onclick="document.getElementById('in_${b.campo}_cam').click()">📷 Tomar foto</button>
+        <button class="b-gal" onclick="document.getElementById('in_${b.campo}_gal').click()">${b.pdf?"📎 Galería o PDF":"🖼️ De la galería"}</button>
+      </div>
+      ${ya?'<div class="ya">Ya tiene archivos cargados de esta etapa.</div>':""}
+      <input type="file" id="in_${b.campo}_cam" accept="image/*" capture="environment" multiple
+             style="display:none" onchange="agregar(this,'${b.campo}')">
+      <input type="file" id="in_${b.campo}_gal" accept="${b.pdf?"image/*,application/pdf":"image/*"}" multiple
+             style="display:none" onchange="agregar(this,'${b.campo}')">
+      <div class="thumbs">${thumbs(b.campo)}</div>`;
+  };
 
   document.getElementById("boxCierre").innerHTML=`
     <h2>${esRep?"Reprogramar servicio":"Cerrar servicio"}</h2>
     <p class="sub">${esc(hhmm(s.horario_atencion))} · ${esc(s.nombre)}${s.tkt?" · TKT "+esc(s.tkt):""}</p>
 
     ${esRep?"":`
-      ${listo?"":'<div class="aviso">Para cerrar el TKT necesitas las <b>fotos del servicio</b> y el <b>formato de reporte firmado</b>.</div>'}
-
-      <div class="lbl">1 · Fotos del servicio
-        <span class="req ${yaFoto?"listo":""}">${yaFoto?"listo":"obligatorio"}</span></div>
-      <div class="dos">
-        <button class="b-cam" onclick="document.getElementById('inFotoCam').click()">📷 Tomar foto</button>
-        <button class="b-gal" onclick="document.getElementById('inFotoGal').click()">🖼️ De la galería</button>
-      </div>
-      ${(s._ev&&s._ev.FOTO)?'<div class="ya">Este servicio ya tiene evidencia cargada.</div>':""}
-      <!-- capture manda a la camara; sin capture el celular deja escoger de la
-           galeria, que es como se suben los servicios ya atendidos -->
-      <input type="file" id="inFotoCam" accept="image/*" capture="environment" multiple
-             style="display:none" onchange="agregar(this,'fotos')">
-      <input type="file" id="inFotoGal" accept="image/*" multiple
-             style="display:none" onchange="agregar(this,'fotos')">
-      <div class="thumbs">${thumbs("fotos")}</div>
-
-      <div class="lbl">2 · Reporte firmado
-        <span class="req ${yaRep?"listo":""}">${yaRep?"listo":"obligatorio"}</span></div>
-      <div class="dos">
-        <button class="b-cam" onclick="document.getElementById('inRepCam').click()">📷 Tomar foto</button>
-        <button class="b-gal" onclick="document.getElementById('inRepGal').click()">📎 Galería o PDF</button>
-      </div>
-      ${(s._ev&&s._ev.REPORTE)?'<div class="ya">Este servicio ya tiene reporte cargado.</div>':""}
-      <input type="file" id="inRepCam" accept="image/*" capture="environment" multiple
-             style="display:none" onchange="agregar(this,'reportes')">
-      <input type="file" id="inRepGal" accept="image/*,application/pdf" multiple
-             style="display:none" onchange="agregar(this,'reportes')">
-      <div class="thumbs">${thumbs("reportes")}</div>
+      ${listo?"":`<div class="aviso">Falta la evidencia de:
+         <b>${faltan.map(b=>b.titulo.replace(/^\d+ · /,"")).join(", ")}</b>.</div>`}
+      ${BLOQUES.map(bloque).join("")}
     `}
 
-    <div class="lbl">${esRep?"":"3 · "}Comentarios ${esRep?'<span class="req">obligatorio</span>':""}</div>
+    <div class="lbl">${esRep?"":"5 · "}Comentarios ${esRep?'<span class="req">obligatorio</span>':""}</div>
     <textarea id="txtCom" placeholder="${esRep
         ? "¿Por qué se reprograma? (sitio cerrado, falta acceso, cliente canceló…)"
         : "Qué se hizo, baterías cambiadas, equipo que se lleva a laboratorio, pendientes…"}">${esc(cie.com||"")}</textarea>
@@ -541,13 +560,15 @@ function confirmarCierre(){
   }
   const s=cie.srv;
   if(cie.estatus==="ATENDIDO"){
-    const yaFoto=(s._ev&&s._ev.FOTO)||cie.fotos.length;
-    const yaRep =(s._ev&&s._ev.REPORTE)||cie.reportes.length;
-    if(!yaFoto||!yaRep){ toast("Faltan evidencia y reporte",true); return }
+    const faltan=BLOQUES.filter(b=>!cubierto(b));
+    if(faltan.length){
+      toast("Falta: "+faltan.map(b=>b.titulo.replace(/^\d+ · /,"")).join(", "),true);
+      return;
+    }
   }
   const btn=document.getElementById("btnGo");
   btn.disabled=true; btn.textContent="Guardando…";
-  guardarCierre(s, cie.estatus, com, cie.fotos, cie.reportes);
+  guardarCierre(s, cie.estatus, com);
 }
 
 /* ============ guardar (con cola sin señal) ============ */
@@ -566,25 +587,27 @@ async function subirArchivo(item, blob, tipo, i){
 
 async function enviarCierre(item){
   // primero las evidencias: si fallan, el TKT no debe quedar cerrado sin respaldo
-  for(let i=0;i<(item.fotos||[]).length;i++)    await subirArchivo(item, item.fotos[i],    "FOTO", i);
-  for(let i=0;i<(item.reportes||[]).length;i++) await subirArchivo(item, item.reportes[i], "REPORTE", i);
+  for(const b of BLOQUES){
+    const arr=item[b.campo]||[];
+    for(let i=0;i<arr.length;i++) await subirArchivo(item, arr[i], b.tipo, i);
+  }
   await api(`servicios?coord=eq.${encodeURIComponent(item.coord)}&id=eq.${item.id}`,
             {method:"PATCH", body:JSON.stringify(item.body)});
   await api("log",{method:"POST",body:JSON.stringify({
     timestamp:item.ts, usuario:item.tecnico, win_user:"app", coord:item.coord,
     rol:"TECNICO", etapa:"4", tkt:item.tkt||"",
     accion:"APP: "+item.body.status,
-    detalle:"id="+item.id+" · fotos="+(item.fotos||[]).length+
-            " · reporte="+(item.reportes||[]).length+(item.nota?" · "+item.nota:"")})});
+    detalle:"id="+item.id+" · "+BLOQUES.map(b=>b.tipo.toLowerCase()+"="+(item[b.campo]||[]).length).join(" ")+
+            (item.nota?" · "+item.nota:"")})});
 }
 
-async function guardarCierre(s, estatus, com, fotos, reportes){
+async function guardarCierre(s, estatus, com){
   const body={status:estatus};
   if(estatus==="ATENDIDO") body.fecha_atencion=fecha;
   if(com) body.obs_coord=com;
   const item={id:s.id, coord:s.coord, tkt:s.tkt||"", body:body, nota:com,
-              tecnico:tecnico, ts:new Date().toISOString().slice(0,19).replace("T"," "),
-              fotos:fotos.map(f=>f.blob), reportes:reportes.map(f=>f.blob)};
+              tecnico:tecnico, ts:new Date().toISOString().slice(0,19).replace("T"," ")};
+  BLOQUES.forEach(b=>{ item[b.campo]=cie[b.campo].map(f=>f.blob) });
   try{
     await enviarCierre(item);
     toast(estatus==="ATENDIDO"?"Servicio cerrado ✓":"Reprogramado ✓");
@@ -593,7 +616,11 @@ async function guardarCierre(s, estatus, com, fotos, reportes){
     try{
       await colaAdd(item);
       s.status=estatus;
-      if(estatus==="ATENDIDO"){ s.fecha_atencion=fecha; s._ev={FOTO:!!fotos.length,REPORTE:!!reportes.length} }
+      if(estatus==="ATENDIDO"){
+        s.fecha_atencion=fecha;
+        s._ev=s._ev||{};
+        BLOQUES.forEach(b=>{ if((item[b.campo]||[]).length) s._ev[b.tipo]=true });
+      }
       if(com) s.obs_coord=com;
       toast("Sin señal · se guardó con sus fotos y subirá solo",true);
       cerrarHoja(); pintarDias(); pintar(); pintarPendientes();

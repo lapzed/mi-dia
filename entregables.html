@@ -146,6 +146,9 @@ const BUCKET="evidencias";
 let ses=JSON.parse(localStorage.getItem("md_ses")||"null");
 let filas=[], ev={}, marcados=new Set();
 
+/* la evidencia se toma en tres momentos del servicio, mas el reporte firmado */
+const ETAPAS=[["ANTES","Antes"],["DURANTE","Durante"],["DESPUES","Después"],["REPORTE","Reporte"]];
+
 function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
@@ -266,7 +269,7 @@ async function cargar(){
    coordinaciones (571 casos), asi que usarlo solo cruzaria los registros */
 function llave(x){ return x.coord+"|"+x.id }
 function tiene(x,tipo){ return (ev[llave(x)]||[]).some(e=>e.tipo===tipo) }
-function completo(x){ return tiene(x,"FOTO") && tiene(x,"REPORTE") }
+function completo(x){ return ETAPAS.every(([t])=>tiene(x,t)) }
 
 function visibles(){
   const f=document.getElementById("fEv").value;
@@ -290,7 +293,7 @@ function pintar(){
   document.getElementById("tabla").innerHTML=
    `<table><thead><tr>
       <th style="width:32px"></th><th>Fecha</th><th>TKT</th><th>Cliente</th>
-      <th>Sitio</th><th>Servicio</th><th>Técnico</th><th>Fotos</th><th>Reporte</th>
+      <th>Sitio</th><th>Técnico</th><th>Antes</th><th>Durante</th><th>Después</th><th>Reporte</th>
     </tr></thead><tbody>`+
     v.map(x=>`<tr id="tr${x.coord}_${x.id}" class="${marcados.has(llave(x))?"sel":""}">
       <td><input type="checkbox" ${marcados.has(llave(x))?"checked":""}
@@ -299,11 +302,9 @@ function pintar(){
       <td>${x.tkt?`<span class="tag">${esc(x.tkt)}</span>`:""}</td>
       <td>${esc(limpio(x.dependencia))}</td>
       <td>${esc(x.nombre)}</td>
-      <td>${esc(limpio(x.tipo_servicio))}</td>
       <td>${esc(limpio(x.tecnico))}</td>
-      <td class="ev ${tiene(x,"FOTO")?"si":"no"}">${tiene(x,"FOTO")
-          ?(ev[llave(x)]||[]).filter(e=>e.tipo==="FOTO").length+" ✓":"falta"}</td>
-      <td class="ev ${tiene(x,"REPORTE")?"si":"no"}">${tiene(x,"REPORTE")?"✓":"falta"}</td>
+      ${ETAPAS.map(([t])=>{const n=(ev[llave(x)]||[]).filter(e=>e.tipo===t).length;
+        return `<td class="ev ${n?"si":"no"}">${n?n+" ✓":"falta"}</td>`}).join("")}
     </tr>`).join("")+"</tbody></table>";
   document.getElementById("btnGen").disabled = marcados.size===0;
 }
@@ -369,8 +370,7 @@ async function generar(){
       // ojo: 'clase' es FOTO/REPORTE y 'mime' es image/jpeg; no mezclarlos
       if(d) arch.push({clase:e.tipo, url:d.url, mime:d.tipo});
     }
-    const fotos=arch.filter(f=>f.clase==="FOTO");
-    const reps =arch.filter(f=>f.clase==="REPORTE");
+    const porEtapa = t => arch.filter(f=>f.clase===t);
     partes.push(`<div class="serv">
       <div class="cab"><span class="mk">MDREIECK</span>
         <span class="der">${esc(x.tkt?"TKT "+x.tkt:"")} · ${esc(x.coord)}</span></div>
@@ -385,14 +385,15 @@ async function generar(){
         ${limpio(x.equipo)?`<tr><td>Equipo</td><td>${esc(limpio(x.equipo))}${limpio(x.serie)?" · serie "+esc(limpio(x.serie)):""}</td></tr>`:""}
         ${limpio(x.obs_coord)?`<tr><td>Observaciones</td><td>${esc(limpio(x.obs_coord))}</td></tr>`:""}
       </table>
-      ${fotos.length?`<p style="font-size:12px;font-weight:700;margin:12px 0 6px">EVIDENCIA FOTOGRÁFICA</p>
-        <div class="fotos">${fotos.map(f=>`<img src="${f.url}">`).join("")}</div>`:
-        `<p style="font-size:12px;color:#a00">Sin evidencia fotográfica</p>`}
-      ${reps.length?`<p style="font-size:12px;font-weight:700;margin:14px 0 6px">REPORTE FIRMADO</p>
-        <div class="fotos">${reps.map(f=>/pdf/.test(f.mime)
-            ?`<p style="font-size:12px">El reporte se entregó en PDF · ${esc(f.url.length>0?"archivo adjunto":"")}</p>`
-            :`<img src="${f.url}">`).join("")}</div>`:
-        `<p style="font-size:12px;color:#a00">Sin reporte firmado</p>`}
+      ${ETAPAS.map(([t,n])=>{
+        const g=porEtapa(t);
+        const tit = t==="REPORTE" ? "REPORTE FIRMADO" : "EVIDENCIA · "+n.toUpperCase();
+        if(!g.length) return `<p style="font-size:12px;color:#a00;margin:10px 0 0">${t==="REPORTE"?"Sin reporte firmado":"Sin evidencia de "+esc(n.toLowerCase())}</p>`;
+        return `<p style="font-size:12px;font-weight:700;margin:14px 0 6px">${tit}</p>
+          <div class="fotos">${g.map(f=>/pdf/.test(f.mime)
+            ?`<p style="font-size:12px">El reporte se entregó en PDF</p>`
+            :`<img src="${f.url}">`).join("")}</div>`;
+      }).join("")}
     </div>`);
   }
 
