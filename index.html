@@ -457,17 +457,25 @@ const BLOQUES = [
    pista:"Formato que firmó el cliente", pdf:true}
 ];
 
-/* En levantamientos no hay antes/durante/después: no se interviene el equipo,
-   se va a inspeccionar el sitio. Se piden las fotos del recorrido y el reporte. */
+/* Levantamientos y CAT no llevan antes/durante/después: en uno se va a
+   inspeccionar el sitio y en el otro a atender al cliente, no a intervenir un
+   equipo en tres tiempos. Piden sus fotos y el reporte. */
 const BLOQUES_LEV = [
   {campo:"levanta",  tipo:"LEVANTAMIENTO", titulo:"1 · Fotos del levantamiento",
    pista:"El sitio, los puntos donde iría el equipo, accesos y alturas"},
   {campo:"reportes", tipo:"REPORTE",       titulo:"2 · Reporte firmado",
    pista:"Formato que firmó el cliente", pdf:true}
 ];
+const BLOQUES_CAT = [
+  {campo:"atencion", tipo:"ATENCION", titulo:"1 · Fotos de la atención",
+   pista:"El equipo atendido y cómo quedó el sitio"},
+  {campo:"reportes", tipo:"REPORTE",  titulo:"2 · Reporte firmado",
+   pista:"Formato que firmó el cliente", pdf:true}
+];
 
+const POR_COORD = {LEV:BLOQUES_LEV, CAT:BLOQUES_CAT};
 function bloquesDe(coord){
-  return (coord||"").toUpperCase()==="LEV" ? BLOQUES_LEV : BLOQUES;
+  return POR_COORD[(coord||"").toUpperCase()] || BLOQUES;
 }
 
 let cie = null;   // {srv, estatus, _bloques, y un arreglo por bloque}

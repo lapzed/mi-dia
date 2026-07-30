@@ -155,7 +155,9 @@ let filas=[], ev={}, marcados=new Set();
    el reporte, nada mas. */
 const ETAPAS=[["ANTES","Antes"],["DURANTE","Durante"],["DESPUES","Después"],["REPORTE","Reporte"]];
 const ETAPAS_LEV=[["LEVANTAMIENTO","Levantamiento"],["REPORTE","Reporte"]];
-function etapasDe(coord){ return (coord||"").toUpperCase()==="LEV" ? ETAPAS_LEV : ETAPAS }
+const ETAPAS_CAT=[["ATENCION","Atención"],["REPORTE","Reporte"]];
+const POR_COORD={LEV:ETAPAS_LEV, CAT:ETAPAS_CAT};
+function etapasDe(coord){ return POR_COORD[(coord||"").toUpperCase()] || ETAPAS }
 
 function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -398,7 +400,8 @@ async function generar(){
       ${etapasDe(x.coord).map(([t,n])=>{
         const g=porEtapa(t);
         const tit = t==="REPORTE" ? "REPORTE FIRMADO"
-                 : (t==="LEVANTAMIENTO" ? "EVIDENCIA FOTOGRÁFICA" : "EVIDENCIA · "+n.toUpperCase());
+                 : (["LEVANTAMIENTO","ATENCION"].indexOf(t)>=0 ? "EVIDENCIA FOTOGRÁFICA"
+                                                               : "EVIDENCIA · "+n.toUpperCase());
         if(!g.length) return `<p style="font-size:12px;color:#a00;margin:10px 0 0">${t==="REPORTE"?"Sin reporte firmado":"Sin evidencia de "+esc(n.toLowerCase())}</p>`;
         return `<p style="font-size:12px;font-weight:700;margin:14px 0 6px">${tit}</p>
           <div class="fotos">${g.map(f=>/pdf/.test(f.mime)
