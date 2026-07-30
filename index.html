@@ -83,6 +83,11 @@
   .b-ok{background:var(--ok);color:#fff;flex:1;justify-content:center}
   .b-re{background:var(--warn);color:#3a2600;justify-content:center}
   .b-gh{background:#17456E;color:var(--acc);flex:1;justify-content:center}
+  .b-fin{background:var(--ok);color:#fff;justify-content:center}
+  .obra{margin:3px 0 0 6px;font-size:11.5px;color:var(--acc);font-weight:600}
+  .obra b{color:#F0BE6E}
+  .ojo{background:rgba(99,179,255,.12);border:1px solid rgba(99,179,255,.35);
+    color:#AFD6FF;border-radius:11px;padding:10px 12px;font-size:12px;margin-bottom:12px}
   button:active{transform:scale(.97)}
   button:disabled{opacity:.45}
 
@@ -202,6 +207,9 @@ function HDRb(){
 Object.defineProperty(window, "HDR", {get:HDRb});
 
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+const NOMBRE_TIPO = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después",
+  REPORTE:"Reporte", LEVANTAMIENTO:"Levantamiento", ATENCION:"Atención",
+  AVANCE:"Avance", VISITA:"Visita"};
 /* una semana atrás para poder regularizar servicios ya atendidos, y cuatro días
    adelante para ver lo que viene */
 const DESDE = -7, HASTA = 4;
@@ -372,7 +380,7 @@ async function cargar(){
   try{
     semana=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,"+
       "fecha_servicio,horario_atencion,status,personal_atiende,telefono,obs_prog,obs_coord,"+
-      "requerimientos,tipo_servicio"+
+      "requerimientos,tipo_servicio,obra,dias_est,dia_n,sin_avance"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&tecnico=in.("+encodeURIComponent(lista)+")&order=fecha_servicio,horario_atencion");
     await marcarEvidencias();
@@ -437,13 +445,18 @@ function pintar(){
         <span class="st ${cl}">${esc(x.status||"PENDIENTE")}</span>
       </div>
       <div class="sitio">${esc(x.nombre)}</div>
+      ${esObra(x)?`<div class="obra">Obra de ${x.dias_est} días · hoy es el día ${x.dia_n}${
+         x.sin_avance?' · <b>se declaró sin avance</b>':""}</div>`:""}
       ${(dep||tip)?`<div class="dep">${esc(dep)}${dep&&tip?" · ":""}${esc(tip)}</div>`:""}
       ${dir?`<div class="dir"><svg width="13" height="13" viewBox="0 0 24 24" fill="#6E8CAD"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6a2.5 2.5 0 010 5.5z"/></svg><span>${esc(dir)}</span></div>`:""}
       ${(pers||tel)?`<div class="cont">👤 ${esc(pers)}${pers&&tel?" · ":""}${esc(tel)}</div>`:""}
       ${nt?`<div class="nota">⚠️ ${esc(nt)}</div>`:""}
       ${(cerrado||Object.keys(x._ev||{}).length)?`<div class="etapas">${
-        bloquesDe(x.coord).map(b=>`<span class="${(x._ev&&x._ev[b.tipo])?"ok":"falta"}">${
-          (x._ev&&x._ev[b.tipo])?"✓":"○"} ${b.tipo==="REPORTE"?"Reporte":b.titulo.replace(/^\d+ · /,"").replace(/ (del|el) servicio/,"")}</span>`).join("")
+        (esObra(x)
+          ? Object.keys(x._ev||{}).map(t=>`<span class="ok">✓ ${esc(NOMBRE_TIPO[t]||t)}</span>`)
+          : bloquesDe(x.coord).map(b=>`<span class="${(x._ev&&x._ev[b.tipo])?"ok":"falta"}">${
+              (x._ev&&x._ev[b.tipo])?"✓":"○"} ${b.tipo==="REPORTE"?"Reporte":b.titulo.replace(/^\d+ · /,"").replace(/ (del|el) servicio/,"")}</span>`)
+        ).join("")
       }</div>`:""}
       <div class="acts">
         <button class="b-map" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${dest}','_blank')">📍 Cómo llegar</button>
@@ -452,8 +465,12 @@ function pintar(){
       <div class="acts">
         ${cerrado
           ? `<button class="b-gh" onclick="abrirCierre('${x.coord}',${x.id},'ATENDIDO')">✎ Agregar evidencia o nota</button>`
-          : `<button class="b-ok" onclick="abrirCierre('${x.coord}',${x.id},'ATENDIDO')">✓ Atendido</button>
-             <button class="b-re" onclick="abrirCierre('${x.coord}',${x.id},'REPROGRAMADO')">↻ Reprogramar</button>`}
+          : esObra(x)
+            ? `<button class="b-gh" onclick="abrirCierre('${x.coord}',${x.id},'CONTINUIDAD')">↷ Avancé, sigo</button>
+               <button class="b-fin" onclick="abrirCierre('${x.coord}',${x.id},'FIN_OBRA')">✓ Terminé la obra</button>
+               <button class="b-re" onclick="abrirCierre('${x.coord}',${x.id},'SIN_AVANCE')">⚠ No se pudo</button>`
+            : `<button class="b-ok" onclick="abrirCierre('${x.coord}',${x.id},'ATENDIDO')">✓ Atendido</button>
+               <button class="b-re" onclick="abrirCierre('${x.coord}',${x.id},'REPROGRAMADO')">↻ Reprogramar</button>`}
       </div>
     </div>`;
   }).join("");
@@ -490,20 +507,53 @@ const BLOQUES_CAT = [
    pista:"Formato que firmó el cliente", pdf:true}
 ];
 
+/* Obras de varios días (instalaciones). Cada día se cierra por separado:
+   se avanzó, no se pudo, o quedó terminada. */
+const BLOQUES_AVANCE = [
+  {campo:"avance",   tipo:"AVANCE", titulo:"1 · Avance del día",
+   pista:"Hasta dónde se llegó hoy"}
+];
+const BLOQUES_VISITA = [
+  {campo:"avance",   tipo:"VISITA", titulo:"1 · Evidencia de la visita",
+   pista:"Que la brigada estuvo en el sitio — es lo que respalda el cobro"}
+];
+const BLOQUES_FIN = [
+  {campo:"despues",  tipo:"DESPUES", titulo:"1 · Trabajo terminado",
+   pista:"Cómo quedó el equipo y el sitio"},
+  {campo:"reportes", tipo:"REPORTE",  titulo:"2 · Reporte firmado",
+   pista:"Formato que firmó el cliente", pdf:true}
+];
+
 const POR_COORD = {LEV:BLOQUES_LEV, CAT:BLOQUES_CAT};
-function bloquesDe(coord){
+
+function esObra(s){ return !!(s && s.obra && (s.dias_est||0) > 1) }
+
+/* qué se le pide según la coordinación y, si es obra, según cómo cierre el día */
+function bloquesDe(coord, modo){
+  if(modo==="CONTINUIDAD") return BLOQUES_AVANCE;
+  if(modo==="SIN_AVANCE")  return BLOQUES_VISITA;
+  if(modo==="FIN_OBRA")    return BLOQUES_FIN;
   return POR_COORD[(coord||"").toUpperCase()] || BLOQUES;
 }
 
 let cie = null;   // {srv, estatus, _bloques, y un arreglo por bloque}
 
-function abrirCierre(coord, id, estatus){
+function abrirCierre(coord, id, modo){
   const srv=semana.find(s=>s.coord===coord && s.id===id); if(!srv) return;
-  cie={srv:srv, estatus:estatus, _bloques:bloquesDe(coord)};
+  cie={srv:srv, estatus:modo, _bloques:bloquesDe(coord, modo)};
   cie._bloques.forEach(b=>{ cie[b.campo]=[] });
   document.getElementById("mCierre").style.display="flex";
   pintarCierre();
 }
+
+/* textos de la hoja según cómo se está cerrando el día */
+const MODOS = {
+  ATENDIDO:     {tit:"Cerrar servicio",       btn:"Cerrar servicio"},
+  REPROGRAMADO: {tit:"Reprogramar servicio",  btn:"Reprogramar"},
+  CONTINUIDAD:  {tit:"Avance del día",        btn:"Guardar avance"},
+  FIN_OBRA:     {tit:"Terminar la obra",      btn:"Dar por terminada"},
+  SIN_AVANCE:   {tit:"Día sin avance",        btn:"Declarar el día"}
+};
 
 /* ¿ese bloque ya está cubierto, sea con lo ya subido o con lo que trae ahora? */
 function cubierto(b){
@@ -515,8 +565,10 @@ function cerrarHoja(){
 
 function pintarCierre(){
   const s=cie.srv, esRep=cie.estatus==="REPROGRAMADO";
+  const m=MODOS[cie.estatus]||MODOS.ATENDIDO;
   const faltan = esRep ? [] : cie._bloques.filter(b=>!cubierto(b));
   const listo = faltan.length===0;
+  const quedan = esObra(s) ? (s.dias_est - s.dia_n) : 0;
 
   const bloque = b => {
     const ok=cubierto(b), ya=s._ev&&s._ev[b.tipo];
@@ -536,9 +588,16 @@ function pintarCierre(){
       <div class="thumbs">${thumbs(b.campo)}</div>`;
   };
 
+  const pideMotivo = esRep || cie.estatus==="SIN_AVANCE";
   document.getElementById("boxCierre").innerHTML=`
-    <h2>${esRep?"Reprogramar servicio":"Cerrar servicio"}</h2>
-    <p class="sub">${esc(hhmm(s.horario_atencion))} · ${esc(s.nombre)}${s.tkt?" · TKT "+esc(s.tkt):""}</p>
+    <h2>${m.tit}</h2>
+    <p class="sub">${esc(hhmm(s.horario_atencion))} · ${esc(s.nombre)}${s.tkt?" · TKT "+esc(s.tkt):""}${
+       esObra(s)?" · día "+s.dia_n+" de "+s.dias_est:""}</p>
+
+    ${cie.estatus==="SIN_AVANCE"?`<div class="ojo">La brigada estuvo en el sitio y se
+       consumió el recurso, pero no se instaló. El día queda declarado para poder cobrarlo.</div>`:""}
+    ${cie.estatus==="FIN_OBRA" && quedan>0?`<div class="ojo">Quedan ${quedan} día(s)
+       programados de esta obra. Al darla por terminada se cancelan.</div>`:""}
 
     ${esRep?"":`
       ${listo?"":`<div class="aviso">Falta la evidencia de:
@@ -546,13 +605,15 @@ function pintarCierre(){
       ${cie._bloques.map(bloque).join("")}
     `}
 
-    <div class="lbl">${esRep?"":(cie._bloques.length+1)+" · "}Comentarios ${esRep?'<span class="req">obligatorio</span>':""}</div>
-    <textarea id="txtCom" placeholder="${esRep
-        ? "¿Por qué se reprograma? (sitio cerrado, falta acceso, cliente canceló…)"
-        : "Qué se hizo, baterías cambiadas, equipo que se lleva a laboratorio, pendientes…"}">${esc(cie.com||"")}</textarea>
+    <div class="lbl">${esRep?"":(cie._bloques.length+1)+" · "}Comentarios ${
+       pideMotivo?'<span class="req">obligatorio</span>':""}</div>
+    <textarea id="txtCom" placeholder="${
+        esRep ? "¿Por qué se reprograma? (sitio cerrado, falta acceso, cliente canceló…)"
+      : cie.estatus==="SIN_AVANCE" ? "¿Por qué no se pudo? (sin acceso, faltó material, obra civil, cliente no autorizó…)"
+      : cie.estatus==="CONTINUIDAD" ? "Hasta dónde se llegó y qué queda pendiente…"
+      : "Qué se hizo, baterías cambiadas, equipo que se lleva a laboratorio, pendientes…"}">${esc(cie.com||"")}</textarea>
 
-    <button class="b-full" id="btnGo" ${listo?"":"disabled"} onclick="confirmarCierre()">
-      ${esRep?"Reprogramar":"Cerrar servicio"}</button>
+    <button class="b-full" id="btnGo" ${listo?"":"disabled"} onclick="confirmarCierre()">${m.btn}</button>
     <button class="b-gris" onclick="cerrarHoja()">Cancelar</button>`;
 
   const t=document.getElementById("txtCom");
@@ -597,8 +658,11 @@ function confirmarCierre(){
   if(cie.estatus==="REPROGRAMADO" && !com){
     toast("Escribe por qué se reprograma",true); return;
   }
+  if(cie.estatus==="SIN_AVANCE" && !com){
+    toast("Escribe por qué no se pudo — es lo que sustenta el cobro",true); return;
+  }
   const s=cie.srv;
-  if(cie.estatus==="ATENDIDO"){
+  if(cie.estatus!=="REPROGRAMADO"){
     const faltan=cie._bloques.filter(b=>!cubierto(b));
     if(faltan.length){
       toast("Falta: "+faltan.map(b=>b.titulo.replace(/^\d+ · /,"")).join(", "),true);
@@ -632,31 +696,59 @@ async function enviarCierre(item){
   }
   await api(`servicios?coord=eq.${encodeURIComponent(item.coord)}&id=eq.${item.id}`,
             {method:"PATCH", body:JSON.stringify(item.body)});
+
+  // al dar la obra por terminada, los días que quedaban programados se cancelan
+  // (solo los que nadie ha tocado, para no borrar trabajo registrado)
+  if(item.modo==="FIN_OBRA" && item.obra){
+    await api("servicios?obra=eq."+encodeURIComponent(item.obra)+
+              "&dia_n=gt."+item.dia_n+"&status=eq.PROGRAMADO",
+      {method:"PATCH", body:JSON.stringify({status:"CANCELADO",
+        obs_coord:"Obra terminada el "+fecha+" en el día "+item.dia_n})});
+  }
+
   await api("log",{method:"POST",body:JSON.stringify({
     timestamp:item.ts, usuario:item.tecnico, win_user:"app", coord:item.coord,
     rol:"TECNICO", etapa:"4", tkt:item.tkt||"",
-    accion:"APP: "+item.body.status,
-    detalle:"id="+item.id+" · "+(item.campos||[]).map(([c,t])=>t.toLowerCase()+"="+(item[c]||[]).length).join(" ")+
+    accion:"APP: "+(item.modo||item.body.status),
+    detalle:"id="+item.id+(item.obra?" · "+item.obra+" dia "+item.dia_n:"")+" · "+
+            (item.campos||[]).map(([c,t])=>t.toLowerCase()+"="+(item[c]||[]).length).join(" ")+
             (item.nota?" · "+item.nota:"")})});
 }
 
-async function guardarCierre(s, estatus, com){
-  const body={status:estatus};
-  if(estatus==="ATENDIDO") body.fecha_atencion=fecha;
+async function guardarCierre(s, modo, com){
+  /* cada modo escribe distinto: el día que avanza queda en continuidad, el que
+     no se pudo también pero marcado para cobro, y solo el cierre de la obra
+     queda atendido */
+  const body={};
+  if(modo==="ATENDIDO" || modo==="FIN_OBRA"){
+    body.status="ATENDIDO"; body.fecha_atencion=fecha;
+  }else if(modo==="CONTINUIDAD"){
+    body.status="CONTINUIDAD"; body.fecha_atencion=fecha;
+  }else if(modo==="SIN_AVANCE"){
+    body.status="CONTINUIDAD"; body.fecha_atencion=fecha;
+    body.sin_avance=true; body.motivo_sin_avance=com;
+  }else{
+    body.status=modo;
+  }
   if(com) body.obs_coord=com;
-  const item={id:s.id, coord:s.coord, tkt:s.tkt||"", body:body, nota:com,
+  const item={id:s.id, coord:s.coord, tkt:s.tkt||"", body:body, nota:com, modo:modo,
+              obra:s.obra||"", dia_n:s.dia_n||0,
               tecnico:tecnico, ts:new Date().toISOString().slice(0,19).replace("T"," ")};
   item.campos = cie._bloques.map(b=>[b.campo, b.tipo]);
   cie._bloques.forEach(b=>{ item[b.campo]=cie[b.campo].map(f=>f.blob) });
+  const listos={ATENDIDO:"Servicio cerrado ✓", FIN_OBRA:"Obra terminada ✓",
+                CONTINUIDAD:"Avance guardado ✓", SIN_AVANCE:"Día declarado ✓",
+                REPROGRAMADO:"Reprogramado ✓"};
   try{
     await enviarCierre(item);
-    toast(estatus==="ATENDIDO"?"Servicio cerrado ✓":"Reprogramado ✓");
+    toast(listos[modo]||"Guardado ✓");
     cerrarHoja(); cargar();
   }catch(e){
     try{
       await colaAdd(item);
-      s.status=estatus;
-      if(estatus==="ATENDIDO"){
+      s.status=body.status;
+      if(body.sin_avance) s.sin_avance=true;
+      if(body.fecha_atencion){
         s.fecha_atencion=fecha;
         s._ev=s._ev||{};
         (item.campos||[]).forEach(([c,t])=>{ if((item[c]||[]).length) s._ev[t]=true });
