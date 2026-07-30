@@ -425,7 +425,7 @@ function pintar(){
       ${(pers||tel)?`<div class="cont">👤 ${esc(pers)}${pers&&tel?" · ":""}${esc(tel)}</div>`:""}
       ${nt?`<div class="nota">⚠️ ${esc(nt)}</div>`:""}
       ${(cerrado||Object.keys(x._ev||{}).length)?`<div class="etapas">${
-        BLOQUES.map(b=>`<span class="${(x._ev&&x._ev[b.tipo])?"ok":"falta"}">${
+        bloquesDe(x.coord).map(b=>`<span class="${(x._ev&&x._ev[b.tipo])?"ok":"falta"}">${
           (x._ev&&x._ev[b.tipo])?"✓":"○"} ${b.tipo==="REPORTE"?"Reporte":b.titulo.replace(/^\d+ · /,"").replace(/ (del|el) servicio/,"")}</span>`).join("")
       }</div>`:""}
       <div class="acts">
@@ -457,11 +457,25 @@ const BLOQUES = [
    pista:"Formato que firmó el cliente", pdf:true}
 ];
 
-let cie = null;   // {srv, estatus, antes:[], durante:[], despues:[], reportes:[]}
+/* En levantamientos no hay antes/durante/después: no se interviene el equipo,
+   se va a inspeccionar el sitio. Se piden las fotos del recorrido y el reporte. */
+const BLOQUES_LEV = [
+  {campo:"levanta",  tipo:"LEVANTAMIENTO", titulo:"1 · Fotos del levantamiento",
+   pista:"El sitio, los puntos donde iría el equipo, accesos y alturas"},
+  {campo:"reportes", tipo:"REPORTE",       titulo:"2 · Reporte firmado",
+   pista:"Formato que firmó el cliente", pdf:true}
+];
+
+function bloquesDe(coord){
+  return (coord||"").toUpperCase()==="LEV" ? BLOQUES_LEV : BLOQUES;
+}
+
+let cie = null;   // {srv, estatus, _bloques, y un arreglo por bloque}
 
 function abrirCierre(coord, id, estatus){
   const srv=semana.find(s=>s.coord===coord && s.id===id); if(!srv) return;
-  cie={srv:srv, estatus:estatus, antes:[], durante:[], despues:[], reportes:[]};
+  cie={srv:srv, estatus:estatus, _bloques:bloquesDe(coord)};
+  cie._bloques.forEach(b=>{ cie[b.campo]=[] });
   document.getElementById("mCierre").style.display="flex";
   pintarCierre();
 }
@@ -476,7 +490,7 @@ function cerrarHoja(){
 
 function pintarCierre(){
   const s=cie.srv, esRep=cie.estatus==="REPROGRAMADO";
-  const faltan = esRep ? [] : BLOQUES.filter(b=>!cubierto(b));
+  const faltan = esRep ? [] : cie._bloques.filter(b=>!cubierto(b));
   const listo = faltan.length===0;
 
   const bloque = b => {
@@ -504,7 +518,7 @@ function pintarCierre(){
     ${esRep?"":`
       ${listo?"":`<div class="aviso">Falta la evidencia de:
          <b>${faltan.map(b=>b.titulo.replace(/^\d+ · /,"")).join(", ")}</b>.</div>`}
-      ${BLOQUES.map(bloque).join("")}
+      ${cie._bloques.map(bloque).join("")}
     `}
 
     <div class="lbl">${esRep?"":"5 · "}Comentarios ${esRep?'<span class="req">obligatorio</span>':""}</div>
@@ -560,7 +574,7 @@ function confirmarCierre(){
   }
   const s=cie.srv;
   if(cie.estatus==="ATENDIDO"){
-    const faltan=BLOQUES.filter(b=>!cubierto(b));
+    const faltan=cie._bloques.filter(b=>!cubierto(b));
     if(faltan.length){
       toast("Falta: "+faltan.map(b=>b.titulo.replace(/^\d+ · /,"")).join(", "),true);
       return;
@@ -587,9 +601,9 @@ async function subirArchivo(item, blob, tipo, i){
 
 async function enviarCierre(item){
   // primero las evidencias: si fallan, el TKT no debe quedar cerrado sin respaldo
-  for(const b of BLOQUES){
-    const arr=item[b.campo]||[];
-    for(let i=0;i<arr.length;i++) await subirArchivo(item, arr[i], b.tipo, i);
+  for(const [campo,tipo] of (item.campos||[])){
+    const arr=item[campo]||[];
+    for(let i=0;i<arr.length;i++) await subirArchivo(item, arr[i], tipo, i);
   }
   await api(`servicios?coord=eq.${encodeURIComponent(item.coord)}&id=eq.${item.id}`,
             {method:"PATCH", body:JSON.stringify(item.body)});
@@ -597,7 +611,7 @@ async function enviarCierre(item){
     timestamp:item.ts, usuario:item.tecnico, win_user:"app", coord:item.coord,
     rol:"TECNICO", etapa:"4", tkt:item.tkt||"",
     accion:"APP: "+item.body.status,
-    detalle:"id="+item.id+" · "+BLOQUES.map(b=>b.tipo.toLowerCase()+"="+(item[b.campo]||[]).length).join(" ")+
+    detalle:"id="+item.id+" · "+(item.campos||[]).map(([c,t])=>t.toLowerCase()+"="+(item[c]||[]).length).join(" ")+
             (item.nota?" · "+item.nota:"")})});
 }
 
@@ -607,7 +621,8 @@ async function guardarCierre(s, estatus, com){
   if(com) body.obs_coord=com;
   const item={id:s.id, coord:s.coord, tkt:s.tkt||"", body:body, nota:com,
               tecnico:tecnico, ts:new Date().toISOString().slice(0,19).replace("T"," ")};
-  BLOQUES.forEach(b=>{ item[b.campo]=cie[b.campo].map(f=>f.blob) });
+  item.campos = cie._bloques.map(b=>[b.campo, b.tipo]);
+  cie._bloques.forEach(b=>{ item[b.campo]=cie[b.campo].map(f=>f.blob) });
   try{
     await enviarCierre(item);
     toast(estatus==="ATENDIDO"?"Servicio cerrado ✓":"Reprogramado ✓");
@@ -619,7 +634,7 @@ async function guardarCierre(s, estatus, com){
       if(estatus==="ATENDIDO"){
         s.fecha_atencion=fecha;
         s._ev=s._ev||{};
-        BLOQUES.forEach(b=>{ if((item[b.campo]||[]).length) s._ev[b.tipo]=true });
+        (item.campos||[]).forEach(([c,t])=>{ if((item[c]||[]).length) s._ev[t]=true });
       }
       if(com) s.obs_coord=com;
       toast("Sin señal · se guardó con sus fotos y subirá solo",true);

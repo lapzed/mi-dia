@@ -50,6 +50,10 @@
     background:#17456E;color:var(--acc)}
   .ev{font-size:11px;font-weight:700}
   .ev.si{color:#5BD79B} .ev.no{color:var(--warn)}
+  .et{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;
+    white-space:nowrap;display:inline-block;margin:1px 0}
+  .et.si{background:rgba(30,142,90,.2);color:#5BD79B}
+  .et.no{background:rgba(232,163,61,.15);color:#F0BE6E}
   .vacio{text-align:center;color:var(--txt2);padding:50px}
   .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
 
@@ -146,8 +150,12 @@ const BUCKET="evidencias";
 let ses=JSON.parse(localStorage.getItem("md_ses")||"null");
 let filas=[], ev={}, marcados=new Set();
 
-/* la evidencia se toma en tres momentos del servicio, mas el reporte firmado */
+/* La evidencia se toma en tres momentos del servicio, mas el reporte firmado.
+   En levantamientos no se interviene el equipo: van las fotos del recorrido y
+   el reporte, nada mas. */
 const ETAPAS=[["ANTES","Antes"],["DURANTE","Durante"],["DESPUES","Después"],["REPORTE","Reporte"]];
+const ETAPAS_LEV=[["LEVANTAMIENTO","Levantamiento"],["REPORTE","Reporte"]];
+function etapasDe(coord){ return (coord||"").toUpperCase()==="LEV" ? ETAPAS_LEV : ETAPAS }
 
 function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -269,7 +277,7 @@ async function cargar(){
    coordinaciones (571 casos), asi que usarlo solo cruzaria los registros */
 function llave(x){ return x.coord+"|"+x.id }
 function tiene(x,tipo){ return (ev[llave(x)]||[]).some(e=>e.tipo===tipo) }
-function completo(x){ return ETAPAS.every(([t])=>tiene(x,t)) }
+function completo(x){ return etapasDe(x.coord).every(([t])=>tiene(x,t)) }
 
 function visibles(){
   const f=document.getElementById("fEv").value;
@@ -292,19 +300,21 @@ function pintar(){
   }
   document.getElementById("tabla").innerHTML=
    `<table><thead><tr>
-      <th style="width:32px"></th><th>Fecha</th><th>TKT</th><th>Cliente</th>
-      <th>Sitio</th><th>Técnico</th><th>Antes</th><th>Durante</th><th>Después</th><th>Reporte</th>
+      <th style="width:32px"></th><th>Fecha</th><th>TKT</th><th>Coord</th><th>Cliente</th>
+      <th>Sitio</th><th>Técnico</th><th>Evidencia</th>
     </tr></thead><tbody>`+
     v.map(x=>`<tr id="tr${x.coord}_${x.id}" class="${marcados.has(llave(x))?"sel":""}">
       <td><input type="checkbox" ${marcados.has(llave(x))?"checked":""}
            onchange="marcar('${x.coord}',${x.id},this.checked)"></td>
       <td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td>
       <td>${x.tkt?`<span class="tag">${esc(x.tkt)}</span>`:""}</td>
+      <td>${esc(x.coord)}</td>
       <td>${esc(limpio(x.dependencia))}</td>
       <td>${esc(x.nombre)}</td>
       <td>${esc(limpio(x.tecnico))}</td>
-      ${ETAPAS.map(([t])=>{const n=(ev[llave(x)]||[]).filter(e=>e.tipo===t).length;
-        return `<td class="ev ${n?"si":"no"}">${n?n+" ✓":"falta"}</td>`}).join("")}
+      <td>${etapasDe(x.coord).map(([t,n])=>{
+        const c=(ev[llave(x)]||[]).filter(e=>e.tipo===t).length;
+        return `<span class="et ${c?"si":"no"}">${c?"✓":"○"} ${esc(n)}</span>`}).join(" ")}</td>
     </tr>`).join("")+"</tbody></table>";
   document.getElementById("btnGen").disabled = marcados.size===0;
 }
@@ -385,9 +395,10 @@ async function generar(){
         ${limpio(x.equipo)?`<tr><td>Equipo</td><td>${esc(limpio(x.equipo))}${limpio(x.serie)?" · serie "+esc(limpio(x.serie)):""}</td></tr>`:""}
         ${limpio(x.obs_coord)?`<tr><td>Observaciones</td><td>${esc(limpio(x.obs_coord))}</td></tr>`:""}
       </table>
-      ${ETAPAS.map(([t,n])=>{
+      ${etapasDe(x.coord).map(([t,n])=>{
         const g=porEtapa(t);
-        const tit = t==="REPORTE" ? "REPORTE FIRMADO" : "EVIDENCIA · "+n.toUpperCase();
+        const tit = t==="REPORTE" ? "REPORTE FIRMADO"
+                 : (t==="LEVANTAMIENTO" ? "EVIDENCIA FOTOGRÁFICA" : "EVIDENCIA · "+n.toUpperCase());
         if(!g.length) return `<p style="font-size:12px;color:#a00;margin:10px 0 0">${t==="REPORTE"?"Sin reporte firmado":"Sin evidencia de "+esc(n.toLowerCase())}</p>`;
         return `<p style="font-size:12px;font-weight:700;margin:14px 0 6px">${tit}</p>
           <div class="fotos">${g.map(f=>/pdf/.test(f.mime)
