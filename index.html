@@ -155,9 +155,12 @@
 <div class="modal" id="mTec" style="display:none">
   <div class="box">
     <h2>Entrar</h2>
-    <p class="sub">Con el usuario y la clave que te dio el área técnica.</p>
-    <input id="inUsr" placeholder="usuario (ej. marcos.flores)" autocapitalize="none"
-           autocorrect="off" autocomplete="username">
+    <p class="sub">Busca tu nombre en la lista y escribe la clave que te dio el área técnica.</p>
+    <select id="selUsr" onchange="document.getElementById('inPwd').focus()">
+      <option value="">Cargando…</option>
+    </select>
+    <input id="inUsr" placeholder="o escribe tu usuario" autocapitalize="none"
+           autocorrect="off" autocomplete="username" style="display:none">
     <input id="inPwd" type="password" placeholder="clave" autocomplete="current-password"
            onkeydown="if(event.key==='Enter')entrar()">
     <div class="aviso" id="errLogin" style="display:none"></div>
@@ -228,8 +231,9 @@ async function auth(cuerpo, tipo){
 }
 
 function guardarSesion(j){
+  const md=(j.user&&j.user.user_metadata)||{};
   ses = {token:j.access_token, refresh:j.refresh_token,
-         nombre:(j.user&&j.user.user_metadata&&j.user.user_metadata.nombre)||"",
+         nombre:md.nombre||"", rol:md.rol||"TECNICO",
          usuario:(j.user&&j.user.email||"").split("@")[0]};
   localStorage.setItem("md_ses", JSON.stringify(ses));
 }
@@ -246,18 +250,44 @@ async function renovar(){
   }catch(e){ return false }
 }
 
+/* el desplegable se llena antes de entrar: es lo unico que la base deja leer
+   sin sesion, y trae solo usuario y nombre */
+async function llenarUsuarios(){
+  const sel=document.getElementById("selUsr");
+  try{
+    const l=await api("login_usuarios?select=usuario,nombre&order=nombre");
+    sel.innerHTML='<option value="">Elige tu nombre…</option>'+
+      l.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("")+
+      '<option value="__otro">Otro (escribir usuario)</option>';
+    const ult=localStorage.getItem("md_ultimo");
+    if(ult && l.some(u=>u.usuario===ult)) sel.value=ult;
+  }catch(e){
+    // sin internet no hay lista: que pueda teclear su usuario
+    sel.style.display="none";
+    document.getElementById("inUsr").style.display="";
+  }
+}
+
 async function entrar(){
-  const u=(document.getElementById("inUsr").value||"").trim().toLowerCase();
+  const sel=document.getElementById("selUsr");
+  const inp=document.getElementById("inUsr");
+  if(sel.value==="__otro"){                 // alguien recien dado de alta
+    sel.style.display="none"; inp.style.display=""; inp.focus(); return;
+  }
+  const u=((sel.value || inp.value)||"").trim().toLowerCase();
   const p=document.getElementById("inPwd").value||"";
   const err=document.getElementById("errLogin");
-  if(!u||!p){ err.style.display="block"; err.textContent="Escribe tu usuario y tu clave."; return }
+  if(!u||!p){ err.style.display="block"; err.textContent="Elige tu nombre y escribe tu clave."; return }
   err.style.display="none";
   try{
     const correo = u.indexOf("@")>0 ? u : u+"@"+DOMINIO;
     guardarSesion(await auth({email:correo, password:p}, "password"));
     tecnico = ses.nombre || u;
+    localStorage.setItem("md_ultimo", u);   // queda preseleccionado la proxima vez
     document.getElementById("inPwd").value="";
     document.getElementById("mTec").style.display="none";
+    // quien arma los entregables no trabaja el dia a dia: va a su propia pantalla
+    if(ses.rol==="ADMINISTRATIVO"){ location.href="entregables.html"; return }
     await arrancarSesion();
   }catch(e){
     err.style.display="block";
@@ -273,6 +303,7 @@ function pedirTecnico(){                  // ahora es cerrar sesion / cambiar de
   localStorage.removeItem("md_tecnico");
   localStorage.removeItem("md_variantes");
   document.getElementById("mTec").style.display="flex";
+  llenarUsuarios();
 }
 
 /* ============ como se llama cada quien en la base ============
@@ -326,13 +357,17 @@ async function cargar(){
   }
 }
 
+/* un servicio se identifica por coordinacion + id: el mismo id existe en varias
+   coordinaciones (571 casos), asi que usarlo solo cruzaria los registros */
+function llave(s){ return s.coord+"|"+s.id }
+
 async function marcarEvidencias(){
-  const ids=semana.map(s=>s.id); if(!ids.length) return;
+  const ids=[...new Set(semana.map(s=>s.id))]; if(!ids.length) return;
   try{
-    const ev=await api("evidencias?select=servicio_id,tipo&servicio_id=in.("+ids.join(",")+")");
+    const ev=await api("evidencias?select=coord,servicio_id,tipo&servicio_id=in.("+ids.join(",")+")");
     const por={};
-    ev.forEach(e=>{ (por[e.servicio_id]=por[e.servicio_id]||{})[e.tipo]=true });
-    semana.forEach(s=>{ s._ev=por[s.id]||{} });
+    ev.forEach(e=>{ const k=e.coord+"|"+e.servicio_id; (por[k]=por[k]||{})[e.tipo]=true });
+    semana.forEach(s=>{ s._ev=por[llave(s)]||{} });
   }catch(e){ semana.forEach(s=>{ s._ev=s._ev||{} }) }
 }
 
@@ -385,9 +420,9 @@ function pintar(){
       </div>
       <div class="acts">
         ${cerrado
-          ? `<button class="b-gh" onclick="abrirCierre(${x.id},'ATENDIDO')">✎ Agregar evidencia o nota</button>`
-          : `<button class="b-ok" onclick="abrirCierre(${x.id},'ATENDIDO')">✓ Atendido</button>
-             <button class="b-re" onclick="abrirCierre(${x.id},'REPROGRAMADO')">↻ Reprogramar</button>`}
+          ? `<button class="b-gh" onclick="abrirCierre('${x.coord}',${x.id},'ATENDIDO')">✎ Agregar evidencia o nota</button>`
+          : `<button class="b-ok" onclick="abrirCierre('${x.coord}',${x.id},'ATENDIDO')">✓ Atendido</button>
+             <button class="b-re" onclick="abrirCierre('${x.coord}',${x.id},'REPROGRAMADO')">↻ Reprogramar</button>`}
       </div>
     </div>`;
   }).join("");
@@ -396,8 +431,8 @@ function pintar(){
 /* ============ hoja de cierre ============ */
 let cie = null;   // {srv, estatus, fotos:[], reportes:[]}
 
-function abrirCierre(id, estatus){
-  const srv=semana.find(s=>s.id===id); if(!srv) return;
+function abrirCierre(coord, id, estatus){
+  const srv=semana.find(s=>s.coord===coord && s.id===id); if(!srv) return;
   cie={srv:srv, estatus:estatus, fotos:[], reportes:[]};
   document.getElementById("mCierre").style.display="flex";
   pintarCierre();
@@ -416,36 +451,36 @@ function pintarCierre(){
     <h2>${esRep?"Reprogramar servicio":"Cerrar servicio"}</h2>
     <p class="sub">${esc(hhmm(s.horario_atencion))} · ${esc(s.nombre)}${s.tkt?" · TKT "+esc(s.tkt):""}</p>
 
-    <div class="lbl">Comentarios ${esRep?'<span class="req">obligatorio</span>':""}</div>
-    <textarea id="txtCom" placeholder="${esRep
-        ? "¿Por qué se reprograma? (sitio cerrado, falta acceso, cliente canceló…)"
-        : "Qué se hizo, baterías cambiadas, equipo que se lleva a laboratorio, pendientes…"}">${esc(cie.com||"")}</textarea>
-
     ${esRep?"":`
-      <div class="lbl">Evidencia fotográfica
+      ${listo?"":'<div class="aviso">Para cerrar el TKT necesitas las <b>fotos del servicio</b> y el <b>formato de reporte firmado</b>.</div>'}
+
+      <div class="lbl">1 · Fotos del servicio
         <span class="req ${yaFoto?"listo":""}">${yaFoto?"listo":"obligatorio"}</span></div>
       <div class="drop ${yaFoto?"ok":""}" onclick="document.getElementById('inFoto').click()">
         <span class="big">📷</span>
         ${(s._ev&&s._ev.FOTO)?"Ya tiene evidencia cargada · toca para agregar más"
-                             :"Toca para tomar fotos del sitio y del equipo"}
+                             :"Toca para abrir la cámara"}
       </div>
       <input type="file" id="inFoto" accept="image/*" capture="environment" multiple
              style="display:none" onchange="agregar(this,'fotos')">
       <div class="thumbs">${thumbs("fotos")}</div>
 
-      <div class="lbl">Formato de reporte escaneado
+      <div class="lbl">2 · Reporte firmado
         <span class="req ${yaRep?"listo":""}">${yaRep?"listo":"obligatorio"}</span></div>
       <div class="drop ${yaRep?"ok":""}" onclick="document.getElementById('inRep').click()">
         <span class="big">📄</span>
-        ${(s._ev&&s._ev.REPORTE)?"Ya tiene reporte cargado · toca para reemplazar"
-                                :"Foto o PDF del formato firmado por el cliente"}
+        ${(s._ev&&s._ev.REPORTE)?"Ya tiene reporte cargado · toca para agregar otro"
+                                :"Foto o PDF del formato que firmó el cliente"}
       </div>
       <input type="file" id="inRep" accept="image/*,application/pdf" multiple
              style="display:none" onchange="agregar(this,'reportes')">
       <div class="thumbs">${thumbs("reportes")}</div>
-
-      ${listo?"":'<div class="aviso">Para cerrar el TKT hacen falta las fotos y el formato de reporte escaneado.</div>'}
     `}
+
+    <div class="lbl">${esRep?"":"3 · "}Comentarios ${esRep?'<span class="req">obligatorio</span>':""}</div>
+    <textarea id="txtCom" placeholder="${esRep
+        ? "¿Por qué se reprograma? (sitio cerrado, falta acceso, cliente canceló…)"
+        : "Qué se hizo, baterías cambiadas, equipo que se lleva a laboratorio, pendientes…"}">${esc(cie.com||"")}</textarea>
 
     <button class="b-full" id="btnGo" ${listo?"":"disabled"} onclick="confirmarCierre()">
       ${esRep?"Reprogramar":"Cerrar servicio"}</button>
@@ -632,8 +667,10 @@ async function arrancarSesion(){
   pintarPendientes();
   if(!ses){
     document.getElementById("mTec").style.display="flex";
+    llenarUsuarios();
     return;
   }
+  if(ses.rol==="ADMINISTRATIVO"){ location.href="entregables.html"; return }
   tecnico = ses.nombre || tecnico;
   await renovar();            // el token guardado casi siempre ya vencio
   await arrancarSesion();

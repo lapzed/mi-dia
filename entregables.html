@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Entregables</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
+
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1180px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  .filtros{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+  .f{display:flex;flex-direction:column;gap:4px}
+  .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+  select,input{padding:9px 10px;border-radius:10px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:10px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  button:disabled{opacity:.45;cursor:default}
+
+  .resumen{display:flex;gap:9px;margin-bottom:12px;flex-wrap:wrap}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:8px 14px;font-size:12px}
+  .pill b{font-size:17px;display:block}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line);
+    position:sticky;top:74px;background:var(--bg)}
+  td{padding:9px;border-bottom:1px solid rgba(29,66,103,.5);vertical-align:top}
+  tr.sel td{background:rgba(99,179,255,.09)}
+  .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
+    background:#17456E;color:var(--acc)}
+  .ev{font-size:11px;font-weight:700}
+  .ev.si{color:#5BD79B} .ev.no{color:var(--warn)}
+  .vacio{text-align:center;color:var(--txt2);padding:50px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:400px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 14px;font-size:12.5px;color:var(--txt2)}
+  .box select,.box input{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+
+  /* ---------- el entregable ---------- */
+  #salida{display:none}
+  @media print{
+    body{background:#fff;color:#000}
+    header,.filtros,.resumen,#tabla,#pie,.modal{display:none !important}
+    #salida{display:block !important}
+    .wrap{padding:0;max-width:none}
+  }
+  #salida .portada{page-break-after:always;padding:60px 40px}
+  #salida h1{font-size:26px;margin:0 0 6px}
+  #salida .serv{page-break-inside:avoid;page-break-after:always;padding:24px 30px}
+  #salida .serv:last-child{page-break-after:auto}
+  #salida table.datos{width:100%;font-size:12px;margin-bottom:14px}
+  #salida table.datos td{padding:4px 6px;border-bottom:1px solid #ddd}
+  #salida table.datos td:first-child{width:150px;color:#555;font-weight:600}
+  #salida .fotos{display:flex;flex-wrap:wrap;gap:10px}
+  #salida .fotos img{max-width:47%;max-height:330px;border:1px solid #ccc}
+  #salida .cab{border-bottom:3px solid #0B2038;padding-bottom:8px;margin-bottom:14px;
+    display:flex;align-items:center;gap:10px}
+  #salida .cab .mk{font-weight:800;font-size:15px;color:#0B2038}
+  #salida .cab .der{margin-left:auto;font-size:11px;color:#555}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div>
+        <div class="bt">MD Control</div>
+        <div class="bs">ENTREGABLES AL CLIENTE</div>
+      </div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="filtros" id="filtros" style="display:none">
+    <div class="f"><label>Cliente</label>
+      <select id="fCli" onchange="cargar()"><option value="">Todos</option></select></div>
+    <div class="f"><label>Coordinación</label>
+      <select id="fCoord" onchange="cargar()">
+        <option value="">Todas</option><option>MANT</option><option>INST</option>
+        <option>LEV</option><option>CAT</option><option>BANORTE</option></select></div>
+    <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
+    <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargar()"></div>
+    <div class="f"><label>Evidencia</label>
+      <select id="fEv" onchange="pintar()">
+        <option value="">Todos</option>
+        <option value="completo">Solo completos</option>
+        <option value="falta">Les falta algo</option></select></div>
+    <button onclick="marcarTodos()">Marcar todos</button>
+    <button class="pri" id="btnGen" onclick="generar()" disabled>Generar entregable</button>
+  </div>
+
+  <div class="resumen" id="resumen"></div>
+  <div id="tabla"><div class="load">Entra para ver los servicios.</div></div>
+  <div id="pie"></div>
+</div>
+
+<div id="salida"></div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Entregables</h2>
+    <p>Acceso del área administrativa.</p>
+    <select id="selUsr"><option value="">Cargando…</option></select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+const BUCKET="evidencias";
+
+let ses=JSON.parse(localStorage.getItem("md_ses")||"null");
+let filas=[], ev={}, marcados=new Set();
+
+function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+
+async function api(path,opts,reint){
+  const o=opts||{};
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,Object.assign({},o,{headers:hdr()}));
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+  return t?JSON.parse(t):null;
+}
+async function auth(cuerpo,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},
+     body:JSON.stringify(cuerpo)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardar(j){
+  const md=(j.user&&j.user.user_metadata)||{};
+  ses={token:j.access_token,refresh:j.refresh_token,nombre:md.nombre||"",
+       rol:md.rol||"",usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_ses",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ const n=ses.nombre,r=ses.rol; guardar(await auth({refresh_token:ses.refresh},"refresh_token"));
+       if(!ses.nombre){ses.nombre=n;ses.rol=r;localStorage.setItem("md_ses",JSON.stringify(ses))}
+       return true }catch(e){ return false }
+}
+
+/* ---------- acceso ---------- */
+async function llenarUsuarios(){
+  const sel=document.getElementById("selUsr");
+  try{
+    const l=await api("login_usuarios?select=usuario,nombre,rol&order=nombre");
+    const adm=l.filter(u=>u.rol==="ADMINISTRATIVO");
+    const lista=adm.length?adm:l;
+    sel.innerHTML='<option value="">Elige tu nombre…</option>'+
+      lista.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("");
+  }catch(e){ sel.innerHTML='<option value="">Sin conexión</option>' }
+}
+async function entrar(){
+  const u=(document.getElementById("selUsr").value||"").trim().toLowerCase();
+  const p=document.getElementById("inPwd").value||"";
+  const err=document.getElementById("err");
+  if(!u||!p){ err.style.display="block"; err.textContent="Elige tu nombre y escribe la clave."; return }
+  err.style.display="none";
+  try{
+    guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("inPwd").value="";
+    arrancar();
+  }catch(e){
+    err.style.display="block";
+    err.textContent=/invalid/i.test(String(e))?"Usuario o clave incorrectos.":String(e).slice(0,90);
+  }
+}
+function salir(){
+  if(!confirm("¿Salir?")) return;
+  ses=null; localStorage.removeItem("md_ses"); location.reload();
+}
+
+/* ---------- datos ---------- */
+async function arrancar(){
+  document.getElementById("mLogin").style.display="none";
+  document.getElementById("filtros").style.display="flex";
+  document.getElementById("who").innerHTML="Salir<b>"+esc(ses.nombre||ses.usuario)+"</b>";
+  const h=new Date(), a=new Date(); a.setDate(a.getDate()-7);
+  document.getElementById("fDe").value=iso(a);
+  document.getElementById("fA").value=iso(h);
+  await llenarClientes();
+  cargar();
+}
+
+async function llenarClientes(){
+  try{
+    const d=await api("servicios?select=dependencia&status=eq.ATENDIDO&dependencia=not.is.null&limit=5000");
+    const set=[...new Set(d.map(x=>(x.dependencia||"").trim()).filter(Boolean))].sort();
+    document.getElementById("fCli").innerHTML='<option value="">Todos</option>'+
+      set.map(c=>`<option>${esc(c)}</option>`).join("");
+  }catch(e){}
+}
+
+async function cargar(){
+  document.getElementById("tabla").innerHTML='<div class="load">Cargando…</div>';
+  marcados.clear();
+  const cli=document.getElementById("fCli").value;
+  const co=document.getElementById("fCoord").value;
+  const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
+  let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,tipo_servicio,"+
+        "fecha_servicio,fecha_atencion,horario_atencion,tecnico,auxiliar,personal_atiende,"+
+        "telefono,obs_coord,requerimientos,equipo,serie&status=eq.ATENDIDO"+
+        "&order=fecha_atencion.desc,dependencia&limit=1000";
+  if(cli) q+="&dependencia=eq."+encodeURIComponent(cli);
+  if(co)  q+="&coord=eq."+co;
+  if(de)  q+="&fecha_servicio=gte."+de;
+  if(a)   q+="&fecha_servicio=lte."+a;
+  try{
+    filas=await api(q);
+    ev={};
+    if(filas.length){
+      const ids=[...new Set(filas.map(f=>f.id))];
+      const e=await api("evidencias?select=coord,servicio_id,tipo,ruta&servicio_id=in.("+
+                        ids.join(",")+")");
+      e.forEach(x=>{ const k=x.coord+"|"+x.servicio_id; (ev[k]=ev[k]||[]).push(x) });
+    }
+    pintar();
+  }catch(err){
+    document.getElementById("tabla").innerHTML=
+      '<div class="vacio">No se pudo consultar.<br>'+esc(String(err).slice(0,120))+'</div>';
+  }
+}
+
+/* un servicio se identifica por coordinacion + id: el mismo id existe en varias
+   coordinaciones (571 casos), asi que usarlo solo cruzaria los registros */
+function llave(x){ return x.coord+"|"+x.id }
+function tiene(x,tipo){ return (ev[llave(x)]||[]).some(e=>e.tipo===tipo) }
+function completo(x){ return tiene(x,"FOTO") && tiene(x,"REPORTE") }
+
+function visibles(){
+  const f=document.getElementById("fEv").value;
+  if(f==="completo") return filas.filter(x=>completo(x));
+  if(f==="falta")    return filas.filter(x=>!completo(x));
+  return filas;
+}
+
+function pintar(){
+  const v=visibles();
+  const comp=filas.filter(x=>completo(x)).length;
+  document.getElementById("resumen").innerHTML=
+    `<div class="pill"><b>${filas.length}</b>servicios atendidos</div>
+     <div class="pill"><b style="color:#5BD79B">${comp}</b>con evidencia completa</div>
+     <div class="pill"><b style="color:#E8A33D">${filas.length-comp}</b>les falta algo</div>
+     <div class="pill"><b style="color:#63B3FF">${marcados.size}</b>marcados</div>`;
+  if(!v.length){
+    document.getElementById("tabla").innerHTML='<div class="vacio">Nada con esos filtros.</div>';
+    document.getElementById("btnGen").disabled=true; return;
+  }
+  document.getElementById("tabla").innerHTML=
+   `<table><thead><tr>
+      <th style="width:32px"></th><th>Fecha</th><th>TKT</th><th>Cliente</th>
+      <th>Sitio</th><th>Servicio</th><th>Técnico</th><th>Fotos</th><th>Reporte</th>
+    </tr></thead><tbody>`+
+    v.map(x=>`<tr id="tr${x.coord}_${x.id}" class="${marcados.has(llave(x))?"sel":""}">
+      <td><input type="checkbox" ${marcados.has(llave(x))?"checked":""}
+           onchange="marcar('${x.coord}',${x.id},this.checked)"></td>
+      <td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td>
+      <td>${x.tkt?`<span class="tag">${esc(x.tkt)}</span>`:""}</td>
+      <td>${esc(limpio(x.dependencia))}</td>
+      <td>${esc(x.nombre)}</td>
+      <td>${esc(limpio(x.tipo_servicio))}</td>
+      <td>${esc(limpio(x.tecnico))}</td>
+      <td class="ev ${tiene(x,"FOTO")?"si":"no"}">${tiene(x,"FOTO")
+          ?(ev[llave(x)]||[]).filter(e=>e.tipo==="FOTO").length+" ✓":"falta"}</td>
+      <td class="ev ${tiene(x,"REPORTE")?"si":"no"}">${tiene(x,"REPORTE")?"✓":"falta"}</td>
+    </tr>`).join("")+"</tbody></table>";
+  document.getElementById("btnGen").disabled = marcados.size===0;
+}
+
+function marcar(coord,id,on){
+  const k=coord+"|"+id;
+  if(on) marcados.add(k); else marcados.delete(k);
+  const tr=document.getElementById("tr"+coord+"_"+id);
+  if(tr) tr.className = on?"sel":"";
+  pintar();
+}
+function marcarTodos(){
+  const v=visibles();
+  const todos = v.every(x=>marcados.has(llave(x)));
+  v.forEach(x=> todos ? marcados.delete(llave(x)) : marcados.add(llave(x)));
+  pintar();
+}
+
+/* ---------- armar el entregable ----------
+   Las fotos viven en un bucket privado: se bajan con la sesion y se incrustan
+   en la hoja, para que el PDF salga completo y no dependa de la liga. */
+async function bajar(ruta){
+  const r=await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,{headers:hdr()});
+  if(!r.ok) return null;
+  const b=await r.blob();
+  return await new Promise(res=>{ const f=new FileReader();
+    f.onload=()=>res({url:f.result,tipo:b.type}); f.readAsDataURL(b) });
+}
+
+async function generar(){
+  const btn=document.getElementById("btnGen");
+  btn.disabled=true; const t0=btn.textContent;
+  const sel=filas.filter(x=>marcados.has(llave(x)));
+  const faltan=sel.filter(x=>!completo(x));
+  if(faltan.length && !confirm(faltan.length+" de los marcados no tienen la evidencia completa.\n"+
+       "¿Generar el entregable de todos modos?")){ btn.disabled=false; return }
+
+  let hecho=0;
+  const partes=[];
+  const cli=document.getElementById("fCli").value||"varios clientes";
+  const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
+
+  partes.push(`<div class="portada">
+    <div class="cab"><span class="mk">MDREIECK</span>
+      <span class="der">Generado ${new Date().toLocaleDateString("es-MX")} · ${esc(ses.nombre)}</span></div>
+    <h1>Reporte de servicios</h1>
+    <p style="font-size:14px;color:#333;margin:2px 0 22px">
+      ${esc(cli)}<br>Periodo ${esc(de)} al ${esc(a)}</p>
+    <table class="datos">
+      <tr><td>Servicios incluidos</td><td>${sel.length}</td></tr>
+      <tr><td>Con evidencia completa</td><td>${sel.length-faltan.length}</td></tr>
+    </table>
+    <table class="datos"><tr><td>TKT</td><td>Sitio</td><td>Fecha</td></tr>
+      ${sel.map(x=>`<tr><td>${esc(x.tkt||"")}</td><td>${esc(x.nombre)}</td>
+        <td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td></tr>`).join("")}
+    </table></div>`);
+
+  for(const x of sel){
+    hecho++; btn.textContent=`Armando ${hecho}/${sel.length}…`;
+    const arch=[];
+    for(const e of (ev[llave(x)]||[])){
+      const d=await bajar(e.ruta);
+      // ojo: 'clase' es FOTO/REPORTE y 'mime' es image/jpeg; no mezclarlos
+      if(d) arch.push({clase:e.tipo, url:d.url, mime:d.tipo});
+    }
+    const fotos=arch.filter(f=>f.clase==="FOTO");
+    const reps =arch.filter(f=>f.clase==="REPORTE");
+    partes.push(`<div class="serv">
+      <div class="cab"><span class="mk">MDREIECK</span>
+        <span class="der">${esc(x.tkt?"TKT "+x.tkt:"")} · ${esc(x.coord)}</span></div>
+      <h2 style="font-size:17px;margin:0 0 10px">${esc(x.nombre)}</h2>
+      <table class="datos">
+        <tr><td>Cliente</td><td>${esc(limpio(x.dependencia))}</td></tr>
+        <tr><td>Servicio</td><td>${esc(limpio(x.tipo_servicio))}</td></tr>
+        <tr><td>Dirección</td><td>${esc(limpio(x.direccion))}</td></tr>
+        <tr><td>Fecha de atención</td><td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td></tr>
+        <tr><td>Técnico</td><td>${esc(limpio(x.tecnico))}${limpio(x.auxiliar)?" / "+esc(limpio(x.auxiliar)):""}</td></tr>
+        <tr><td>Atendió por el cliente</td><td>${esc(limpio(x.personal_atiende))}</td></tr>
+        ${limpio(x.equipo)?`<tr><td>Equipo</td><td>${esc(limpio(x.equipo))}${limpio(x.serie)?" · serie "+esc(limpio(x.serie)):""}</td></tr>`:""}
+        ${limpio(x.obs_coord)?`<tr><td>Observaciones</td><td>${esc(limpio(x.obs_coord))}</td></tr>`:""}
+      </table>
+      ${fotos.length?`<p style="font-size:12px;font-weight:700;margin:12px 0 6px">EVIDENCIA FOTOGRÁFICA</p>
+        <div class="fotos">${fotos.map(f=>`<img src="${f.url}">`).join("")}</div>`:
+        `<p style="font-size:12px;color:#a00">Sin evidencia fotográfica</p>`}
+      ${reps.length?`<p style="font-size:12px;font-weight:700;margin:14px 0 6px">REPORTE FIRMADO</p>
+        <div class="fotos">${reps.map(f=>/pdf/.test(f.mime)
+            ?`<p style="font-size:12px">El reporte se entregó en PDF · ${esc(f.url.length>0?"archivo adjunto":"")}</p>`
+            :`<img src="${f.url}">`).join("")}</div>`:
+        `<p style="font-size:12px;color:#a00">Sin reporte firmado</p>`}
+    </div>`);
+  }
+
+  document.getElementById("salida").innerHTML=partes.join("");
+  btn.textContent=t0; btn.disabled=false;
+  setTimeout(()=>window.print(),400);
+}
+
+/* ---------- arranque ---------- */
+(async function(){
+  if(ses && ses.rol==="ADMINISTRATIVO"){ await renovar(); arrancar() }
+  else { llenarUsuarios() }
+})();
+</script>
+</body>
+</html>
