@@ -112,6 +112,11 @@
     color:var(--txt2);font-size:12.5px;margin-bottom:12px;cursor:pointer}
   .drop.ok{border-color:var(--ok);border-style:solid;background:rgba(30,142,90,.08)}
   .drop .big{font-size:26px;display:block;margin-bottom:4px}
+  .dos{display:flex;gap:8px;margin-bottom:10px}
+  .b-cam,.b-gal{flex:1;justify-content:center;padding:13px 8px;font-size:13px;
+    border:1.5px dashed var(--line);background:#0F2C4A;color:var(--txt2)}
+  .b-cam{border-style:solid;background:#17456E;color:var(--acc)}
+  .ya{font-size:11.5px;color:#5BD79B;margin:-4px 0 10px}
   .thumbs{display:flex;gap:7px;flex-wrap:wrap;margin:-4px 0 12px}
   .th{position:relative;width:66px;height:66px;border-radius:9px;overflow:hidden;
     border:1px solid var(--line);background:#0F2C4A}
@@ -456,23 +461,29 @@ function pintarCierre(){
 
       <div class="lbl">1 · Fotos del servicio
         <span class="req ${yaFoto?"listo":""}">${yaFoto?"listo":"obligatorio"}</span></div>
-      <div class="drop ${yaFoto?"ok":""}" onclick="document.getElementById('inFoto').click()">
-        <span class="big">📷</span>
-        ${(s._ev&&s._ev.FOTO)?"Ya tiene evidencia cargada · toca para agregar más"
-                             :"Toca para abrir la cámara"}
+      <div class="dos">
+        <button class="b-cam" onclick="document.getElementById('inFotoCam').click()">📷 Tomar foto</button>
+        <button class="b-gal" onclick="document.getElementById('inFotoGal').click()">🖼️ De la galería</button>
       </div>
-      <input type="file" id="inFoto" accept="image/*" capture="environment" multiple
+      ${(s._ev&&s._ev.FOTO)?'<div class="ya">Este servicio ya tiene evidencia cargada.</div>':""}
+      <!-- capture manda a la camara; sin capture el celular deja escoger de la
+           galeria, que es como se suben los servicios ya atendidos -->
+      <input type="file" id="inFotoCam" accept="image/*" capture="environment" multiple
+             style="display:none" onchange="agregar(this,'fotos')">
+      <input type="file" id="inFotoGal" accept="image/*" multiple
              style="display:none" onchange="agregar(this,'fotos')">
       <div class="thumbs">${thumbs("fotos")}</div>
 
       <div class="lbl">2 · Reporte firmado
         <span class="req ${yaRep?"listo":""}">${yaRep?"listo":"obligatorio"}</span></div>
-      <div class="drop ${yaRep?"ok":""}" onclick="document.getElementById('inRep').click()">
-        <span class="big">📄</span>
-        ${(s._ev&&s._ev.REPORTE)?"Ya tiene reporte cargado · toca para agregar otro"
-                                :"Foto o PDF del formato que firmó el cliente"}
+      <div class="dos">
+        <button class="b-cam" onclick="document.getElementById('inRepCam').click()">📷 Tomar foto</button>
+        <button class="b-gal" onclick="document.getElementById('inRepGal').click()">📎 Galería o PDF</button>
       </div>
-      <input type="file" id="inRep" accept="image/*,application/pdf" multiple
+      ${(s._ev&&s._ev.REPORTE)?'<div class="ya">Este servicio ya tiene reporte cargado.</div>':""}
+      <input type="file" id="inRepCam" accept="image/*" capture="environment" multiple
+             style="display:none" onchange="agregar(this,'reportes')">
+      <input type="file" id="inRepGal" accept="image/*,application/pdf" multiple
              style="display:none" onchange="agregar(this,'reportes')">
       <div class="thumbs">${thumbs("reportes")}</div>
     `}
