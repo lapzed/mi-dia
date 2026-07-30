@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Mi día</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+    --r:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.45;padding-bottom:env(safe-area-inset-bottom)}
+  .wrap{max-width:640px;margin:0 auto;padding:0 14px 40px}
+
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 14px 10px;margin:0 -14px 12px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .tri{width:26px;height:26px;flex:0 0 auto}
+  .bt{font-size:17px;font-weight:800;letter-spacing:-.01em}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.04em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px;max-width:140px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+
+  .days{display:flex;gap:6px;margin-top:10px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .days::-webkit-scrollbar{display:none}
+  .day{flex:0 0 auto;min-width:56px;text-align:center;padding:6px 8px;border-radius:11px;
+    background:#0F2C4A;border:1px solid var(--line);cursor:pointer}
+  .day .d{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em}
+  .day .n{font-size:16px;font-weight:700}
+  .day.on{background:var(--acc);border-color:var(--acc);color:#07203a}
+  .day.on .d{color:#0a2c4d}
+  .day .dot{width:5px;height:5px;border-radius:50%;background:var(--warn);margin:2px auto 0}
+  .day.on .dot{background:#07203a}
+
+  .sum{display:flex;gap:8px;margin-bottom:12px}
+  .pill{flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    padding:9px 10px;text-align:center}
+  .pill .v{font-size:19px;font-weight:800}
+  .pill .l{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    padding:12px;margin-bottom:10px;position:relative;overflow:hidden}
+  .card.done{opacity:.62}
+  .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--txt3)}
+  .stripe.ok{background:var(--ok)} .stripe.re{background:var(--warn)} .stripe.pe{background:var(--acc)}
+  .row1{display:flex;align-items:baseline;gap:9px;margin-left:6px}
+  .hora{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+  .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
+    background:#17456E;color:var(--acc);letter-spacing:.03em}
+  .st{margin-left:auto;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px}
+  .st.ok{background:rgba(30,142,90,.22);color:#5BD79B}
+  .st.re{background:rgba(232,163,61,.2);color:#F0BE6E}
+  .st.pe{background:rgba(99,179,255,.16);color:var(--acc)}
+  .sitio{margin:5px 0 1px 6px;font-size:15px;font-weight:700}
+  .dep{margin-left:6px;font-size:12px;color:var(--txt2)}
+  .dir{margin:7px 0 0 6px;font-size:12px;color:var(--txt2);display:flex;gap:6px}
+  .dir svg{flex:0 0 auto;margin-top:2px}
+  .nota{margin:8px 0 0 6px;font-size:12px;background:rgba(232,163,61,.12);
+    border-left:3px solid var(--warn);padding:7px 9px;border-radius:0 8px 8px 0;color:#F2D9AC}
+  .cont{margin:8px 0 0 6px;font-size:12px;color:var(--txt2)}
+
+  .acts{display:flex;gap:7px;margin:11px 0 0 6px;flex-wrap:wrap}
+  button{font:inherit;border:none;border-radius:10px;padding:9px 12px;font-size:12.5px;
+    font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .b-map,.b-tel{background:#17456E;color:var(--acc)}
+  .b-ok{background:var(--ok);color:#fff;flex:1;justify-content:center}
+  .b-re{background:var(--warn);color:#3a2600;justify-content:center}
+  .b-gh{background:#17456E;color:var(--acc);flex:1;justify-content:center}
+  button:active{transform:scale(.97)}
+  button:disabled{opacity:.45}
+
+  .cola{background:rgba(232,163,61,.14);border:1px solid rgba(232,163,61,.4);color:#F0BE6E;
+    border-radius:11px;padding:9px 12px;font-size:12px;font-weight:600;margin-bottom:10px}
+  .vacio{text-align:center;color:var(--txt2);padding:44px 16px}
+  .vacio .em{font-size:40px;margin-bottom:8px}
+  .load{text-align:center;padding:30px;color:var(--txt2);font-size:13px}
+
+  /* ---------- hojas modales ---------- */
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.94);z-index:50;
+    display:flex;align-items:flex-end;justify-content:center}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:18px 18px 0 0;
+    padding:18px;width:100%;max-width:640px;max-height:94vh;overflow-y:auto;
+    padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+  @media(min-width:641px){.modal{align-items:center}.box{border-radius:18px}}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p.sub{margin:0 0 14px;font-size:12.5px;color:var(--txt2)}
+  select,textarea,input[type=text],input[type=password],input:not([type]){
+    width:100%;padding:12px;border-radius:11px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:14px;margin-bottom:12px}
+  textarea{min-height:86px;resize:vertical}
+  .b-full{width:100%;justify-content:center;background:var(--acc);color:#07203a;padding:13px;font-size:14px}
+  .b-gris{width:100%;justify-content:center;background:#17456E;color:var(--txt2);padding:11px;margin-top:8px}
+
+  .lbl{font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;
+    letter-spacing:.05em;margin:2px 0 7px;display:flex;align-items:center;gap:7px}
+  .req{color:var(--warn);font-size:10px;background:rgba(232,163,61,.16);
+    padding:2px 7px;border-radius:20px;letter-spacing:0;text-transform:none}
+  .listo{color:#5BD79B;background:rgba(30,142,90,.2)}
+
+  .drop{border:1.5px dashed var(--line);border-radius:12px;padding:14px;text-align:center;
+    color:var(--txt2);font-size:12.5px;margin-bottom:12px;cursor:pointer}
+  .drop.ok{border-color:var(--ok);border-style:solid;background:rgba(30,142,90,.08)}
+  .drop .big{font-size:26px;display:block;margin-bottom:4px}
+  .thumbs{display:flex;gap:7px;flex-wrap:wrap;margin:-4px 0 12px}
+  .th{position:relative;width:66px;height:66px;border-radius:9px;overflow:hidden;
+    border:1px solid var(--line);background:#0F2C4A}
+  .th img{width:100%;height:100%;object-fit:cover}
+  .th .pdf{display:flex;align-items:center;justify-content:center;height:100%;
+    font-size:10px;font-weight:700;color:var(--acc);text-align:center;padding:4px}
+  .th .x{position:absolute;top:2px;right:2px;background:rgba(5,16,28,.85);color:#fff;
+    width:19px;height:19px;border-radius:50%;font-size:12px;line-height:19px;text-align:center;cursor:pointer}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:11px;padding:10px 12px;font-size:12px;margin-bottom:12px}
+
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:60;
+    background:#0F3A2A;color:#8FE6BB;border:1px solid #1E8E5A;padding:11px 18px;
+    border-radius:24px;font-size:13px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;
+    max-width:88%;text-align:center}
+  .toast.show{opacity:1}
+  .toast.err{background:#3A1614;color:#F0A9A5;border-color:var(--bad)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg class="tri" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div>
+        <div class="bt">MD Control</div>
+        <div class="bs">MI DÍA</div>
+      </div>
+      <div class="who" id="who" onclick="pedirTecnico()"></div>
+    </div>
+    <div class="days" id="days"></div>
+  </header>
+
+  <div class="cola" id="cola" style="display:none"></div>
+  <div class="sum" id="sum"></div>
+  <div id="lista"><div class="load">Cargando…</div></div>
+</div>
+
+<!-- acceso -->
+<div class="modal" id="mTec" style="display:none">
+  <div class="box">
+    <h2>Entrar</h2>
+    <p class="sub">Con el usuario y la clave que te dio el área técnica.</p>
+    <input id="inUsr" placeholder="usuario (ej. marcos.flores)" autocapitalize="none"
+           autocorrect="off" autocomplete="username">
+    <input id="inPwd" type="password" placeholder="clave" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="errLogin" style="display:none"></div>
+    <button class="b-full" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<!-- cierre del servicio -->
+<div class="modal" id="mCierre" style="display:none">
+  <div class="box" id="boxCierre"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL = "https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY = "sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO  = "mdcontrol.local";     // el correo es solo identificador interno
+const BUCKET   = "evidencias";
+
+/* la sesion del tecnico: todo lo que pida la app va firmado con su token, no
+   con la llave publica, para que la base sepa quien es quien */
+let ses = JSON.parse(localStorage.getItem("md_ses") || "null");
+function HDRb(){
+  return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)};
+}
+Object.defineProperty(window, "HDR", {get:HDRb});
+
+const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+const DESDE = -2, HASTA = 4;
+
+let tecnico   = localStorage.getItem("md_tecnico") || "";
+let variantes = JSON.parse(localStorage.getItem("md_variantes") || "[]");
+let fecha  = hoyISO();
+let semana = [];
+let datos  = [];
+
+function hoyISO(){ return isoDe(new Date()) }
+function isoDe(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function toast(msg,err){const t=document.getElementById("toast");t.textContent=msg;
+  t.className="toast show"+(err?" err":"");setTimeout(()=>t.className="toast"+(err?" err":""),3000)}
+function hhmm(s){s=(s||"").trim();const m=s.match(/^(\d{1,2}):(\d{2})/);
+  return m?m[1].padStart(2,"0")+":"+m[2]:(s||"--:--")}
+function limpio(s){s=(s||"").trim();
+  return /^(-+|n\/?a|na|s\/d|sin dato)$/i.test(s)?"":s}
+
+async function api(path, opts, reintento){
+  const o = opts||{};
+  const h = Object.assign({}, HDRb(), o.body?{"Content-Type":"application/json",Prefer:"return=minimal"}:{});
+  const r = await fetch(SUPA_URL+"/rest/v1/"+path, Object.assign({}, o, {headers:h}));
+  const t = await r.text();
+  if((r.status===401 || r.status===403) && !reintento && ses){
+    if(await renovar()) return api(path, opts, true);   // el token dura una hora
+  }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+  return t ? JSON.parse(t) : null;   // POST/PATCH contestan 201/204 sin cuerpo
+}
+
+/* ============ acceso ============ */
+async function auth(cuerpo, tipo){
+  const r = await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST", headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},
+     body:JSON.stringify(cuerpo)});
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg || j.error_description || ("HTTP "+r.status));
+  return j;
+}
+
+function guardarSesion(j){
+  ses = {token:j.access_token, refresh:j.refresh_token,
+         nombre:(j.user&&j.user.user_metadata&&j.user.user_metadata.nombre)||"",
+         usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_ses", JSON.stringify(ses));
+}
+
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{
+    const j = await auth({refresh_token:ses.refresh}, "refresh_token");
+    const nombre = ses.nombre;
+    guardarSesion(j);
+    if(!ses.nombre) ses.nombre = nombre;          // el refresh no siempre trae metadata
+    localStorage.setItem("md_ses", JSON.stringify(ses));
+    return true;
+  }catch(e){ return false }
+}
+
+async function entrar(){
+  const u=(document.getElementById("inUsr").value||"").trim().toLowerCase();
+  const p=document.getElementById("inPwd").value||"";
+  const err=document.getElementById("errLogin");
+  if(!u||!p){ err.style.display="block"; err.textContent="Escribe tu usuario y tu clave."; return }
+  err.style.display="none";
+  try{
+    const correo = u.indexOf("@")>0 ? u : u+"@"+DOMINIO;
+    guardarSesion(await auth({email:correo, password:p}, "password"));
+    tecnico = ses.nombre || u;
+    document.getElementById("inPwd").value="";
+    document.getElementById("mTec").style.display="none";
+    await arrancarSesion();
+  }catch(e){
+    err.style.display="block";
+    err.textContent = /invalid/i.test(String(e))
+      ? "Usuario o clave incorrectos." : "No se pudo entrar: "+String(e).slice(0,80);
+  }
+}
+
+function pedirTecnico(){                  // ahora es cerrar sesion / cambiar de usuario
+  if(ses && !confirm("¿Salir de la cuenta de "+(ses.nombre||ses.usuario)+"?")) return;
+  ses=null; tecnico=""; variantes=[]; semana=[]; datos=[];
+  localStorage.removeItem("md_ses");
+  localStorage.removeItem("md_tecnico");
+  localStorage.removeItem("md_variantes");
+  document.getElementById("mTec").style.display="flex";
+}
+
+/* ============ como se llama cada quien en la base ============
+   La base guarda el nombre del tecnico escrito de muchas formas ("Marcos
+   flores", "MANUEL/ALEX", "Cristian" por "Christian"). La correspondencia con
+   la persona real esta resuelta en la tabla tecnico_alias, que se revisa a mano
+   desde el area: aqui solo se consulta la del tecnico que entro. */
+async function cargarVariantes(){
+  const a = await api("tecnico_alias?select=variante&persona=eq."+encodeURIComponent(tecnico));
+  variantes = [...new Set([tecnico].concat(a.map(r=>r.variante)))];
+  localStorage.setItem("md_tecnico", tecnico);
+  localStorage.setItem("md_variantes", JSON.stringify(variantes));
+}
+
+/* ============ dias ============ */
+function pintarDias(){
+  document.getElementById("who").innerHTML="Salir<b>"+esc(tecnico)+"</b>";
+  const cont=document.getElementById("days"); cont.innerHTML="";
+  for(let i=DESDE;i<=HASTA;i++){
+    const d=new Date(); d.setDate(d.getDate()+i);
+    const iso=isoDe(d);
+    const pend=semana.filter(x=>x.fecha_servicio===iso &&
+                              (x.status||"").toUpperCase()!=="ATENDIDO").length;
+    const el=document.createElement("div");
+    el.className="day"+(iso===fecha?" on":"");
+    el.innerHTML=`<div class="d">${i===0?"HOY":DIAS[d.getDay()]}</div>`+
+                 `<div class="n">${d.getDate()}</div>`+(pend?`<div class="dot"></div>`:"");
+    el.onclick=()=>{fecha=iso;pintarDias();pintar()};
+    cont.appendChild(el);
+  }
+}
+
+/* ============ servicios ============ */
+async function cargar(){
+  document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
+  const a=new Date(); a.setDate(a.getDate()+DESDE);
+  const b=new Date(); b.setDate(b.getDate()+HASTA);
+  const lista=(variantes.length?variantes:[tecnico]).map(v=>'"'+v.replace(/"/g,"")+'"').join(",");
+  try{
+    semana=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,"+
+      "fecha_servicio,horario_atencion,status,personal_atiende,telefono,obs_prog,obs_coord,"+
+      "requerimientos,tipo_servicio"+
+      "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
+      "&tecnico=in.("+encodeURIComponent(lista)+")&order=fecha_servicio,horario_atencion");
+    await marcarEvidencias();
+    pintarDias(); pintar();
+  }catch(e){
+    document.getElementById("lista").innerHTML=
+      '<div class="vacio"><div class="em">📡</div>No se pudo conectar.<br>Revisa tu internet.'+
+      '<br><br><button class="b-map" onclick="cargar()">Reintentar</button></div>';
+  }
+}
+
+async function marcarEvidencias(){
+  const ids=semana.map(s=>s.id); if(!ids.length) return;
+  try{
+    const ev=await api("evidencias?select=servicio_id,tipo&servicio_id=in.("+ids.join(",")+")");
+    const por={};
+    ev.forEach(e=>{ (por[e.servicio_id]=por[e.servicio_id]||{})[e.tipo]=true });
+    semana.forEach(s=>{ s._ev=por[s.id]||{} });
+  }catch(e){ semana.forEach(s=>{ s._ev=s._ev||{} }) }
+}
+
+function claseEstatus(s){
+  s=(s||"").toUpperCase();
+  if(s==="ATENDIDO") return "ok";
+  if(s.indexOf("REPROG")>=0) return "re";
+  return "pe";
+}
+function notas(x){
+  const n=[x.requerimientos,x.obs_prog,x.obs_coord].map(v=>limpio(v))
+    .filter(v=>v && !/carga historica|sync control|alta walmart|falta de actualizacion/i.test(v));
+  return [...new Set(n)].join(" · ");
+}
+
+function pintar(){
+  const cont=document.getElementById("lista");
+  datos=semana.filter(x=>x.fecha_servicio===fecha);
+  const hechos=datos.filter(d=>(d.status||"").toUpperCase()==="ATENDIDO").length;
+  document.getElementById("sum").innerHTML=
+    `<div class="pill"><div class="v">${datos.length}</div><div class="l">Servicios</div></div>
+     <div class="pill"><div class="v" style="color:#5BD79B">${hechos}</div><div class="l">Cerrados</div></div>
+     <div class="pill"><div class="v" style="color:#63B3FF">${datos.length-hechos}</div><div class="l">Pendientes</div></div>`;
+  if(!datos.length){
+    cont.innerHTML='<div class="vacio"><div class="em">☕</div>Sin servicios programados este día.</div>';
+    return;
+  }
+  cont.innerHTML=datos.map(x=>{
+    const cl=claseEstatus(x.status), nt=notas(x);
+    const dir=limpio(x.direccion), dep=limpio(x.dependencia), tip=limpio(x.tipo_servicio);
+    const pers=limpio(x.personal_atiende);
+    const dest=x.lat&&x.long ? `${x.lat},${x.long}` : encodeURIComponent(dir||x.nombre||"");
+    const tel=limpio(x.telefono).replace(/[^\d+]/g,"");
+    const cerrado=cl==="ok";
+    return `<div class="card ${cerrado?"done":""}">
+      <div class="stripe ${cl}"></div>
+      <div class="row1">
+        <span class="hora">${esc(hhmm(x.horario_atencion))}</span>
+        ${x.tkt?`<span class="tag">${esc(x.tkt)}</span>`:""}
+        <span class="st ${cl}">${esc(x.status||"PENDIENTE")}</span>
+      </div>
+      <div class="sitio">${esc(x.nombre)}</div>
+      ${(dep||tip)?`<div class="dep">${esc(dep)}${dep&&tip?" · ":""}${esc(tip)}</div>`:""}
+      ${dir?`<div class="dir"><svg width="13" height="13" viewBox="0 0 24 24" fill="#6E8CAD"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6a2.5 2.5 0 010 5.5z"/></svg><span>${esc(dir)}</span></div>`:""}
+      ${(pers||tel)?`<div class="cont">👤 ${esc(pers)}${pers&&tel?" · ":""}${esc(tel)}</div>`:""}
+      ${nt?`<div class="nota">⚠️ ${esc(nt)}</div>`:""}
+      <div class="acts">
+        <button class="b-map" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${dest}','_blank')">📍 Cómo llegar</button>
+        ${tel?`<button class="b-tel" onclick="location.href='tel:${tel}'">📞 Llamar</button>`:""}
+      </div>
+      <div class="acts">
+        ${cerrado
+          ? `<button class="b-gh" onclick="abrirCierre(${x.id},'ATENDIDO')">✎ Agregar evidencia o nota</button>`
+          : `<button class="b-ok" onclick="abrirCierre(${x.id},'ATENDIDO')">✓ Atendido</button>
+             <button class="b-re" onclick="abrirCierre(${x.id},'REPROGRAMADO')">↻ Reprogramar</button>`}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ============ hoja de cierre ============ */
+let cie = null;   // {srv, estatus, fotos:[], reportes:[]}
+
+function abrirCierre(id, estatus){
+  const srv=semana.find(s=>s.id===id); if(!srv) return;
+  cie={srv:srv, estatus:estatus, fotos:[], reportes:[]};
+  document.getElementById("mCierre").style.display="flex";
+  pintarCierre();
+}
+function cerrarHoja(){
+  document.getElementById("mCierre").style.display="none"; cie=null;
+}
+
+function pintarCierre(){
+  const s=cie.srv, esRep=cie.estatus==="REPROGRAMADO";
+  const yaFoto=(s._ev&&s._ev.FOTO)||cie.fotos.length;
+  const yaRep =(s._ev&&s._ev.REPORTE)||cie.reportes.length;
+  const listo = esRep ? true : (yaFoto && yaRep);
+
+  document.getElementById("boxCierre").innerHTML=`
+    <h2>${esRep?"Reprogramar servicio":"Cerrar servicio"}</h2>
+    <p class="sub">${esc(hhmm(s.horario_atencion))} · ${esc(s.nombre)}${s.tkt?" · TKT "+esc(s.tkt):""}</p>
+
+    <div class="lbl">Comentarios ${esRep?'<span class="req">obligatorio</span>':""}</div>
+    <textarea id="txtCom" placeholder="${esRep
+        ? "¿Por qué se reprograma? (sitio cerrado, falta acceso, cliente canceló…)"
+        : "Qué se hizo, baterías cambiadas, equipo que se lleva a laboratorio, pendientes…"}">${esc(cie.com||"")}</textarea>
+
+    ${esRep?"":`
+      <div class="lbl">Evidencia fotográfica
+        <span class="req ${yaFoto?"listo":""}">${yaFoto?"listo":"obligatorio"}</span></div>
+      <div class="drop ${yaFoto?"ok":""}" onclick="document.getElementById('inFoto').click()">
+        <span class="big">📷</span>
+        ${(s._ev&&s._ev.FOTO)?"Ya tiene evidencia cargada · toca para agregar más"
+                             :"Toca para tomar fotos del sitio y del equipo"}
+      </div>
+      <input type="file" id="inFoto" accept="image/*" capture="environment" multiple
+             style="display:none" onchange="agregar(this,'fotos')">
+      <div class="thumbs">${thumbs("fotos")}</div>
+
+      <div class="lbl">Formato de reporte escaneado
+        <span class="req ${yaRep?"listo":""}">${yaRep?"listo":"obligatorio"}</span></div>
+      <div class="drop ${yaRep?"ok":""}" onclick="document.getElementById('inRep').click()">
+        <span class="big">📄</span>
+        ${(s._ev&&s._ev.REPORTE)?"Ya tiene reporte cargado · toca para reemplazar"
+                                :"Foto o PDF del formato firmado por el cliente"}
+      </div>
+      <input type="file" id="inRep" accept="image/*,application/pdf" multiple
+             style="display:none" onchange="agregar(this,'reportes')">
+      <div class="thumbs">${thumbs("reportes")}</div>
+
+      ${listo?"":'<div class="aviso">Para cerrar el TKT hacen falta las fotos y el formato de reporte escaneado.</div>'}
+    `}
+
+    <button class="b-full" id="btnGo" ${listo?"":"disabled"} onclick="confirmarCierre()">
+      ${esRep?"Reprogramar":"Cerrar servicio"}</button>
+    <button class="b-gris" onclick="cerrarHoja()">Cancelar</button>`;
+
+  const t=document.getElementById("txtCom");
+  if(t) t.oninput=()=>{ cie.com=t.value };
+}
+
+function thumbs(campo){
+  return cie[campo].map((f,i)=>`<div class="th">
+    ${f.tipoMime==="application/pdf"
+      ? `<div class="pdf">PDF<br>${esc((f.nombre||"").slice(0,10))}</div>`
+      : `<img src="${f.url}">`}
+    <div class="x" onclick="quitar('${campo}',${i})">×</div></div>`).join("");
+}
+function quitar(campo,i){ cie[campo].splice(i,1); pintarCierre() }
+
+async function agregar(input, campo){
+  const files=[...input.files]; input.value="";
+  for(const f of files){
+    try{
+      const blob=await comprimir(f);
+      cie[campo].push({blob:blob, url:URL.createObjectURL(blob),
+                       tipoMime:blob.type, nombre:f.name});
+    }catch(e){ toast("No se pudo leer una imagen",true) }
+  }
+  pintarCierre();
+}
+
+/* las fotos del celular pesan 3-6 MB; se reducen antes de subir porque en campo
+   la señal es mala y el bucket tiene tope de 8 MB por archivo */
+async function comprimir(file){
+  if(file.type==="application/pdf") return file;
+  const img=await createImageBitmap(file);
+  const k=Math.min(1, 1400/Math.max(img.width,img.height));
+  const c=document.createElement("canvas");
+  c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+  return await new Promise(r=>c.toBlob(r,"image/jpeg",0.62));
+}
+
+function confirmarCierre(){
+  const com=(document.getElementById("txtCom").value||"").trim();
+  if(cie.estatus==="REPROGRAMADO" && !com){
+    toast("Escribe por qué se reprograma",true); return;
+  }
+  const s=cie.srv;
+  if(cie.estatus==="ATENDIDO"){
+    const yaFoto=(s._ev&&s._ev.FOTO)||cie.fotos.length;
+    const yaRep =(s._ev&&s._ev.REPORTE)||cie.reportes.length;
+    if(!yaFoto||!yaRep){ toast("Faltan evidencia y reporte",true); return }
+  }
+  const btn=document.getElementById("btnGo");
+  btn.disabled=true; btn.textContent="Guardando…";
+  guardarCierre(s, cie.estatus, com, cie.fotos, cie.reportes);
+}
+
+/* ============ guardar (con cola sin señal) ============ */
+async function subirArchivo(item, blob, tipo, i){
+  const ext = blob.type==="application/pdf" ? "pdf" : "jpg";
+  const ruta = `${item.coord}/${item.tkt||("id"+item.id)}/${Date.now()}_${tipo}_${i}.${ext}`;
+  const r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,
+    {method:"POST", headers:Object.assign({},HDR,{"Content-Type":blob.type,"x-upsert":"true"}),
+     body:blob});
+  if(!r.ok) throw new Error("storage "+r.status);
+  await api("evidencias",{method:"POST",body:JSON.stringify({
+    coord:item.coord, servicio_id:item.id, tkt:item.tkt||"", tipo:tipo,
+    ruta:ruta, tecnico:item.tecnico})});
+  return ruta;
+}
+
+async function enviarCierre(item){
+  // primero las evidencias: si fallan, el TKT no debe quedar cerrado sin respaldo
+  for(let i=0;i<(item.fotos||[]).length;i++)    await subirArchivo(item, item.fotos[i],    "FOTO", i);
+  for(let i=0;i<(item.reportes||[]).length;i++) await subirArchivo(item, item.reportes[i], "REPORTE", i);
+  await api(`servicios?coord=eq.${encodeURIComponent(item.coord)}&id=eq.${item.id}`,
+            {method:"PATCH", body:JSON.stringify(item.body)});
+  await api("log",{method:"POST",body:JSON.stringify({
+    timestamp:item.ts, usuario:item.tecnico, win_user:"app", coord:item.coord,
+    rol:"TECNICO", etapa:"4", tkt:item.tkt||"",
+    accion:"APP: "+item.body.status,
+    detalle:"id="+item.id+" · fotos="+(item.fotos||[]).length+
+            " · reporte="+(item.reportes||[]).length+(item.nota?" · "+item.nota:"")})});
+}
+
+async function guardarCierre(s, estatus, com, fotos, reportes){
+  const body={status:estatus};
+  if(estatus==="ATENDIDO") body.fecha_atencion=fecha;
+  if(com) body.obs_coord=com;
+  const item={id:s.id, coord:s.coord, tkt:s.tkt||"", body:body, nota:com,
+              tecnico:tecnico, ts:new Date().toISOString().slice(0,19).replace("T"," "),
+              fotos:fotos.map(f=>f.blob), reportes:reportes.map(f=>f.blob)};
+  try{
+    await enviarCierre(item);
+    toast(estatus==="ATENDIDO"?"Servicio cerrado ✓":"Reprogramado ✓");
+    cerrarHoja(); cargar();
+  }catch(e){
+    try{
+      await colaAdd(item);
+      s.status=estatus;
+      if(estatus==="ATENDIDO"){ s.fecha_atencion=fecha; s._ev={FOTO:!!fotos.length,REPORTE:!!reportes.length} }
+      if(com) s.obs_coord=com;
+      toast("Sin señal · se guardó con sus fotos y subirá solo",true);
+      cerrarHoja(); pintarDias(); pintar(); pintarPendientes();
+    }catch(e2){
+      toast("No se pudo guardar: "+String(e2).slice(0,60),true);
+      const b=document.getElementById("btnGo");
+      if(b){ b.disabled=false; b.textContent="Reintentar" }
+    }
+  }
+}
+
+/* ============ cola sin señal (IndexedDB: guarda las fotos completas) ============ */
+function idb(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open("mdcontrol",1);
+    r.onupgradeneeded=()=>{ r.result.createObjectStore("cola",{keyPath:"key",autoIncrement:true}) };
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+}
+async function colaAdd(item){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const t=db.transaction("cola","readwrite");
+    t.objectStore("cola").add(item);
+    t.oncomplete=()=>res(); t.onerror=()=>rej(t.error);
+  });
+}
+async function colaTodo(){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const q=db.transaction("cola","readonly").objectStore("cola").getAll();
+    q.onsuccess=()=>res(q.result||[]); q.onerror=()=>rej(q.error);
+  });
+}
+async function colaQuita(key){
+  const db=await idb();
+  return new Promise((res)=>{
+    const t=db.transaction("cola","readwrite");
+    t.objectStore("cola").delete(key); t.oncomplete=()=>res();
+  });
+}
+
+async function pintarPendientes(){
+  let n=0; try{ n=(await colaTodo()).length }catch(e){}
+  const el=document.getElementById("cola");
+  el.style.display = n?"block":"none";
+  if(n) el.textContent="⏳ "+n+" cierre(s) esperando señal · se suben solos";
+}
+
+let sincronizando=false;
+async function sincronizar(avisar){
+  if(sincronizando) return; sincronizando=true;
+  try{
+    const items=await colaTodo();
+    let subidos=0;
+    for(const it of items){
+      try{ await enviarCierre(it); await colaQuita(it.key); subidos++ }catch(e){}
+    }
+    if(subidos){
+      if(avisar) toast(subidos+" cierre(s) pendientes ya subieron ✓");
+      await cargar();
+    }
+    await pintarPendientes();
+  } finally { sincronizando=false }
+}
+
+/* ============ arranque ============ */
+window.addEventListener("online", ()=>sincronizar(true));
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) sincronizar(true) });
+if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
+
+async function arrancarSesion(){
+  pintarDias();
+  // los alias pueden haber cambiado desde la ultima vez; si no hay red se usan
+  // los que quedaron guardados en el telefono
+  try{ await cargarVariantes() }catch(e){}
+  await cargar();
+  sincronizar(false);
+}
+
+(async function(){
+  pintarPendientes();
+  if(!ses){
+    document.getElementById("mTec").style.display="flex";
+    return;
+  }
+  tecnico = ses.nombre || tecnico;
+  await renovar();            // el token guardado casi siempre ya vencio
+  await arrancarSesion();
+})();
+</script>
+</body>
+</html>
