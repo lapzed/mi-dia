@@ -42,6 +42,8 @@
   .day.on .d{color:#0a2c4d}
   .day .dot{width:5px;height:5px;border-radius:50%;background:var(--warn);margin:2px auto 0}
   .day.on .dot{background:#07203a}
+  .day.ido{opacity:.5}
+  .day.ido.on{opacity:1}
 
   .sum{display:flex;gap:8px;margin-bottom:12px}
   .pill{flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--r);
@@ -200,7 +202,9 @@ function HDRb(){
 Object.defineProperty(window, "HDR", {get:HDRb});
 
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
-const DESDE = -2, HASTA = 4;
+/* una semana atrás para poder regularizar servicios ya atendidos, y cuatro días
+   adelante para ver lo que viene */
+const DESDE = -7, HASTA = 4;
 
 let tecnico   = localStorage.getItem("md_tecnico") || "";
 let variantes = JSON.parse(localStorage.getItem("md_variantes") || "[]");
@@ -329,21 +333,34 @@ async function cargarVariantes(){
 }
 
 /* ============ dias ============ */
+const MESES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
 function pintarDias(){
   document.getElementById("who").innerHTML="Salir<b>"+esc(tecnico)+"</b>";
   const cont=document.getElementById("days"); cont.innerHTML="";
+  let activo=null, mesPrevio=null;
   for(let i=DESDE;i<=HASTA;i++){
     const d=new Date(); d.setDate(d.getDate()+i);
     const iso=isoDe(d);
-    const pend=semana.filter(x=>x.fecha_servicio===iso &&
-                              (x.status||"").toUpperCase()!=="ATENDIDO").length;
+    const delDia=semana.filter(x=>x.fecha_servicio===iso);
+    const pend=delDia.filter(x=>(x.status||"").toUpperCase()!=="ATENDIDO").length;
     const el=document.createElement("div");
-    el.className="day"+(iso===fecha?" on":"");
-    el.innerHTML=`<div class="d">${i===0?"HOY":DIAS[d.getDay()]}</div>`+
-                 `<div class="n">${d.getDate()}</div>`+(pend?`<div class="dot"></div>`:"");
+    // los días pasados sin nada que hacer se atenúan, para que no estorben
+    el.className="day"+(iso===fecha?" on":"")+((i<0&&!pend)?" ido":"");
+    // el mes solo cuando cambia, para no perderse al cruzar de mes
+    const cabeza = i===0 ? "HOY"
+                 : (d.getMonth()!==mesPrevio && mesPrevio!==null
+                    ? DIAS[d.getDay()]+" "+MESES[d.getMonth()] : DIAS[d.getDay()]);
+    mesPrevio=d.getMonth();
+    el.innerHTML=`<div class="d">${cabeza}</div>`+
+                 `<div class="n">${d.getDate()}</div>`+
+                 (pend?`<div class="dot"></div>`:"");
     el.onclick=()=>{fecha=iso;pintarDias();pintar()};
     cont.appendChild(el);
+    if(iso===fecha) activo=el;
   }
+  // con doce días la barra no cabe en el celular: se centra el día elegido
+  if(activo) activo.scrollIntoView({block:"nearest", inline:"center"});
 }
 
 /* ============ servicios ============ */
