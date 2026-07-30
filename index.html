@@ -521,7 +521,7 @@ function pintarCierre(){
       ${cie._bloques.map(bloque).join("")}
     `}
 
-    <div class="lbl">${esRep?"":"5 · "}Comentarios ${esRep?'<span class="req">obligatorio</span>':""}</div>
+    <div class="lbl">${esRep?"":(cie._bloques.length+1)+" · "}Comentarios ${esRep?'<span class="req">obligatorio</span>':""}</div>
     <textarea id="txtCom" placeholder="${esRep
         ? "¿Por qué se reprograma? (sitio cerrado, falta acceso, cliente canceló…)"
         : "Qué se hizo, baterías cambiadas, equipo que se lleva a laboratorio, pendientes…"}">${esc(cie.com||"")}</textarea>
