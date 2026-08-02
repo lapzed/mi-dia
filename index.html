@@ -87,6 +87,9 @@
   .equipo{margin:8px 0 0 6px;font-size:11.5px;color:#9FE1CB;
     background:rgba(30,142,90,.12);border-left:3px solid var(--ok);
     padding:6px 9px;border-radius:0 8px 8px 0}
+  .logev{margin:8px 0 0 6px;font-size:11.5px;padding:6px 9px;border-radius:0 8px 8px 0}
+  .logev.bien{color:#9FE1CB;background:rgba(30,142,90,.12);border-left:3px solid var(--ok)}
+  .logev.mal{color:#F0BE6E;background:rgba(232,163,61,.14);border-left:3px solid var(--warn)}
   .obra{margin:3px 0 0 6px;font-size:11.5px;color:var(--acc);font-weight:600}
   .obra b{color:#F0BE6E}
   .ojo{background:rgba(99,179,255,.12);border:1px solid rgba(99,179,255,.35);
@@ -131,6 +134,14 @@
     border:1.5px dashed var(--line);background:#0F2C4A;color:var(--txt2)}
   .b-cam{border-style:solid;background:#17456E;color:var(--acc)}
   .ya{font-size:11.5px;color:#5BD79B;margin:-4px 0 10px}
+  .b-log{flex:1;justify-content:center;padding:13px 8px;font-size:13px;
+    border:1.5px solid var(--line);background:#0F2C4A;color:var(--txt2)}
+  .b-log.sel-ok{background:rgba(30,142,90,.25);border-color:var(--ok);color:#8FE6BB}
+  .b-log.sel-mal{background:rgba(232,163,61,.22);border-color:var(--warn);color:#F0BE6E}
+  .tres{display:flex;gap:8px;margin-bottom:12px}
+  .tres input{margin-bottom:0}
+  .tres input:nth-child(1){flex:2} .tres input:nth-child(2){flex:1}
+  .tres input:nth-child(3){flex:1}
   .pista{font-size:11.5px;color:var(--txt3);margin:-4px 0 8px}
   .thumbs{display:flex;gap:7px;flex-wrap:wrap;margin:-4px 0 12px}
   .th{position:relative;width:66px;height:66px;border-radius:9px;overflow:hidden;
@@ -212,7 +223,7 @@ Object.defineProperty(window, "HDR", {get:HDRb});
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const NOMBRE_TIPO = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después",
   REPORTE:"Reporte", LEVANTAMIENTO:"Levantamiento", ATENCION:"Atención",
-  AVANCE:"Avance"};
+  AVANCE:"Avance", LOG:"Log"};
 /* una semana atrás para poder regularizar servicios ya atendidos, y cuatro días
    adelante para ver lo que viene */
 const DESDE = -7, HASTA = 4;
@@ -384,7 +395,8 @@ async function cargar(){
   try{
     semana=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,"+
       "fecha_servicio,horario_atencion,status,personal_atiende,telefono,obs_prog,obs_coord,"+
-      "requerimientos,tipo_servicio,obra,dias_est,dia_n"+
+      "requerimientos,tipo_servicio,obra,dias_est,dia_n,"+
+      "log_estado,log_saltos,log_ultimo,canal,senal_barras"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
     await marcarEquipo();
@@ -467,6 +479,11 @@ function pintar(){
       ${(dep||tip)?`<div class="dep">${esc(dep)}${dep&&tip?" · ":""}${esc(tip)}</div>`:""}
       ${dir?`<div class="dir"><svg width="13" height="13" viewBox="0 0 24 24" fill="#6E8CAD"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6a2.5 2.5 0 010 5.5z"/></svg><span>${esc(dir)}</span></div>`:""}
       ${(pers||tel)?`<div class="cont">👤 ${esc(pers)}${pers&&tel?" · ":""}${esc(tel)}</div>`:""}
+      ${x.log_estado?`<div class="logev ${x.log_estado==="SALTEADO"?"mal":"bien"}">${
+         x.log_estado==="SALTEADO"?"⚠ Log con saltos":"✓ Log continuo"}${
+         x.log_saltos?": "+esc(x.log_saltos):""}${
+         x.canal?" · canal "+esc(x.canal):""}${
+         x.senal_barras?" · "+x.senal_barras+" barras":""}</div>`:""}
       ${(x._eq&&x._eq.length)?`<div class="equipo">🔧 ${
         [...new Set(x._eq.map(p=>p.brigada))].sort().map(b=>
           "Brigada "+b+": "+x._eq.filter(p=>p.brigada===b)
@@ -548,6 +565,15 @@ const BLOQUES_FIN = [
 
 const POR_COORD = {LEV:BLOQUES_LEV, CAT:BLOQUES_CAT};
 
+/* El receptor registra un tono de supervisión cada 3 horas. El técnico lo lee
+   en la pantalla del equipo: si falta alguno, ese rato el equipo no estuvo
+   recibiendo. Se pregunta en los mantenimientos, que es donde se revisa. */
+const PIDE_LOG = ["MANT", "BANORTE"];
+function pideLog(coord, modo){
+  return PIDE_LOG.indexOf((coord||"").toUpperCase())>=0 &&
+         (modo==="ATENDIDO" || modo==="FIN_OBRA");
+}
+
 function esObra(s){ return !!(s && s.obra && (s.dias_est||0) > 1) }
 
 /* qué se le pide según la coordinación y, si es obra, según cómo cierre el día */
@@ -561,11 +587,27 @@ let cie = null;   // {srv, estatus, _bloques, y un arreglo por bloque}
 
 function abrirCierre(coord, id, modo){
   const srv=semana.find(s=>s.coord===coord && s.id===id); if(!srv) return;
-  cie={srv:srv, estatus:modo, _bloques:bloquesDe(coord, modo)};
+  cie={srv:srv, estatus:modo, _bloques:bloquesDe(coord, modo).slice()};
+  if(pideLog(coord, modo)){
+    cie._bloques.push({campo:"logfoto", tipo:"LOG",
+      titulo:(cie._bloques.length+1)+" · Foto del log de eventos",
+      pista:"La pantalla del equipo con el registro"});
+    cie.log = {estado: srv.log_estado||"", saltos: srv.log_saltos||"",
+               ultimo: srv.log_ultimo||"", canal: srv.canal||"",
+               barras: srv.senal_barras||""};
+  }
   cie._bloques.forEach(b=>{ cie[b.campo]=[] });
   document.getElementById("mCierre").style.display="flex";
   pintarCierre();
 }
+
+/* el técnico marca lo que vio en la pantalla del receptor */
+function logEstado(v){
+  cie.log.estado=v;
+  cie.log.saltos = (v==="SALTEADO") ? cie.log.saltos : "";
+  pintarCierre();
+}
+function logCampo(k, v){ cie.log[k]=v }
 
 /* textos de la hoja según cómo se está cerrando el día */
 const MODOS = {
@@ -609,6 +651,32 @@ function pintarCierre(){
   };
 
   const pideMotivo = esRep;
+
+  function seccionLog(){
+    const L=cie.log, ok=!!L.estado;
+    return `
+      <div class="lbl">Log de eventos
+        <span class="req ${ok?"listo":""}">${ok?"listo":"obligatorio"}</span></div>
+      <p class="pista">El equipo registra un tono cada 3 horas. Revisa en su pantalla
+         si están todos o si falta alguno.</p>
+      <div class="dos">
+        <button class="b-log ${L.estado==="CONTINUO"?"sel-ok":""}"
+                onclick="logEstado('CONTINUO')">✓ Continuo</button>
+        <button class="b-log ${L.estado==="SALTEADO"?"sel-mal":""}"
+                onclick="logEstado('SALTEADO')">⚠ Con saltos</button>
+      </div>
+      ${L.estado==="SALTEADO"?`
+        <input id="logSaltos" placeholder="¿Cuáles faltan? ej. 12-jul 04:39 y 07:39"
+               value="${esc(L.saltos)}" oninput="logCampo('saltos',this.value)">`:""}
+      <div class="tres">
+        <input id="logUlt" placeholder="Último registro (dd-mm hh:mm)"
+               value="${esc(L.ultimo)}" oninput="logCampo('ultimo',this.value)">
+        <input id="logCanal" placeholder="Canal" value="${esc(L.canal)}"
+               oninput="logCampo('canal',this.value)">
+        <input id="logBarras" type="number" min="0" max="5" placeholder="Barras"
+               value="${esc(L.barras)}" oninput="logCampo('barras',this.value)">
+      </div>`;
+  }
   document.getElementById("boxCierre").innerHTML=`
     <h2>${m.tit}</h2>
     <p class="sub">${esc(hhmm(s.horario_atencion))} · ${esc(s.nombre)}${s.tkt?" · TKT "+esc(s.tkt):""}${
@@ -625,6 +693,7 @@ function pintarCierre(){
     ${esRep?"":`
       ${listo?"":`<div class="aviso">Falta la evidencia de:
          <b>${faltan.map(b=>b.titulo.replace(/^\d+ · /,"")).join(", ")}</b>.</div>`}
+      ${cie.log?seccionLog():""}
       ${cie._bloques.map(bloque).join("")}
     `}
 
@@ -681,6 +750,12 @@ function confirmarCierre(){
     toast("Escribe por qué se reprograma",true); return;
   }
   const s=cie.srv;
+  if(cie.log && !cie.log.estado){
+    toast("Marca si el log de eventos está continuo o con saltos",true); return;
+  }
+  if(cie.log && cie.log.estado==="SALTEADO" && !(cie.log.saltos||"").trim()){
+    toast("Anota qué tonos faltan en el log",true); return;
+  }
   if(cie.estatus!=="REPROGRAMADO"){
     const faltan=cie._bloques.filter(b=>!cubierto(b));
     if(faltan.length){
@@ -747,6 +822,14 @@ async function guardarCierre(s, modo, com){
     body.status=modo;
   }
   if(com) body.obs_coord=com;
+  if(cie.log && cie.log.estado){
+    body.log_estado = cie.log.estado;
+    body.log_saltos = cie.log.estado==="SALTEADO" ? (cie.log.saltos||"") : "";
+    if((cie.log.ultimo||"").trim()) body.log_ultimo = cie.log.ultimo.trim();
+    if((cie.log.canal||"").toString().trim()) body.canal = cie.log.canal.toString().trim();
+    const b = parseInt(cie.log.barras, 10);
+    if(!isNaN(b)) body.senal_barras = b;
+  }
   const item={id:s.id, coord:s.coord, tkt:s.tkt||"", body:body, nota:com, modo:modo,
               obra:s.obra||"", dia_n:s.dia_n||0,
               tecnico:tecnico, ts:new Date().toISOString().slice(0,19).replace("T"," ")};
