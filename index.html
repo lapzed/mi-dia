@@ -568,7 +568,7 @@ const POR_COORD = {LEV:BLOQUES_LEV, CAT:BLOQUES_CAT};
 /* El receptor registra un tono de supervisión cada 3 horas. El técnico lo lee
    en la pantalla del equipo: si falta alguno, ese rato el equipo no estuvo
    recibiendo. Se pregunta en los mantenimientos, que es donde se revisa. */
-const PIDE_LOG = ["MANT", "BANORTE"];
+const PIDE_LOG = ["MANT", "PRY_ESP"];
 function pideLog(coord, modo){
   return PIDE_LOG.indexOf((coord||"").toUpperCase())>=0 &&
          (modo==="ATENDIDO" || modo==="FIN_OBRA");
