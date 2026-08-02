@@ -212,7 +212,7 @@ Object.defineProperty(window, "HDR", {get:HDRb});
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const NOMBRE_TIPO = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después",
   REPORTE:"Reporte", LEVANTAMIENTO:"Levantamiento", ATENCION:"Atención",
-  AVANCE:"Avance", VISITA:"Visita"};
+  AVANCE:"Avance"};
 /* una semana atrás para poder regularizar servicios ya atendidos, y cuatro días
    adelante para ver lo que viene */
 const DESDE = -7, HASTA = 4;
@@ -384,7 +384,7 @@ async function cargar(){
   try{
     semana=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,"+
       "fecha_servicio,horario_atencion,status,personal_atiende,telefono,obs_prog,obs_coord,"+
-      "requerimientos,tipo_servicio,obra,dias_est,dia_n,sin_avance"+
+      "requerimientos,tipo_servicio,obra,dias_est,dia_n"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
     await marcarEquipo();
@@ -463,7 +463,7 @@ function pintar(){
       </div>
       <div class="sitio">${esc(x.nombre)}</div>
       ${esObra(x)?`<div class="obra">Obra de ${x.dias_est} días · hoy es el día ${x.dia_n}${
-         x.sin_avance?' · <b>se declaró sin avance</b>':""}</div>`:""}
+         cerrado?"":" · <b>en proceso, aún no se factura</b>"}</div>`:""}
       ${(dep||tip)?`<div class="dep">${esc(dep)}${dep&&tip?" · ":""}${esc(tip)}</div>`:""}
       ${dir?`<div class="dir"><svg width="13" height="13" viewBox="0 0 24 24" fill="#6E8CAD"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6a2.5 2.5 0 010 5.5z"/></svg><span>${esc(dir)}</span></div>`:""}
       ${(pers||tel)?`<div class="cont">👤 ${esc(pers)}${pers&&tel?" · ":""}${esc(tel)}</div>`:""}
@@ -489,9 +489,9 @@ function pintar(){
         ${cerrado
           ? `<button class="b-gh" onclick="abrirCierre('${x.coord}',${x.id},'ATENDIDO')">✎ Agregar evidencia o nota</button>`
           : esObra(x)
-            ? `<button class="b-gh" onclick="abrirCierre('${x.coord}',${x.id},'CONTINUIDAD')">↷ Avancé, sigo</button>
-               <button class="b-fin" onclick="abrirCierre('${x.coord}',${x.id},'FIN_OBRA')">✓ Terminé la obra</button>
-               <button class="b-re" onclick="abrirCierre('${x.coord}',${x.id},'SIN_AVANCE')">⚠ No se pudo</button>`
+            ? `<button class="b-gh" onclick="abrirCierre('${x.coord}',${x.id},'CONTINUIDAD')">↷ Sigue en proceso</button>
+               <button class="b-fin" onclick="abrirCierre('${x.coord}',${x.id},'FIN_OBRA')">✓ Instalación concluida</button>
+               <button class="b-re" onclick="abrirCierre('${x.coord}',${x.id},'REPROGRAMADO')">↻ Reprogramar</button>`
             : `<button class="b-ok" onclick="abrirCierre('${x.coord}',${x.id},'ATENDIDO')">✓ Atendido</button>
                <button class="b-re" onclick="abrirCierre('${x.coord}',${x.id},'REPROGRAMADO')">↻ Reprogramar</button>`}
       </div>
@@ -530,21 +530,20 @@ const BLOQUES_CAT = [
    pista:"Formato que firmó el cliente", pdf:true}
 ];
 
-/* Obras de varios días (instalaciones). Cada día se cierra por separado:
-   se avanzó, no se pudo, o quedó terminada. */
+/* Obras de varios días (instalaciones).
+   Mientras la instalación no quede CONCLUIDA el día se declara como recurso en
+   uso (continuidad): la brigada estuvo comprometida ahí, pero todavía no hay
+   nada que facturar. Marcarla atendida antes de tiempo hace que ventas salga a
+   cobrar una instalación que no está terminada. */
 const BLOQUES_AVANCE = [
   {campo:"avance",   tipo:"AVANCE", titulo:"1 · Avance del día",
-   pista:"Hasta dónde se llegó hoy"}
-];
-const BLOQUES_VISITA = [
-  {campo:"avance",   tipo:"VISITA", titulo:"1 · Evidencia de la visita",
-   pista:"Que la brigada estuvo en el sitio — es lo que respalda el cobro"}
+   pista:"Hasta dónde se llegó hoy y qué queda pendiente"}
 ];
 const BLOQUES_FIN = [
-  {campo:"despues",  tipo:"DESPUES", titulo:"1 · Trabajo terminado",
-   pista:"Cómo quedó el equipo y el sitio"},
+  {campo:"despues",  tipo:"DESPUES", titulo:"1 · Instalación terminada",
+   pista:"Cómo quedó el equipo funcionando y el sitio"},
   {campo:"reportes", tipo:"REPORTE",  titulo:"2 · Reporte firmado",
-   pista:"Formato que firmó el cliente", pdf:true}
+   pista:"Formato que firmó el cliente de conformidad", pdf:true}
 ];
 
 const POR_COORD = {LEV:BLOQUES_LEV, CAT:BLOQUES_CAT};
@@ -554,7 +553,6 @@ function esObra(s){ return !!(s && s.obra && (s.dias_est||0) > 1) }
 /* qué se le pide según la coordinación y, si es obra, según cómo cierre el día */
 function bloquesDe(coord, modo){
   if(modo==="CONTINUIDAD") return BLOQUES_AVANCE;
-  if(modo==="SIN_AVANCE")  return BLOQUES_VISITA;
   if(modo==="FIN_OBRA")    return BLOQUES_FIN;
   return POR_COORD[(coord||"").toUpperCase()] || BLOQUES;
 }
@@ -571,11 +569,10 @@ function abrirCierre(coord, id, modo){
 
 /* textos de la hoja según cómo se está cerrando el día */
 const MODOS = {
-  ATENDIDO:     {tit:"Cerrar servicio",       btn:"Cerrar servicio"},
-  REPROGRAMADO: {tit:"Reprogramar servicio",  btn:"Reprogramar"},
-  CONTINUIDAD:  {tit:"Avance del día",        btn:"Guardar avance"},
-  FIN_OBRA:     {tit:"Terminar la obra",      btn:"Dar por terminada"},
-  SIN_AVANCE:   {tit:"Día sin avance",        btn:"Declarar el día"}
+  ATENDIDO:     {tit:"Cerrar servicio",           btn:"Cerrar servicio"},
+  REPROGRAMADO: {tit:"Reprogramar servicio",      btn:"Reprogramar"},
+  CONTINUIDAD:  {tit:"La obra sigue en proceso",  btn:"Guardar avance del día"},
+  FIN_OBRA:     {tit:"Instalación concluida",     btn:"Dar por concluida"}
 };
 
 /* ¿ese bloque ya está cubierto, sea con lo ya subido o con lo que trae ahora? */
@@ -611,16 +608,19 @@ function pintarCierre(){
       <div class="thumbs">${thumbs(b.campo)}</div>`;
   };
 
-  const pideMotivo = esRep || cie.estatus==="SIN_AVANCE";
+  const pideMotivo = esRep;
   document.getElementById("boxCierre").innerHTML=`
     <h2>${m.tit}</h2>
     <p class="sub">${esc(hhmm(s.horario_atencion))} · ${esc(s.nombre)}${s.tkt?" · TKT "+esc(s.tkt):""}${
        esObra(s)?" · día "+s.dia_n+" de "+s.dias_est:""}</p>
 
-    ${cie.estatus==="SIN_AVANCE"?`<div class="ojo">La brigada estuvo en el sitio y se
-       consumió el recurso, pero no se instaló. El día queda declarado para poder cobrarlo.</div>`:""}
-    ${cie.estatus==="FIN_OBRA" && quedan>0?`<div class="ojo">Quedan ${quedan} día(s)
-       programados de esta obra. Al darla por terminada se cancelan.</div>`:""}
+    ${cie.estatus==="CONTINUIDAD"?`<div class="ojo">El día queda como <b>recurso en uso</b>:
+       la brigada trabajó, pero la instalación <b>no está concluida</b> y todavía no
+       se factura.</div>`:""}
+    ${cie.estatus==="FIN_OBRA"?`<div class="ojo"><b>Solo si la instalación quedó
+       terminada y funcionando.</b> Al darla por concluida se marca como atendida, y
+       de ahí ventas la toma para cobrarla.${quedan>0?" Los "+quedan+
+       " día(s) que quedaban programados se cancelan.":""}</div>`:""}
 
     ${esRep?"":`
       ${listo?"":`<div class="aviso">Falta la evidencia de:
@@ -632,7 +632,6 @@ function pintarCierre(){
        pideMotivo?'<span class="req">obligatorio</span>':""}</div>
     <textarea id="txtCom" placeholder="${
         esRep ? "¿Por qué se reprograma? (sitio cerrado, falta acceso, cliente canceló…)"
-      : cie.estatus==="SIN_AVANCE" ? "¿Por qué no se pudo? (sin acceso, faltó material, obra civil, cliente no autorizó…)"
       : cie.estatus==="CONTINUIDAD" ? "Hasta dónde se llegó y qué queda pendiente…"
       : "Qué se hizo, baterías cambiadas, equipo que se lleva a laboratorio, pendientes…"}">${esc(cie.com||"")}</textarea>
 
@@ -680,9 +679,6 @@ function confirmarCierre(){
   const com=(document.getElementById("txtCom").value||"").trim();
   if(cie.estatus==="REPROGRAMADO" && !com){
     toast("Escribe por qué se reprograma",true); return;
-  }
-  if(cie.estatus==="SIN_AVANCE" && !com){
-    toast("Escribe por qué no se pudo — es lo que sustenta el cobro",true); return;
   }
   const s=cie.srv;
   if(cie.estatus!=="REPROGRAMADO"){
@@ -747,9 +743,6 @@ async function guardarCierre(s, modo, com){
     body.status="ATENDIDO"; body.fecha_atencion=fecha;
   }else if(modo==="CONTINUIDAD"){
     body.status="CONTINUIDAD"; body.fecha_atencion=fecha;
-  }else if(modo==="SIN_AVANCE"){
-    body.status="CONTINUIDAD"; body.fecha_atencion=fecha;
-    body.sin_avance=true; body.motivo_sin_avance=com;
   }else{
     body.status=modo;
   }
@@ -759,8 +752,8 @@ async function guardarCierre(s, modo, com){
               tecnico:tecnico, ts:new Date().toISOString().slice(0,19).replace("T"," ")};
   item.campos = cie._bloques.map(b=>[b.campo, b.tipo]);
   cie._bloques.forEach(b=>{ item[b.campo]=cie[b.campo].map(f=>f.blob) });
-  const listos={ATENDIDO:"Servicio cerrado ✓", FIN_OBRA:"Obra terminada ✓",
-                CONTINUIDAD:"Avance guardado ✓", SIN_AVANCE:"Día declarado ✓",
+  const listos={ATENDIDO:"Servicio cerrado ✓", FIN_OBRA:"Instalación concluida ✓",
+                CONTINUIDAD:"Avance guardado · la obra sigue abierta ✓",
                 REPROGRAMADO:"Reprogramado ✓"};
   try{
     await enviarCierre(item);
@@ -770,7 +763,6 @@ async function guardarCierre(s, modo, com){
     try{
       await colaAdd(item);
       s.status=body.status;
-      if(body.sin_avance) s.sin_avance=true;
       if(body.fecha_atencion){
         s.fecha_atencion=fecha;
         s._ev=s._ev||{};
