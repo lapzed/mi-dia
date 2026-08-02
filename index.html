@@ -133,6 +133,11 @@
   .b-cam,.b-gal{flex:1;justify-content:center;padding:13px 8px;font-size:13px;
     border:1.5px dashed var(--line);background:#0F2C4A;color:var(--txt2)}
   .b-cam{border-style:solid;background:#17456E;color:var(--acc)}
+  /* la camara es lo de siempre en campo; la galeria solo para servicios pasados */
+  .b-cam.solo{display:flex;width:100%;justify-content:center;padding:15px 8px;font-size:14.5px}
+  .liga-gal{display:block;width:100%;background:none;border:none;padding:9px 0 12px;
+    font-size:12.5px;font-weight:600;color:var(--txt2);text-decoration:underline;
+    text-underline-offset:3px}
   .ya{font-size:11.5px;color:#5BD79B;margin:-4px 0 10px}
   .b-log{flex:1;justify-content:center;padding:13px 8px;font-size:13px;
     border:1.5px solid var(--line);background:#0F2C4A;color:var(--txt2)}
@@ -638,12 +643,12 @@ function pintarCierre(){
       <div class="lbl">${b.titulo}
         <span class="req ${ok?"listo":""}">${ok?"listo":"obligatorio"}</span></div>
       <p class="pista">${b.pista}</p>
-      <div class="dos">
-        <button class="b-cam" onclick="document.getElementById('in_${b.campo}_cam').click()">📷 Tomar foto</button>
-        <button class="b-gal" onclick="document.getElementById('in_${b.campo}_gal').click()">${b.pdf?"📎 Galería o PDF":"🖼️ De la galería"}</button>
-      </div>
+      <button class="b-cam solo" onclick="document.getElementById('in_${b.campo}_cam').click()">📷 Tomar foto</button>
+      <button class="liga-gal" onclick="document.getElementById('in_${b.campo}_gal').click()">${b.pdf?"o subir de la galería / un PDF":"o subir de la galería"}</button>
       ${ya?'<div class="ya">Ya tiene archivos cargados de esta etapa.</div>':""}
-      <input type="file" id="in_${b.campo}_cam" accept="image/*" capture="environment" multiple
+      <!-- sin "multiple": con el, el celular ignora la orden de abrir la camara
+           y saca el menu de siempre. Una foto por toma, y se repite el boton. -->
+      <input type="file" id="in_${b.campo}_cam" accept="image/*" capture="environment"
              style="display:none" onchange="agregar(this,'${b.campo}')">
       <input type="file" id="in_${b.campo}_gal" accept="${b.pdf?"image/*,application/pdf":"image/*"}" multiple
              style="display:none" onchange="agregar(this,'${b.campo}')">
@@ -772,8 +777,11 @@ function confirmarCierre(){
 async function subirArchivo(item, blob, tipo, i){
   const ext = blob.type==="application/pdf" ? "pdf" : "jpg";
   const ruta = `${item.coord}/${item.tkt||("id"+item.id)}/${Date.now()}_${tipo}_${i}.${ext}`;
+  // sin upsert: una evidencia nunca debe pisar a otra. Si la ruta ya existiera
+  // —no deberia, lleva la hora al milisegundo— es mejor que falle y se reintente
+  // que perder la foto anterior.
   const r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,
-    {method:"POST", headers:Object.assign({},HDR,{"Content-Type":blob.type,"x-upsert":"true"}),
+    {method:"POST", headers:Object.assign({},HDR,{"Content-Type":blob.type}),
      body:blob});
   if(!r.ok) throw new Error("storage "+r.status);
   await api("evidencias",{method:"POST",body:JSON.stringify({

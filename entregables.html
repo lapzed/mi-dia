@@ -88,6 +88,41 @@
     display:flex;align-items:center;gap:10px}
   #salida .cab .mk{font-weight:800;font-size:15px;color:#0B2038}
   #salida .cab .der{margin-left:auto;font-size:11px;color:#555}
+
+  /* ---------- informe final (el machote que se entrega al cliente) ----------
+     Cada hoja lleva el domicilio al pie y su numero, como los informes que
+     firma la empresa. */
+  #salida .hoja{position:relative;page-break-after:always;padding:26mm 20mm 26mm;
+    min-height:247mm;font-family:Calibri,Carlito,"Segoe UI",sans-serif;color:#111}
+  #salida .hoja:last-child{page-break-after:auto}
+  #salida .hoja .marca{height:52px;margin-bottom:8px}
+  #salida .hoja .marca img{height:52px}
+  #salida .hoja .npag{position:absolute;right:20mm;bottom:16mm;font-size:11px;color:#333}
+  #salida .hoja .pie{position:absolute;left:20mm;right:20mm;bottom:8mm;text-align:center;
+    font-size:9.5px;color:#3b3b3b;border-top:2px solid #1F3864;padding-top:5px}
+  #salida .hoja .pie a{color:#1F3864}
+  #salida .port h1{font-size:19px;font-weight:700;line-height:1.35;margin:34mm 0 0;
+    text-align:center;color:#111}
+  #salida .port .sitio{font-size:22px;font-weight:800;text-align:center;margin:14mm 0 0;
+    letter-spacing:.02em}
+  #salida .port .dir{font-size:12px;text-align:center;margin:52mm 0 0;line-height:1.5}
+  #salida .port .elab{font-size:12px;text-align:center;margin:6px 0 0;font-weight:600}
+  #salida .hoja h2.sec{font-size:14px;font-weight:700;margin:0 0 12px}
+  #salida .hoja ul.act{font-size:11.5px;line-height:1.55;padding-left:18px;margin:0}
+  #salida .hoja ul.act li{margin-bottom:5px}
+  #salida .hoja .etapa{text-align:center;font-size:13px;font-weight:700;margin:0 0 10px}
+  #salida .rej{display:flex;flex-wrap:wrap;gap:6mm;justify-content:center}
+  #salida .rej figure{margin:0;width:76mm;text-align:center}
+  #salida .rej img{width:100%;max-height:78mm;object-fit:contain;border:1px solid #bbb}
+  #salida .rej figcaption{font-size:10.5px;margin-top:3px}
+  #salida .hoja p.txt{font-size:11.5px;line-height:1.6;text-align:justify;margin:0 0 12px}
+  #salida table.log{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:6px}
+  #salida table.log th{background:#4A6489;color:#fff;text-align:center;font-size:11px;
+    padding:4px;border:1px solid #7d8fa8;letter-spacing:.04em}
+  #salida table.log td{border:1px solid #9aa7b8;padding:3px 5px;vertical-align:top;width:50%;
+    line-height:1.35}
+  #salida table.log td .ln{display:block;padding-left:9px}
+  #salida table.log td.falta{background:#fdeaea;color:#8a1c1c}
 </style>
 </head>
 <body>
@@ -118,8 +153,28 @@
         <option value="">Todos</option>
         <option value="completo">Solo completos</option>
         <option value="falta">Les falta algo</option></select></div>
+    <div class="f"><label>Formato</label>
+      <select id="fForm" onchange="verFormato()">
+        <option value="lista">Reporte de servicios</option>
+        <option value="informe">Informe final (uno por sitio)</option></select></div>
     <button onclick="marcarTodos()">Marcar todos</button>
     <button class="pri" id="btnGen" onclick="generar()" disabled>Generar entregable</button>
+  </div>
+
+  <!-- lo que solo aplica al informe final -->
+  <div class="filtros" id="opsInforme" style="display:none">
+    <div class="f"><label>Número de mantenimiento</label>
+      <select id="iNum">
+        <option value="primer">primer</option>
+        <option value="segundo" selected>segundo</option>
+        <option value="tercer">tercer</option>
+        <option value="cuarto">cuarto</option></select></div>
+    <div class="f"><label>Identificador del receptor (log)</label>
+      <input id="iIdent" value="CIV-RWT-000000+0300-0000000" size="30"></div>
+    <div class="f"><label>Registro de eventos</label>
+      <select id="iLog">
+        <option value="si">Incluirlo</option>
+        <option value="no">Sin registro de eventos</option></select></div>
   </div>
 
   <div class="resumen" id="resumen"></div>
@@ -146,6 +201,7 @@ const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
 const DOMINIO="mdcontrol.local";
 const BUCKET="evidencias";
+const LOGO="logo.png";          // va en la misma carpeta que esta pagina
 
 let ses=JSON.parse(localStorage.getItem("md_ses")||"null");
 let filas=[], ev={}, marcados=new Set();
@@ -253,7 +309,8 @@ async function cargar(){
   const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
   let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,tipo_servicio,"+
         "fecha_servicio,fecha_atencion,horario_atencion,tecnico,auxiliar,personal_atiende,"+
-        "telefono,obs_coord,requerimientos,equipo,serie&status=eq.ATENDIDO"+
+        "telefono,obs_coord,requerimientos,equipo,serie,"+
+        "canal,senal_barras,log_estado,log_saltos,log_ultimo&status=eq.ATENDIDO"+
         "&order=fecha_atencion.desc,dependencia&limit=1000";
   if(cli) q+="&dependencia=eq."+encodeURIComponent(cli);
   if(co)  q+="&coord=eq."+co;
@@ -346,6 +403,164 @@ async function bajar(ruta){
     f.onload=()=>res({url:f.result,tipo:b.type}); f.readAsDataURL(b) });
 }
 
+/* ---------- informe final ----------
+   El machote que la empresa entrega al cliente: portada, actividades,
+   evidencia por etapa y la bitacora de eventos del receptor. */
+
+const PIE=`<div class="pie">Magdalena 202, Col. Del Valle, Benito Juárez, C.P. 03100, CDMX, Tel. 551107 8307<br>
+  <a href="https://www.mdreieck.com.mx">www.mdreieck.com.mx</a></div>`;
+
+const ACTIVIDADES=[
+ "Revisión y mantenimiento del sistema Receptor Sarmex ®, verificando su instalación de equipo y aditamentos.",
+ "Revisión de conectores, display y teclado.",
+ "Supervisión y configuración del canal en el que se encuentra el Receptor Sarmex ®.",
+ "Supervisión y configuración de parámetros, respaldo de batería.",
+ "Verificar la intensidad de la señal.",
+ "Medición de DC y actualización de Software en caso de ser necesario.",
+ "Elaboración de reporte de actividades (hoja de trabajo – formato de reporte).",
+ "Sustitución de batería de respaldo en caso de ser necesario.",
+ "Revisión de parámetros de la fuente de alimentación.",
+ "Revisión del cableado de alimentación de los sistemas receptores hacia los aditamentos instalados en cada inmueble.",
+ "Revisión y prueba de audio de los aditamentos de sonorización.",
+ "Limpieza general del equipo receptor y sus aditamentos."];
+
+let nPag=0;
+function hoja(cuerpo, clase){
+  nPag++;
+  return `<div class="hoja ${clase||""}">
+    <div class="marca">${LOGO?`<img src="${LOGO}">`:`<b style="font-size:22px;color:#1F3864">MDreieck</b>`}</div>
+    ${cuerpo}<div class="npag">${nPag}</div>${PIE}</div>`;
+}
+
+/* Las 25 lineas del log se reconstruyen: el receptor guarda un tono cada 3
+   horas y solo cabe ese historial. Se parte del ultimo tono que vio el tecnico
+   y se cuenta hacia atras. El reloj del receptor deriva ~1.3 s por tono, por eso
+   los segundos bajan.  OJO: esto refleja lo que el tecnico reporto; si marco
+   saltos, se senalan como faltantes. */
+const DIAS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function lineasLog(ultimo, ident, saltos){
+  const base = ultimo ? new Date(ultimo.replace(" ","T")) : null;
+  if(!base || isNaN(base)) return null;
+  const falla = new Set(String(saltos||"").split(/[^0-9]+/).filter(Boolean).map(Number));
+  const out=[];
+  for(let i=0;i<25;i++){
+    const d=new Date(base.getTime() - i*3*3600*1000);
+    d.setSeconds(d.getSeconds() - Math.round(i*1.27));
+    const dd=String(d.getDate()).padStart(2,"0"), mm=String(d.getMonth()+1).padStart(2,"0");
+    const hh=String(d.getHours()).padStart(2,"0"), mi=String(d.getMinutes()).padStart(2,"0"),
+          ss=String(d.getSeconds()).padStart(2,"0");
+    out.push({n:String(i+1).padStart(2,"0"),
+      fecha:`${dd}-${mm}-${d.getFullYear()}(${DIAS[d.getDay()]}) ${hh}:${mi}:${ss}`,
+      falta:falla.has(i+1)});
+  }
+  return out.map(e=>({...e, linea:`${e.n}-->${ident}-________`}));
+}
+
+function hojaLog(x, ident){
+  const ls=lineasLog(x.log_ultimo, ident, x.log_saltos);
+  const sitio=(x.nombre||"").toUpperCase();
+  const cont = !ls ? "" : ls.filter(e=>e.falta).length;
+  const hallazgo = !ls
+    ? `No se descargó el registro de eventos en esta visita.`
+    : (cont===0
+       ? `En la revisión del log de eventos de <b>${esc(sitio)}</b> se observa que todos los tonos fueron recibidos de manera continua cada 3 horas, por lo que la operación del receptor es óptima.`
+       : `En la revisión del log de eventos de <b>${esc(sitio)}</b> se observan <b>${cont}</b> tono(s) no registrado(s) dentro del historial; el resto se recibió de manera continua cada 3 horas.`);
+
+  const detalle=hoja(`<h2 class="sec" style="text-align:center">DETALLE DE BITÁCORA DE EVENTOS</h2>
+    <p class="txt">Los sistemas receptores de alertamiento sísmico SARMEX ® se encuentran operando bajo la
+      frecuencia de transmisión de la señal del Sistema de Alerta Sísmica Mexicano (SASMEX ®), que es
+      propiedad del Gobierno de la Ciudad de México.</p>
+    <p class="txt">La red de transmisores SASMEX ® emite un tono de supervisión cada 3 horas las 24 horas del día.
+      Esta emisión de tonos es recibida por el sistema receptor de alertamiento sísmico SARMEX ® y guardada en
+      su registro de eventos, con la única finalidad de monitorear el buen funcionamiento del equipo, ya que la
+      emisión de la alerta sísmica es mediante este mismo método.</p>
+    <p class="txt">La capacidad de almacenamiento del log es de 25 registros, lo cual representa los tonos
+      recibidos en los últimos 3 días.</p>
+    <p class="txt">${hallazgo}</p>
+    ${limpio(x.canal)||limpio(x.senal_barras)?`<p class="txt">El receptor se encuentra configurado en
+      <b>canal ${esc(limpio(x.canal)||"—")}</b>${limpio(x.senal_barras)?` con <b>${esc(limpio(x.senal_barras))} barras</b> de señal`:""}.</p>`:""}
+    <p class="txt">Es importante hacer mención que un horario desfasado no repercute en la operación del equipo
+      receptor SARMEX ® ni en su activación.</p>`);
+
+  if(!ls) return detalle;
+  const mitad=13, izq=ls.slice(0,mitad), der=ls.slice(mitad);
+  const celda=e=>e?`<div>${e.fecha}<span class="ln">${e.linea}</span></div>`:"";
+  const filas=izq.map((e,i)=>`<tr>
+      <td class="${e.falta?"falta":""}">${celda(e)}${e.falta?'<div class="ln"><b>tono no registrado</b></div>':""}</td>
+      <td class="${der[i]&&der[i].falta?"falta":""}">${celda(der[i])}${der[i]&&der[i].falta?'<div class="ln"><b>tono no registrado</b></div>':""}</td>
+    </tr>`).join("");
+  return detalle + hoja(`<table class="log"><tr><th colspan="2">REGISTRO DE EVENTOS</th></tr>${filas}</table>`);
+}
+
+async function informeDe(x, num, ident, conLog){
+  const arch=[];
+  for(const e of (ev[llave(x)]||[])){
+    const d=await bajar(e.ruta);
+    if(d) arch.push({clase:e.tipo, url:d.url, mime:d.tipo});
+  }
+  let h="";
+  // portada
+  h+=hoja(`<h1>Reporte del ${esc(num)} mantenimiento<br>por póliza a equipo receptor de la<br>
+      señal del sistema de alerta sísmica.</h1>
+    <div class="sitio">${esc((x.nombre||"").toUpperCase())}</div>
+    <div class="dir">${esc(limpio(x.direccion))}</div>
+    <div class="elab">Elaborado por: MDreieck S.A. de C.V.</div>`, "port");
+  // actividades
+  h+=hoja(`<h2 class="sec">Descripción de actividades:</h2>
+    <ul class="act">${ACTIVIDADES.map(a=>`<li>${a}</li>`).join("")}</ul>
+    <table class="datos" style="margin-top:16px;font-size:11.5px">
+      <tr><td>Sitio</td><td>${esc(x.nombre||"")}</td></tr>
+      <tr><td>Cliente</td><td>${esc(limpio(x.dependencia))}</td></tr>
+      <tr><td>Fecha de atención</td><td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td></tr>
+      <tr><td>Técnico</td><td>${esc(limpio(x.tecnico))}${limpio(x.auxiliar)?" / "+esc(limpio(x.auxiliar)):""}</td></tr>
+      ${limpio(x.equipo)?`<tr><td>Equipo</td><td>${esc(limpio(x.equipo))}${limpio(x.serie)?" · serie "+esc(limpio(x.serie)):""}</td></tr>`:""}
+      ${limpio(x.obs_coord)?`<tr><td>Observaciones</td><td>${esc(limpio(x.obs_coord))}</td></tr>`:""}
+    </table>`);
+  // evidencia por etapa, de a 4 fotos por hoja
+  for(const [t,n] of etapasDe(x.coord)){
+    if(t==="REPORTE") continue;
+    const g=arch.filter(f=>f.clase===t && !/pdf/.test(f.mime));
+    if(!g.length) continue;
+    for(let i=0;i<g.length;i+=4){
+      const trozo=g.slice(i,i+4);
+      h+=hoja(`<h2 class="sec" style="text-align:center">Evidencia fotográfica</h2>
+        <div class="etapa">${esc(n)}</div>
+        <div class="rej">${trozo.map((f,k)=>`<figure><img src="${f.url}">
+          <figcaption>Foto. ${i+k+1}</figcaption></figure>`).join("")}</div>`);
+    }
+  }
+  // reporte firmado
+  const rep=arch.filter(f=>f.clase==="REPORTE" && !/pdf/.test(f.mime));
+  if(rep.length){
+    h+=hoja(`<h2 class="sec" style="text-align:center">Reporte de servicio firmado</h2>
+      <div class="rej">${rep.map(f=>`<figure style="width:110mm"><img src="${f.url}" style="max-height:170mm"></figure>`).join("")}</div>`);
+  }
+  if(conLog) h+=hojaLog(x, ident);
+  return h;
+}
+
+async function generarInformes(sel){
+  const btn=document.getElementById("btnGen");
+  const num=document.getElementById("iNum").value;
+  const ident=(document.getElementById("iIdent").value||"CIV-RWT-000000+0300-0000000").trim();
+  const conLog=document.getElementById("iLog").value==="si";
+  nPag=0;
+  const partes=[];
+  let hecho=0;
+  for(const x of sel){
+    hecho++; btn.textContent=`Armando ${hecho}/${sel.length}…`;
+    nPag=0;                       // cada informe numera sus hojas desde 1
+    partes.push(await informeDe(x, num, ident, conLog));
+  }
+  return partes.join("");
+}
+
+function verFormato(){
+  const esInf=document.getElementById("fForm").value==="informe";
+  document.getElementById("opsInforme").style.display=esInf?"flex":"none";
+  document.getElementById("btnGen").textContent=esInf?"Generar informe final":"Generar entregable";
+}
+
 async function generar(){
   const btn=document.getElementById("btnGen");
   btn.disabled=true; const t0=btn.textContent;
@@ -353,6 +568,13 @@ async function generar(){
   const faltan=sel.filter(x=>!completo(x));
   if(faltan.length && !confirm(faltan.length+" de los marcados no tienen la evidencia completa.\n"+
        "¿Generar el entregable de todos modos?")){ btn.disabled=false; return }
+
+  if(document.getElementById("fForm").value==="informe"){
+    document.getElementById("salida").innerHTML=await generarInformes(sel);
+    btn.textContent=t0; btn.disabled=false;
+    setTimeout(()=>window.print(),400);
+    return;
+  }
 
   let hecho=0;
   const partes=[];
