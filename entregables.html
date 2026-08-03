@@ -97,6 +97,9 @@
   #salida .hoja:last-child{page-break-after:auto}
   #salida .hoja .marca{height:52px;margin-bottom:8px}
   #salida .hoja .marca img{height:52px}
+  /* el logo del cliente, en la portada y del lado opuesto al de la empresa */
+  #salida .port .logo-cli{position:absolute;right:20mm;top:26mm;text-align:right}
+  #salida .port .logo-cli img{max-height:22mm;max-width:52mm;object-fit:contain}
   #salida .hoja .npag{position:absolute;right:20mm;bottom:16mm;font-size:11px;color:#333}
   #salida .hoja .pie{position:absolute;left:20mm;right:20mm;bottom:8mm;text-align:center;
     font-size:9.5px;color:#3b3b3b;border-top:2px solid #1F3864;padding-top:5px}
@@ -183,6 +186,19 @@
 </div>
 
 <div id="salida"></div>
+
+<!-- el logo del cliente se pide una sola vez y queda para siempre -->
+<div class="modal" id="mLogo" style="display:none">
+  <div class="box">
+    <h2>Falta el logo de <span id="logoCli"></span></h2>
+    <p>Se guarda una sola vez y de aquí en adelante el informe de este cliente
+       ya lo trae. Conviene un PNG con fondo transparente.</p>
+    <input id="logoFile" type="file" accept="image/*">
+    <div class="aviso" id="logoErr" style="display:none"></div>
+    <button id="logoOmitir" style="width:100%;justify-content:center">
+      Seguir sin logo</button>
+  </div>
+</div>
 
 <div class="modal" id="mLogin">
   <div class="box">
@@ -415,6 +431,73 @@ async function bajar(ruta){
     f.onload=()=>res({url:f.result,tipo:b.type}); f.readAsDataURL(b) });
 }
 
+/* ---------- logos de los clientes ----------
+   El logo se pide UNA vez y queda guardado para todos: la siguiente vez que
+   salga ese cliente, el informe ya lo trae. No se busca en internet a
+   proposito —lo que se baja de una busqueda suele venir en baja resolucion, con
+   marca de agua o siendo una version vieja del logotipo, y esto va firmado al
+   cliente. */
+const CARPETA_LOGOS = "logos";
+let logos = {};                    // cliente -> data URI, en memoria
+
+function claveCliente(nombre){
+  return (nombre||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
+         .replace(/[^A-Z0-9]+/g,"_").replace(/^_|_$/g,"") || "SIN_CLIENTE";
+}
+
+async function logoDe(cliente){
+  const k = claveCliente(cliente);
+  if(logos[k] !== undefined) return logos[k];
+  const d = await bajar(`${CARPETA_LOGOS}/${k}.png`);
+  logos[k] = d ? d.url : null;
+  return logos[k];
+}
+
+async function subirLogo(cliente, file){
+  const k = claveCliente(cliente);
+  // se normaliza a un alto fijo para que no baile de un informe a otro
+  const img = await createImageBitmap(file);
+  const alto = 150, ancho = Math.round(img.width * alto / img.height);
+  const c = document.createElement("canvas");
+  c.width = ancho; c.height = alto;
+  c.getContext("2d").drawImage(img, 0, 0, ancho, alto);
+  const blob = await new Promise(r=>c.toBlob(r, "image/png"));
+  const r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${CARPETA_LOGOS}/${k}.png`,
+    {method:"POST", headers:Object.assign({},hdr(),{"Content-Type":"image/png","x-upsert":"true"}),
+     body:blob});
+  if(!r.ok) throw new Error("no se pudo guardar el logo ("+r.status+")");
+  logos[k] = await new Promise(res=>{ const f=new FileReader();
+    f.onload=()=>res(f.result); f.readAsDataURL(blob) });
+  return logos[k];
+}
+
+/* ventana que pide el logo que falta; se resuelve cuando el usuario elige uno
+   o decide seguir sin el */
+function pedirLogo(cliente){
+  return new Promise(res=>{
+    const m = document.getElementById("mLogo");
+    document.getElementById("logoCli").textContent = cliente || "(sin cliente)";
+    document.getElementById("logoErr").style.display = "none";
+    m.style.display = "flex";
+    const inp = document.getElementById("logoFile");
+    inp.value = "";
+    const cerrar = v => { m.style.display="none"; inp.onchange=null;
+                          document.getElementById("logoOmitir").onclick=null; res(v) };
+    inp.onchange = async () => {
+      if(!inp.files[0]) return;
+      try{ cerrar(await subirLogo(cliente, inp.files[0])) }
+      catch(e){
+        const er = document.getElementById("logoErr");
+        er.textContent = e.message; er.style.display = "block";
+      }
+    };
+    document.getElementById("logoOmitir").onclick = () => {
+      logos[claveCliente(cliente)] = null;   // no se vuelve a preguntar en esta tanda
+      cerrar(null);
+    };
+  });
+}
+
 /* ---------- informe final ----------
    El machote que la empresa entrega al cliente: portada, actividades,
    evidencia por etapa y la bitacora de eventos del receptor. */
@@ -511,8 +594,10 @@ async function informeDe(x, num, ident, conLog){
     if(d) arch.push({clase:etapaDe(e.tipo), pieza:piezaDe(e.tipo), url:d.url, mime:d.tipo});
   }
   let h="";
-  // portada
-  h+=hoja(`<h1>Reporte del ${esc(num)} mantenimiento<br>por póliza a equipo receptor de la<br>
+  // portada: el logo del cliente va junto al de la empresa
+  const logoCli = await logoDe(x.dependencia);
+  h+=hoja(`${logoCli?`<div class="logo-cli"><img src="${logoCli}"></div>`:""}
+    <h1>Reporte del ${esc(num)} mantenimiento<br>por póliza a equipo receptor de la<br>
       señal del sistema de alerta sísmica.</h1>
     <div class="sitio">${esc((x.nombre||"").toUpperCase())}</div>
     <div class="dir">${esc(limpio(x.direccion))}</div>
@@ -553,6 +638,17 @@ async function informeDe(x, num, ident, conLog){
 
 async function generarInformes(sel){
   const btn=document.getElementById("btnGen");
+  /* primero los logos que falten: se pregunta una vez por cliente y antes de
+     ponerse a armar, para no interrumpir a media tanda */
+  const clientes=[...new Set(sel.map(x=>(x.dependencia||"").trim()).filter(Boolean))];
+  const preguntados=new Set();
+  for(const c of clientes){
+    const k=claveCliente(c);
+    if(await logoDe(c)) continue;          // ya lo tiene guardado
+    if(preguntados.has(k)) continue;       // ya se preguntó en esta tanda
+    preguntados.add(k);
+    await pedirLogo(c);
+  }
   const num=document.getElementById("iNum").value;
   const ident=(document.getElementById("iIdent").value||"CIV-RWT-000000+0300-0000000").trim();
   const conLog=document.getElementById("iLog").value==="si";
