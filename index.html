@@ -196,6 +196,19 @@
     font-size:12.5px;font-weight:600;color:var(--txt2);text-decoration:underline;
     text-underline-offset:3px}
   .ya{font-size:11.5px;color:#5BD79B;margin:-4px 0 10px}
+
+  /* ---------- servicios de atrás sin evidencia ---------- */
+  .b-atras{display:block;width:100%;margin:14px 0 4px;padding:13px;font-size:13.5px;
+    background:#17456E;color:var(--acc);border:1px solid var(--line)}
+  .f-mes{margin:10px 0 12px}
+  .f-mes select{width:100%}
+  #atras .card{cursor:pointer}
+  #atras .c-top{display:flex;align-items:center;gap:8px;font-size:14px}
+  #atras .c-top b{font-weight:700}
+  #atras .c-top .tag{margin-left:auto;font-size:10px;font-weight:700;padding:2px 7px;
+    border-radius:20px;background:#17456E;color:var(--acc)}
+  #atras .c-sub{font-size:11.5px;color:var(--txt2);margin-top:3px}
+  #atras .c-cta{font-size:12px;font-weight:700;color:var(--acc);margin-top:7px}
   .b-log{flex:1;justify-content:center;padding:13px 8px;font-size:13px;
     border:1.5px solid var(--line);background:#0F2C4A;color:var(--txt2)}
   .b-log.sel-ok{background:rgba(30,142,90,.25);border-color:var(--ok);color:#8FE6BB}
@@ -242,6 +255,11 @@
   <div class="cola" id="cola" style="display:none"></div>
   <div class="sum" id="sum"></div>
   <div id="lista"><div class="load">Cargando…</div></div>
+
+  <!-- servicios de atrás que quedaron sin fotos -->
+  <button class="b-atras" id="btnAtras" onclick="abrirAtras()" style="display:none">
+    🗂️ Servicios pasados sin evidencia</button>
+  <div id="atras" style="display:none"></div>
 </div>
 
 <!-- acceso -->
@@ -535,6 +553,8 @@ function notas(x){
 
 function pintar(){
   const cont=document.getElementById("lista");
+  // la puerta a lo de atrás se muestra en cuanto hay sesión
+  document.getElementById("btnAtras").style.display = tecnico ? "block" : "none";
   datos=semana.filter(x=>x.fecha_servicio===fecha);
   const hechos=datos.filter(d=>(d.status||"").toUpperCase()==="ATENDIDO").length;
   document.getElementById("sum").innerHTML=
@@ -705,6 +725,8 @@ function esObra(s){ return !!(s && s.obra && (s.dias_est||0) > 1) }
 function bloquesDe(coord, modo){
   if(modo==="CONTINUIDAD") return BLOQUES_AVANCE;
   if(modo==="FIN_OBRA")    return BLOQUES_FIN;
+  // al regularizar se ofrecen las mismas etapas, pero nada es obligatorio:
+  // de un servicio de hace meses el técnico sube lo que haya conservado
   return POR_COORD[(coord||"").toUpperCase()] || BLOQUES;
 }
 
@@ -739,6 +761,84 @@ function abrirCierre(coord, id, modo){
   }
   document.getElementById("mCierre").style.display="flex";
   pintarCierre();
+}
+
+/* ============ servicios de atrás sin evidencia ============
+   Quedaron miles de servicios cerrados antes de que existiera la app, sin una
+   sola foto. Aquí el técnico los ve y les sube lo que tenga en el celular: no
+   se vuelve a cerrar nada —ya están atendidos—, solo se les agrega la evidencia
+   que falta. */
+let atras = {abierto:false, filas:[], mes:""};
+
+async function abrirAtras(){
+  atras.abierto = !atras.abierto;
+  const cont = document.getElementById("atras");
+  document.getElementById("lista").style.display = atras.abierto ? "none" : "";
+  document.getElementById("sum").style.display   = atras.abierto ? "none" : "";
+  cont.style.display = atras.abierto ? "block" : "none";
+  document.getElementById("btnAtras").textContent = atras.abierto
+    ? "◀ Volver a mi día" : "🗂️ Servicios pasados sin evidencia";
+  if(!atras.abierto) return;
+  cont.innerHTML = '<div class="load">Buscando lo que quedó sin fotos…</div>';
+  try{
+    // lo mío ya viene filtrado por la base; solo lo cerrado y de fecha vieja
+    const tope = isoDe(new Date(Date.now() - 8*86400000));
+    const srv = await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
+      "fecha_servicio,fecha_atencion,tecnico,serie,status"+
+      "&status=eq.ATENDIDO&fecha_servicio=lt."+tope+
+      "&order=fecha_servicio.desc&limit=600");
+    const evs = await api("evidencias?select=coord,servicio_id&limit=5000");
+    const con = new Set(evs.map(e=>e.coord+"|"+e.servicio_id));
+    atras.filas = srv.filter(s=>!con.has(s.coord+"|"+s.id));
+    pintarAtras();
+  }catch(e){
+    cont.innerHTML = '<div class="vacio">No se pudo consultar: '+esc(e.message)+'</div>';
+  }
+}
+
+function pintarAtras(){
+  const cont = document.getElementById("atras");
+  const meses = [...new Set(atras.filas.map(s=>(s.fecha_servicio||"").slice(0,7)))].sort().reverse();
+  const sel = atras.mes || "";
+  const vis = atras.filas.filter(s=>!sel || (s.fecha_servicio||"").startsWith(sel));
+  if(!atras.filas.length){
+    cont.innerHTML = '<div class="vacio">Al corriente: no tienes servicios pasados sin evidencia.</div>';
+    return;
+  }
+  cont.innerHTML = `
+    <div class="sum">${atras.filas.length} servicio(s) tuyos cerrados sin una sola foto.
+      Sube lo que tengas guardado en el celular.</div>
+    <div class="f-mes">
+      <select onchange="atras.mes=this.value;pintarAtras()">
+        <option value="">Todos los meses</option>
+        ${meses.map(m=>`<option value="${m}" ${m===sel?"selected":""}>${mesLargo(m)}</option>`).join("")}
+      </select>
+    </div>
+    ${vis.slice(0,120).map(s=>`
+      <div class="card" onclick="regularizar('${s.coord}',${s.id})">
+        <div class="c-top"><b>${esc(s.nombre||"(sin nombre)")}</b>
+          <span class="tag">${esc(s.coord)}</span></div>
+        <div class="c-sub">${esc(s.fecha_servicio||"")} · ${esc(limpio(s.dependencia)||"")}
+          ${s.tkt?" · TKT "+esc(s.tkt):""}</div>
+        <div class="c-cta">Agregar evidencia →</div>
+      </div>`).join("")}
+    ${vis.length>120?`<div class="vacio">…y ${vis.length-120} más. Filtra por mes para verlos.</div>`:""}`;
+}
+
+function mesLargo(m){
+  const N=["enero","febrero","marzo","abril","mayo","junio","julio","agosto",
+           "septiembre","octubre","noviembre","diciembre"];
+  const p=(m||"").split("-");
+  return p.length===2 ? N[parseInt(p[1],10)-1]+" "+p[0] : m;
+}
+
+/* abre la misma hoja de evidencia, pero sin volver a cerrar el servicio */
+function regularizar(coord, id){
+  const s = atras.filas.find(x=>x.coord===coord && x.id===id);
+  if(!s) return;
+  if(!semana.some(x=>x.coord===coord && x.id===id)) semana.push(s);
+  s._ev = s._ev || {};
+  abrirCierre(coord, id, "REGULARIZAR");
 }
 
 /* ---------- inventario: una foto por pieza, en cada etapa ----------
@@ -811,7 +911,10 @@ const MODOS = {
   ATENDIDO:     {tit:"Cerrar servicio",           btn:"Cerrar servicio"},
   REPROGRAMADO: {tit:"Reprogramar servicio",      btn:"Reprogramar"},
   CONTINUIDAD:  {tit:"La obra sigue en proceso",  btn:"Guardar avance del día"},
-  FIN_OBRA:     {tit:"Instalación concluida",     btn:"Dar por concluida"}
+  FIN_OBRA:     {tit:"Instalación concluida",     btn:"Dar por concluida"},
+  /* el servicio ya está atendido: aquí solo se le agrega la evidencia que no
+     se tomó en su momento, sin volver a tocar su estatus ni su fecha */
+  REGULARIZAR:  {tit:"Agregar evidencia",         btn:"Guardar evidencia"}
 };
 
 /* ¿ese bloque ya está cubierto, sea con lo ya subido o con lo que trae ahora? */
@@ -829,7 +932,8 @@ function cerrarHoja(){
 function pintarCierre(){
   const s=cie.srv, esRep=cie.estatus==="REPROGRAMADO";
   const m=MODOS[cie.estatus]||MODOS.ATENDIDO;
-  const faltan = esRep ? [] : cie._bloques.filter(b=>!cubierto(b));
+  const esReg = cie.estatus==="REGULARIZAR";
+  const faltan = (esRep||esReg) ? [] : cie._bloques.filter(b=>!cubierto(b));
   const listo = faltan.length===0;
   const quedan = esObra(s) ? (s.dias_est - s.dia_n) : 0;
 
@@ -1182,8 +1286,10 @@ async function enviarCierre(item){
     for(let i=0;i<arr.length;i++) await subirArchivo(item, arr[i], tipo, i);
   }
   for(const p of (item.partidas||[])) await subirArchivo(item, p.blob, p.tipo, p.n);
-  await api(`servicios?coord=eq.${encodeURIComponent(item.coord)}&id=eq.${item.id}`,
-            {method:"PATCH", body:JSON.stringify(item.body)});
+  if(Object.keys(item.body||{}).length){
+    await api(`servicios?coord=eq.${encodeURIComponent(item.coord)}&id=eq.${item.id}`,
+              {method:"PATCH", body:JSON.stringify(item.body)});
+  }
 
   // al dar la obra por terminada, los días que quedaban programados se cancelan
   // (solo los que nadie ha tocado, para no borrar trabajo registrado)
@@ -1208,7 +1314,10 @@ async function guardarCierre(s, modo, com){
      no se pudo también pero marcado para cobro, y solo el cierre de la obra
      queda atendido */
   const body={};
-  if(modo==="ATENDIDO" || modo==="FIN_OBRA"){
+  if(modo==="REGULARIZAR"){
+    /* ni status ni fecha_atencion: el servicio ya estaba cerrado y su fecha es
+       la que fue. Lo único que puede enriquecerse es el inventario. */
+  }else if(modo==="ATENDIDO" || modo==="FIN_OBRA"){
     body.status="ATENDIDO"; body.fecha_atencion=fecha;
   }else if(modo==="CONTINUIDAD"){
     body.status="CONTINUIDAD"; body.fecha_atencion=fecha;
