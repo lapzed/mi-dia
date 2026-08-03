@@ -283,6 +283,13 @@
   </div>
 </div>
 
+<!-- para el inventario: la camara del sistema y la galeria, cuando el visor
+     con recuadro no esta disponible -->
+<input type="file" id="inPart" accept="image/*" capture="environment"
+       style="display:none" onchange="agregarPartida(this)">
+<input type="file" id="inPartGal" accept="image/*" multiple
+       style="display:none" onchange="agregarPartida(this)">
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -672,6 +679,16 @@ const PARTIDAS = [
    pista:"El estrobo dentro de la guía y su entorno, para ubicarlo"}
 ];
 const PART_COORD = ["MANT","INST","PRY_ESP"];   // donde se interviene el equipo
+const ETAPAS_PART = ["ANTES","DURANTE","DESPUES"];
+const NOMBRE_ETAPA = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después"};
+const TIT_PART = {
+  ANTES:   "Inventario del sitio",
+  DURANTE: "El trabajo, pieza por pieza",
+  DESPUES: "Cómo quedó cada pieza"};
+const PISTA_PART = {
+  ANTES:   "Una foto por pieza, como la encontraste. De aquí sale el número de aditamentos del servicio.",
+  DURANTE: "La pieza mientras se interviene: limpieza, conexiones, medición. Solo las que trabajaste.",
+  DESPUES: "La misma pieza ya terminada y funcionando. Solo las que trabajaste."};
 
 /* El receptor registra un tono de supervisión cada 3 horas. El técnico lo lee
    en la pantalla del equipo: si falta alguno, ese rato el equipo no estuvo
@@ -705,47 +722,57 @@ function abrirCierre(coord, id, modo){
                barras: srv.senal_barras||""};
   }
   cie._bloques.forEach(b=>{ cie[b.campo]=[] });
-  // el inventario cuelga del "Antes" y solo donde se interviene el equipo
-  cie.partidas = (PART_COORD.indexOf((coord||"").toUpperCase())>=0 &&
-                  cie._bloques.some(b=>b.tipo==="ANTES")) ? {} : null;
-  if(cie.partidas){
-    PARTIDAS.forEach(p=>{ cie.partidas[p.id]=[] });
-    cie.series = {EQUIPO: srv.serie||"", AMPLIFICADOR:""};
+  /* el inventario se lleva pieza por pieza en las tres etapas, solo donde se
+     interviene el equipo. El conteo de aditamentos sale del "Antes", que es lo
+     que hay instalado; en las otras dos son la prueba del trabajo. */
+  cie.partidas = null;
+  if(PART_COORD.indexOf((coord||"").toUpperCase())>=0){
+    const etapas = cie._bloques.filter(b=>ETAPAS_PART.indexOf(b.tipo)>=0);
+    if(etapas.length){
+      cie.partidas = {};
+      etapas.forEach(b=>{
+        cie.partidas[b.tipo] = {};
+        PARTIDAS.forEach(p=>{ cie.partidas[b.tipo][p.id]=[] });
+      });
+      cie.series = {EQUIPO: srv.serie||"", AMPLIFICADOR:""};
+    }
   }
   document.getElementById("mCierre").style.display="flex";
   pintarCierre();
 }
 
-/* ---------- inventario: una foto por pieza ---------- */
-function partAgregar(pid){
+/* ---------- inventario: una foto por pieza, en cada etapa ----------
+   La misma lista de piezas se lleva en el antes, el durante y el despues; lo
+   que cambia es para que sirve cada una. El conteo de aditamentos sale solo del
+   antes, que es lo que hay instalado: contarlo tres veces lo triplicaria. */
+function partLista(etapa, pid){ return cie.partidas[etapa][pid] }
+
+function partAgregar(etapa, pid){
   const p = PARTIDAS.find(x=>x.id===pid);
   let variante = "";
   if(p.tipos){
-    const sel = document.getElementById("tipo_"+pid);
+    const sel = document.getElementById("tipo_"+etapa+"_"+pid);
     variante = sel ? sel.value : p.tipos[0][0];
   }
-  const n = cie.partidas[pid].length + 1;
-  const tit = p.varias ? `${p.tit.replace(/s$/,"")} ${n}${variante?" · "+variante:""}` : p.tit;
-  if(camSoportada()){
-    camPendiente = {pid:pid, variante:variante};
-    camAbrir("__part__", tit, p.pista, p.guia);
-  }else{
-    document.getElementById("inPart").dataset.pid = pid;
-    document.getElementById("inPart").dataset.variante = variante;
-    document.getElementById("inPart").click();
-  }
+  const n = partLista(etapa, pid).length + 1;
+  const tit = (p.varias ? `${p.tit.replace(/s$/,"")} ${n}${variante?" · "+variante:""}` : p.tit)
+            + "  ·  " + NOMBRE_ETAPA[etapa];
+  camPendiente = {etapa:etapa, pid:pid, variante:variante};
+  if(camSoportada()) camAbrir("__part__", tit, p.pista, p.guia);
+  else camNativo("__part__");
 }
 /* de la galería, para los servicios pasados y para cuando la cámara no abre */
-function partGaleria(pid){
+function partGaleria(etapa, pid){
   const p = PARTIDAS.find(x=>x.id===pid);
-  const sel = document.getElementById("tipo_"+pid);
+  const sel = document.getElementById("tipo_"+etapa+"_"+pid);
   const inp = document.getElementById("inPartGal");
+  inp.dataset.etapa = etapa;
   inp.dataset.pid = pid;
   inp.dataset.variante = (p.tipos && sel) ? sel.value : "";
   inp.click();
 }
-function partQuitar(pid, i){
-  cie.partidas[pid].splice(i,1);
+function partQuitar(etapa, pid, i){
+  partLista(etapa, pid).splice(i,1);
   pintarCierre();
 }
 function partSerie(pid, v){ cie.series[pid] = v }
@@ -754,9 +781,9 @@ function partSerie(pid, v){ cie.series[pid] = v }
    servicio: es el dato que hoy se teclea en la oficina */
 function conteoPartidas(){
   const out = {};
-  if(!cie.partidas) return out;
+  if(!cie.partidas || !cie.partidas.ANTES) return out;
   for(const p of PARTIDAS){
-    const lista = cie.partidas[p.id];
+    const lista = cie.partidas.ANTES[p.id];
     if(!lista.length) continue;
     if(p.tipos){
       for(const [nombre,campo] of p.tipos){
@@ -791,8 +818,8 @@ const MODOS = {
 function cubierto(b){
   const ya = (cie.srv._ev && cie.srv._ev[b.tipo]) ? 1 : 0;
   // en el "Antes" la foto del equipo del inventario ya cuenta como evidencia
-  const inv = (b.tipo==="ANTES" && cie.partidas)
-            ? PARTIDAS.reduce((n,p)=>n+cie.partidas[p.id].length, 0) : 0;
+  const inv = (cie.partidas && cie.partidas[b.tipo])
+            ? PARTIDAS.reduce((n,p)=>n+cie.partidas[b.tipo][p.id].length, 0) : 0;
   return ya + cie[b.campo].length + inv > 0;
 }
 function cerrarHoja(){
@@ -807,47 +834,43 @@ function pintarCierre(){
   const quedan = esObra(s) ? (s.dias_est - s.dia_n) : 0;
 
   /* el inventario: un renglón por pieza, con su "+" para las que se repiten */
-  const partida = p => {
-    const lista = cie.partidas[p.id], hay = lista.length;
+  const partida = (etapa, p) => {
+    const lista = cie.partidas[etapa][p.id], hay = lista.length;
+    const req = p.req && etapa==="ANTES";          // el equipo solo se exige al llegar
     const fotos = lista.map((f,i)=>`
       <div class="pz">
         <img src="${f.url}">
         <span>${f.variante || (p.varias ? "#"+(i+1) : "")}</span>
-        <button onclick="partQuitar('${p.id}',${i})">✕</button>
+        <button onclick="partQuitar('${etapa}','${p.id}',${i})">✕</button>
       </div>`).join("");
     const selTipo = p.tipos ? `
-      <select id="tipo_${p.id}" class="pz-tipo">
+      <select id="tipo_${etapa}_${p.id}" class="pz-tipo">
         ${p.tipos.map(([n])=>`<option>${n}</option>`).join("")}</select>` : "";
     return `
       <div class="part ${hay?"lista":""}">
         <div class="part-cab">
           <b>${p.tit}</b>
-          ${p.req?'<span class="req'+(hay?" listo":"")+'">'+(hay?"listo":"obligatorio")+'</span>'
-                 :(hay?`<span class="cta">${hay}</span>`:"")}
+          ${req?'<span class="req'+(hay?" listo":"")+'">'+(hay?"listo":"obligatorio")+'</span>'
+               :(hay?`<span class="cta">${hay}</span>`:"")}
         </div>
         ${hay?`<div class="pzs">${fotos}</div>`:""}
         <div class="part-acc">
           ${selTipo}
-          <button class="b-part" onclick="partAgregar('${p.id}')">
+          <button class="b-part" onclick="partAgregar('${etapa}','${p.id}')">
             ${hay&&p.varias?"+ Agregar otra":(hay?"Repetir foto":"📷 Tomar foto")}</button>
         </div>
-        <button class="liga-gal" onclick="partGaleria('${p.id}')">o subir de la galería</button>
-        ${p.serie?`<input class="pz-serie" placeholder="Número de serie"
+        <button class="liga-gal" onclick="partGaleria('${etapa}','${p.id}')">o subir de la galería</button>
+        ${(p.serie && etapa==="ANTES")?`<input class="pz-serie" placeholder="Número de serie"
            value="${(cie.series[p.id]||"").replace(/"/g,"&quot;")}"
            oninput="partSerie('${p.id}',this.value)">`:""}
       </div>`;
   };
 
-  const seccionPartidas = () => !cie.partidas ? "" : `
-    <div class="lbl">Inventario del sitio
-      <span class="req ${cie.partidas.EQUIPO.length?"listo":""}">${cie.partidas.EQUIPO.length?"listo":"obligatorio"}</span></div>
-    <p class="pista">Una foto por pieza, centrada en el recuadro. Con esto se llena
-       solo el número de aditamentos del servicio.</p>
-    ${PARTIDAS.map(partida).join("")}
-    <input type="file" id="inPart" accept="image/*" capture="environment"
-           style="display:none" onchange="agregarPartida(this)">
-    <input type="file" id="inPartGal" accept="image/*" multiple
-           style="display:none" onchange="agregarPartida(this)">`;
+  const seccionPartidas = etapa => (!cie.partidas || !cie.partidas[etapa]) ? "" : `
+    <div class="lbl">${TIT_PART[etapa]}
+      ${etapa==="ANTES"?`<span class="req ${cie.partidas.ANTES.EQUIPO.length?"listo":""}">${cie.partidas.ANTES.EQUIPO.length?"listo":"obligatorio"}</span>`:""}</div>
+    <p class="pista">${PISTA_PART[etapa]}</p>
+    ${PARTIDAS.map(p=>partida(etapa,p)).join("")}`;
 
   const bloque = b => {
     const ok=cubierto(b), ya=s._ev&&s._ev[b.tipo];
@@ -855,7 +878,7 @@ function pintarCierre(){
       <div class="lbl">${b.titulo}
         <span class="req ${ok?"listo":""}">${ok?"listo":"obligatorio"}</span></div>
       <p class="pista">${b.pista}</p>
-      ${b.tipo==="ANTES" ? seccionPartidas() : ""}
+      ${seccionPartidas(b.tipo)}
       <button class="b-cam solo" onclick="abrirFoto('${b.campo}','${b.titulo.replace(/'/g,"")}','${(b.pista||"").replace(/'/g,"")}')">📷 Tomar foto</button>
       <button class="liga-gal" onclick="document.getElementById('in_${b.campo}_gal').click()">${b.pdf?"o subir de la galería / un PDF":"o subir de la galería"}</button>
       ${ya?'<div class="ya">Ya tiene archivos cargados de esta etapa.</div>':""}
@@ -990,6 +1013,7 @@ async function camAbrir(campo, titulo, pista, guia){
 function camNativo(campo){
   if(campo==="__part__" && camPendiente){
     const inp = document.getElementById("inPart");
+    inp.dataset.etapa = camPendiente.etapa || "ANTES";
     inp.dataset.pid = camPendiente.pid;
     inp.dataset.variante = camPendiente.variante||"";
     inp.click();
@@ -1039,7 +1063,7 @@ async function camDisparar(){
                 tipoMime:"image/jpeg", nombre:"foto.jpg"};
   if(campo==="__part__" && pend){
     foto.variante = pend.variante;
-    cie.partidas[pend.pid].push(foto);
+    cie.partidas[pend.etapa][pend.pid].push(foto);
   }else{
     cie[campo].push(foto);
   }
@@ -1055,12 +1079,13 @@ function abrirFoto(campo, titulo, pista){
 
 /* respaldo cuando el telefono no deja abrir la camara dentro de la app */
 async function agregarPartida(input){
+  const etapa = input.dataset.etapa || (camPendiente && camPendiente.etapa) || "ANTES";
   const pid = input.dataset.pid, variante = input.dataset.variante||"";
   const files = [...input.files]; input.value = "";
   for(const f of files){
     try{
       const blob = await recortarCentro(f);
-      cie.partidas[pid].push({blob:blob, url:URL.createObjectURL(blob),
+      cie.partidas[etapa][pid].push({blob:blob, url:URL.createObjectURL(blob),
         tipoMime:blob.type||"image/jpeg", nombre:f.name, variante:variante});
     }catch(e){ toast("No se pudo leer una imagen", true) }
   }
@@ -1209,11 +1234,15 @@ async function guardarCierre(s, modo, com){
      hasta hoy se capturaba a mano */
   if(cie.partidas){
     item.partidas = [];
-    for(const p of PARTIDAS){
-      cie.partidas[p.id].forEach((f,i)=>{
-        item.partidas.push({tipo:"ANTES|"+p.id+(f.variante?"|"+f.variante.toUpperCase():""),
-                            blob:f.blob, n:i+1});
-      });
+    for(const etapa of ETAPAS_PART){
+      if(!cie.partidas[etapa]) continue;
+      for(const p of PARTIDAS){
+        cie.partidas[etapa][p.id].forEach((f,i)=>{
+          item.partidas.push({
+            tipo: etapa+"|"+p.id+(f.variante?"|"+f.variante.toUpperCase():""),
+            blob: f.blob, n: i+1});
+        });
+      }
     }
     Object.assign(body, conteoPartidas());
   }
