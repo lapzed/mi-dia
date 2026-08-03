@@ -145,6 +145,11 @@
   .cam-marco{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:86%;aspect-ratio:4/3;border:3px solid #FFC61A;border-radius:8px;
     box-shadow:0 0 0 3000px rgba(0,0,0,.45);pointer-events:none}
+  /* guia de adentro: cuanto debe ocupar la pieza. El marco fija el tamano de la
+     foto; la guia dice si se pide detalle (llenarla) o ubicacion (dejar
+     alrededor lo que la rodea) */
+  .cam-guia{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    border:2px dashed rgba(255,255,255,.75);border-radius:6px;pointer-events:none}
   .cam-marco i{position:absolute;width:20px;height:20px;border:4px solid #FFC61A}
   .cam-marco i.a{left:-3px;top:-3px;border-right:none;border-bottom:none}
   .cam-marco i.b{right:-3px;top:-3px;border-left:none;border-bottom:none}
@@ -265,7 +270,8 @@
 <div class="cam" id="cam">
   <div class="cam-vis">
     <video id="camVideo" playsinline autoplay muted></video>
-    <div class="cam-marco"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i></div>
+    <div class="cam-marco"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i>
+      <div class="cam-guia" id="camGuia"></div></div>
     <div class="cam-tit" id="camTit"></div>
     <div class="cam-pista" id="camPista">Acerca hasta que llene el recuadro. Solo el equipo, derecho y centrado.</div>
   </div>
@@ -643,23 +649,27 @@ const POR_COORD = {LEV:BLOQUES_LEV, CAT:BLOQUES_CAT};
    el despues. Cada foto sabe de que pieza es, asi el informe la titula sola y
    —lo que mas sirve— el numero de aditamentos se escribe en el servicio en vez
    de capturarse a mano en la oficina. Los campos de destino ya existen. */
+/* `guia` = cuánto del recuadro debe ocupar la pieza.
+   Alto (90) para lo que se revisa de cerca —carátula, etiquetas, series—; bajo
+   (55) para lo que va montado en techo o muro, donde importa igual saber DÓNDE
+   está instalado. El recuadro exterior no cambia: la foto siempre sale igual. */
 const PARTIDAS = [
-  {id:"EQUIPO", tit:"Equipo receptor", req:true, serie:true,
-   pista:"La carátula completa, derecha y que llene el recuadro"},
-  {id:"AMPLIFICADOR", tit:"Amplificador", cuenta:"amplificador", serie:true,
-   pista:"El amplificador de frente, con su etiqueta visible"},
-  {id:"REFORZADOR", tit:"Reforzador",
-   pista:"El reforzador completo dentro del recuadro"},
-  {id:"UPS", tit:"UPS", cuenta:"ups",
+  {id:"EQUIPO", tit:"Equipo receptor", req:true, serie:true, guia:90,
+   pista:"La carátula completa y derecha, llenando la guía"},
+  {id:"AMPLIFICADOR", tit:"Amplificador", cuenta:"amplificador", serie:true, guia:90,
+   pista:"De frente, con su etiqueta visible"},
+  {id:"REFORZADOR", tit:"Reforzador", guia:85,
+   pista:"El reforzador completo dentro de la guía"},
+  {id:"UPS", tit:"UPS", cuenta:"ups", guia:85,
    pista:"El respaldo de energía completo"},
-  {id:"ANTENA", tit:"Antena", cuenta:"antena",
-   pista:"La antena y su mástil"},
-  {id:"TROMPETA", tit:"Trompetas / bocinas", varias:true,
+  {id:"ANTENA", tit:"Antena", cuenta:"antena", guia:55,
+   pista:"La antena dentro de la guía y el techo alrededor, para ubicarla"},
+  {id:"TROMPETA", tit:"Trompetas / bocinas", varias:true, guia:55,
    tipos:[["Plástico","plasticas"],["Aluminio","aluminio"],
           ["Plafón","bocina_plafon"],["Dual elíptica","eliptica"]],
-   pista:"Una por bocina, que llene el recuadro"},
-  {id:"ESTROBO", tit:"Estrobos", varias:true, cuenta:"estrobo",
-   pista:"Una por estrobo"}
+   pista:"La bocina dentro de la guía y el muro alrededor, para ver dónde está"},
+  {id:"ESTROBO", tit:"Estrobos", varias:true, cuenta:"estrobo", guia:55,
+   pista:"El estrobo dentro de la guía y su entorno, para ubicarlo"}
 ];
 const PART_COORD = ["MANT","INST","PRY_ESP"];   // donde se interviene el equipo
 
@@ -718,12 +728,21 @@ function partAgregar(pid){
   const tit = p.varias ? `${p.tit.replace(/s$/,"")} ${n}${variante?" · "+variante:""}` : p.tit;
   if(camSoportada()){
     camPendiente = {pid:pid, variante:variante};
-    camAbrir("__part__", tit, p.pista);
+    camAbrir("__part__", tit, p.pista, p.guia);
   }else{
     document.getElementById("inPart").dataset.pid = pid;
     document.getElementById("inPart").dataset.variante = variante;
     document.getElementById("inPart").click();
   }
+}
+/* de la galería, para los servicios pasados y para cuando la cámara no abre */
+function partGaleria(pid){
+  const p = PARTIDAS.find(x=>x.id===pid);
+  const sel = document.getElementById("tipo_"+pid);
+  const inp = document.getElementById("inPartGal");
+  inp.dataset.pid = pid;
+  inp.dataset.variante = (p.tipos && sel) ? sel.value : "";
+  inp.click();
 }
 function partQuitar(pid, i){
   cie.partidas[pid].splice(i,1);
@@ -812,6 +831,7 @@ function pintarCierre(){
           <button class="b-part" onclick="partAgregar('${p.id}')">
             ${hay&&p.varias?"+ Agregar otra":(hay?"Repetir foto":"📷 Tomar foto")}</button>
         </div>
+        <button class="liga-gal" onclick="partGaleria('${p.id}')">o subir de la galería</button>
         ${p.serie?`<input class="pz-serie" placeholder="Número de serie"
            value="${(cie.series[p.id]||"").replace(/"/g,"&quot;")}"
            oninput="partSerie('${p.id}',this.value)">`:""}
@@ -825,6 +845,8 @@ function pintarCierre(){
        solo el número de aditamentos del servicio.</p>
     ${PARTIDAS.map(partida).join("")}
     <input type="file" id="inPart" accept="image/*" capture="environment"
+           style="display:none" onchange="agregarPartida(this)">
+    <input type="file" id="inPartGal" accept="image/*" multiple
            style="display:none" onchange="agregarPartida(this)">`;
 
   const bloque = b => {
@@ -922,29 +944,58 @@ function quitar(campo,i){ cie[campo].splice(i,1); pintarCierre() }
    por partida en vez de varias "por si acaso". */
 const FOTO_W = 1200, FOTO_H = 900;      // 4:3, el mismo que el recuadro
 let camStream = null, camDestino = null, camFrontal = false, camPendiente = null;
+let camPorQue = "";     // por que no abrio, para poder decirlo
+let camGuiaAct = null;  // cuanto debe ocupar la pieza en el encuadre actual
 
 function camSoportada(){
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
             window.isSecureContext);
 }
 
-async function camAbrir(campo, titulo, pista){
+async function camAbrir(campo, titulo, pista, guia){
   camDestino = {campo:campo};
   document.getElementById("camTit").textContent = titulo || "";
   if(pista) document.getElementById("camPista").textContent = pista;
+  camGuiaAct = guia || null;
+  const g = document.getElementById("camGuia");
+  if(guia){ g.style.display="block"; g.style.width=guia+"%"; g.style.aspectRatio="4/3" }
+  else g.style.display="none";
   document.getElementById("cam").classList.add("on");
   document.getElementById("camAviso").style.display = "none";
-  try{
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode: camFrontal?"user":{ideal:"environment"},
-             width:{ideal:1920}, height:{ideal:1440}}, audio:false});
-    const v = document.getElementById("camVideo");
-    v.srcObject = camStream;
-    await v.play();
-  }catch(e){
-    // sin permiso o sin camara: se cae al camino de siempre y se recorta igual
-    camCerrar();
-    toast("No se pudo abrir la cámara, usa el botón de la galería", true);
+  /* Se pide de lo mas exigente a lo mas simple. Varios Android rechazan de un
+     golpe la peticion completa (resolucion + camara trasera) en vez de darte lo
+     que puedan, y entonces no abre nada. */
+  const intentos = [
+    {video:{facingMode: camFrontal?"user":{ideal:"environment"},
+            width:{ideal:1920}, height:{ideal:1440}}, audio:false},
+    {video:{facingMode: camFrontal?"user":"environment"}, audio:false},
+    {video:true, audio:false}
+  ];
+  for(const req of intentos){
+    try{
+      camStream = await navigator.mediaDevices.getUserMedia(req);
+      const v = document.getElementById("camVideo");
+      v.srcObject = camStream;
+      await v.play();
+      return true;
+    }catch(e){ camPorQue = e && (e.name||e.message) }
+  }
+  // no se pudo: se sigue por el camino de siempre, que recorta igual
+  camCerrar();
+  camNativo(campo);
+  return false;
+}
+
+/* la camara del sistema, cuando la de la app no esta disponible */
+function camNativo(campo){
+  if(campo==="__part__" && camPendiente){
+    const inp = document.getElementById("inPart");
+    inp.dataset.pid = camPendiente.pid;
+    inp.dataset.variante = camPendiente.variante||"";
+    inp.click();
+  }else{
+    const inp = document.getElementById("in_"+campo+"_cam");
+    if(inp) inp.click();
   }
 }
 
@@ -952,7 +1003,7 @@ function camGirar(){
   camFrontal = !camFrontal;
   const d = camDestino;
   camCerrar();
-  if(d) camAbrir(d.campo, document.getElementById("camTit").textContent);
+  if(d) camAbrir(d.campo, document.getElementById("camTit").textContent, null, camGuiaAct);
 }
 
 function camCerrar(){
