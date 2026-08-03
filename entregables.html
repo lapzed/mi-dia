@@ -54,6 +54,9 @@
     white-space:nowrap;display:inline-block;margin:1px 0}
   .et.si{background:rgba(30,142,90,.2);color:#5BD79B}
   .et.no{background:rgba(232,163,61,.15);color:#F0BE6E}
+  .mini{padding:5px 10px;font-size:11.5px;white-space:nowrap}
+  .lbl-min{display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:4px}
   .vacio{text-align:center;color:var(--txt2);padding:50px}
   .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
 
@@ -186,6 +189,23 @@
 </div>
 
 <div id="salida"></div>
+
+<!-- cargar evidencia de un servicio ya cerrado, sin volver a tocarlo -->
+<div class="modal" id="mSubir" style="display:none">
+  <div class="box">
+    <h2>Agregar evidencia</h2>
+    <p><b id="subSitio"></b><br><span id="subFecha"></span></p>
+    <label class="lbl-min">¿De qué momento son?</label>
+    <select id="subEtapa"></select>
+    <label class="lbl-min">Fotos o reporte escaneado</label>
+    <input id="subFile" type="file" accept="image/*,application/pdf" multiple>
+    <div class="aviso" id="subErr" style="display:none"></div>
+    <button class="pri" id="subBtn" style="width:100%;justify-content:center"
+            onclick="guardarSubida()">Guardar evidencia</button>
+    <button style="width:100%;justify-content:center;margin-top:8px"
+            onclick="cerrarSubir()">Cancelar</button>
+  </div>
+</div>
 
 <!-- el logo del cliente se pide una sola vez y queda para siempre -->
 <div class="modal" id="mLogo" style="display:none">
@@ -327,20 +347,23 @@ async function cargar(){
         "fecha_servicio,fecha_atencion,horario_atencion,tecnico,auxiliar,personal_atiende,"+
         "telefono,obs_coord,requerimientos,equipo,serie,"+
         "canal,senal_barras,log_estado,log_saltos,log_ultimo&status=eq.ATENDIDO"+
-        "&order=fecha_atencion.desc,dependencia&limit=1000";
+        "&order=fecha_atencion.desc,dependencia";
   if(cli) q+="&dependencia=eq."+encodeURIComponent(cli);
   if(co)  q+="&coord=eq."+co;
   if(de)  q+="&fecha_servicio=gte."+de;
   if(a)   q+="&fecha_servicio=lte."+a;
   try{
-    filas=await api(q);
-    ev={};
-    if(filas.length){
-      const ids=[...new Set(filas.map(f=>f.id))];
-      const e=await api("evidencias?select=coord,servicio_id,tipo,ruta&servicio_id=in.("+
-                        ids.join(",")+")");
-      e.forEach(x=>{ const k=x.coord+"|"+x.servicio_id; (ev[k]=ev[k]||[]).push(x) });
+    /* de mil en mil: hay más de tres mil atendidos y el histórico completo se
+       tiene que poder recorrer, no solo lo más reciente */
+    filas=[];
+    for(let off=0; off<8000; off+=1000){
+      const t=await api(q+"&limit=1000&offset="+off);
+      filas=filas.concat(t);
+      if(t.length<1000) break;
+      document.getElementById("tabla").innerHTML=
+        '<div class="load">Cargando… '+filas.length+' servicios</div>';
     }
+    await cargarEvidencias();
     pintar();
   }catch(err){
     document.getElementById("tabla").innerHTML=
@@ -348,8 +371,18 @@ async function cargar(){
   }
 }
 
-/* un servicio se identifica por coordinacion + id: el mismo id existe en varias
-   coordinaciones (571 casos), asi que usarlo solo cruzaria los registros */
+/* qué evidencia tiene ya cada servicio de los que están en pantalla */
+async function cargarEvidencias(){
+  ev={};
+  if(!filas.length) return;
+  const ids=[...new Set(filas.map(f=>f.id))];
+  for(let i=0;i<ids.length;i+=300){          // la consulta no admite una lista sin fin
+    const e=await api("evidencias?select=coord,servicio_id,tipo,ruta&servicio_id=in.("+
+                      ids.slice(i,i+300).join(",")+")&limit=5000");
+    e.forEach(x=>{ const k=x.coord+"|"+x.servicio_id; (ev[k]=ev[k]||[]).push(x) });
+  }
+}
+
 function llave(x){ return x.coord+"|"+x.id }
 /* el tipo puede venir compuesto: ANTES|TROMPETA|PLASTICO. La etapa es lo de
    antes de la primera barra; lo demás dice qué pieza es. */
@@ -388,7 +421,7 @@ function pintar(){
   document.getElementById("tabla").innerHTML=
    `<table><thead><tr>
       <th style="width:32px"></th><th>Fecha</th><th>TKT</th><th>Coord</th><th>Cliente</th>
-      <th>Sitio</th><th>Técnico</th><th>Evidencia</th>
+      <th>Sitio</th><th>Técnico</th><th>Evidencia</th><th></th>
     </tr></thead><tbody>`+
     v.map(x=>`<tr id="tr${x.coord}_${x.id}" class="${marcados.has(llave(x))?"sel":""}">
       <td><input type="checkbox" ${marcados.has(llave(x))?"checked":""}
@@ -400,8 +433,9 @@ function pintar(){
       <td>${esc(x.nombre)}</td>
       <td>${esc(limpio(x.tecnico))}</td>
       <td>${etapasDe(x.coord).map(([t,n])=>{
-        const c=(ev[llave(x)]||[]).filter(e=>e.tipo===t).length;
+        const c=(ev[llave(x)]||[]).filter(e=>etapaDe(e.tipo)===t).length;
         return `<span class="et ${c?"si":"no"}">${c?"✓":"○"} ${esc(n)}</span>`}).join(" ")}</td>
+      <td><button class="mini" onclick="abrirSubir('${x.coord}',${x.id})">+ evidencia</button></td>
     </tr>`).join("")+"</tbody></table>";
   document.getElementById("btnGen").disabled = marcados.size===0;
 }
@@ -429,6 +463,62 @@ async function bajar(ruta){
   const b=await r.blob();
   return await new Promise(res=>{ const f=new FileReader();
     f.onload=()=>res({url:f.result,tipo:b.type}); f.readAsDataURL(b) });
+}
+
+/* ---------- subir evidencia de servicios pasados ----------
+   El acervo de atrás no siempre lo tiene el técnico en el celular: muchas fotos
+   y reportes llegaron por correo o WhatsApp al área administrativa. Desde aquí
+   se cargan sin tocar el servicio: ya está atendido y su fecha es la que fue. */
+let subir = null;   // {coord, id}
+
+function abrirSubir(coord, id){
+  const x = filas.find(s=>s.coord===coord && s.id===id);
+  if(!x) return;
+  subir = {coord:coord, id:id, srv:x};
+  document.getElementById("subSitio").textContent =
+    (x.nombre||"") + (x.tkt?" · TKT "+x.tkt:"");
+  document.getElementById("subFecha").textContent =
+    "Atendido el " + (x.fecha_atencion||x.fecha_servicio||"—") +
+    " · " + (limpio(x.tecnico)||"sin técnico");
+  const se = document.getElementById("subEtapa");
+  se.innerHTML = etapasDe(x.coord).map(([t,n])=>`<option value="${t}">${n}</option>`).join("");
+  document.getElementById("subErr").style.display="none";
+  document.getElementById("subFile").value="";
+  document.getElementById("mSubir").style.display="flex";
+}
+function cerrarSubir(){ document.getElementById("mSubir").style.display="none"; subir=null }
+
+async function guardarSubida(){
+  const inp = document.getElementById("subFile");
+  const err = document.getElementById("subErr");
+  const btn = document.getElementById("subBtn");
+  if(!inp.files.length){ err.textContent="Elige al menos un archivo"; err.style.display="block"; return }
+  const tipo = document.getElementById("subEtapa").value;
+  const x = subir.srv;
+  btn.disabled = true;
+  try{
+    for(let i=0;i<inp.files.length;i++){
+      btn.textContent = `Subiendo ${i+1}/${inp.files.length}…`;
+      const f = inp.files[i];
+      const ext = f.type==="application/pdf" ? "pdf" : "jpg";
+      const ruta = `${x.coord}/${x.tkt||("id"+x.id)}/${Date.now()}_${tipo}_${i}.${ext}`;
+      const r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,
+        {method:"POST", headers:Object.assign({},hdr(),{"Content-Type":f.type||"image/jpeg"}),
+         body:f});
+      if(!r.ok) throw new Error("no se pudo guardar el archivo ("+r.status+
+                                (r.status===403?"): tu cuenta no tiene permiso de subir":")"));
+      await api("evidencias",{method:"POST",body:JSON.stringify({
+        coord:x.coord, servicio_id:x.id, tkt:x.tkt||"", tipo:tipo,
+        ruta:ruta, tecnico:x.tecnico||ses.nombre})});
+    }
+    await cargarEvidencias();      // para que la fila muestre lo que ya tiene
+    cerrarSubir();
+    pintar();
+  }catch(e){
+    err.textContent = e.message; err.style.display="block";
+  }finally{
+    btn.disabled=false; btn.textContent="Guardar evidencia";
+  }
 }
 
 /* ---------- logos de los clientes ----------
