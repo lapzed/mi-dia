@@ -335,7 +335,19 @@ async function cargar(){
 /* un servicio se identifica por coordinacion + id: el mismo id existe en varias
    coordinaciones (571 casos), asi que usarlo solo cruzaria los registros */
 function llave(x){ return x.coord+"|"+x.id }
-function tiene(x,tipo){ return (ev[llave(x)]||[]).some(e=>e.tipo===tipo) }
+/* el tipo puede venir compuesto: ANTES|TROMPETA|PLASTICO. La etapa es lo de
+   antes de la primera barra; lo demás dice qué pieza es. */
+function etapaDe(t){ return String(t||"").split("|")[0] }
+function piezaDe(t){
+  const p = String(t||"").split("|").slice(1);
+  if(!p.length) return "";
+  const nom = {EQUIPO:"Equipo receptor", AMPLIFICADOR:"Amplificador",
+               REFORZADOR:"Reforzador", UPS:"UPS", ANTENA:"Antena",
+               TROMPETA:"Trompeta", ESTROBO:"Estrobo"}[p[0]] || p[0];
+  const v = p[1] ? p[1].charAt(0)+p[1].slice(1).toLowerCase() : "";
+  return v ? nom+" · "+v : nom;
+}
+function tiene(x,tipo){ return (ev[llave(x)]||[]).some(e=>etapaDe(e.tipo)===tipo) }
 function completo(x){ return etapasDe(x.coord).every(([t])=>tiene(x,t)) }
 
 function visibles(){
@@ -496,7 +508,7 @@ async function informeDe(x, num, ident, conLog){
   const arch=[];
   for(const e of (ev[llave(x)]||[])){
     const d=await bajar(e.ruta);
-    if(d) arch.push({clase:e.tipo, url:d.url, mime:d.tipo});
+    if(d) arch.push({clase:etapaDe(e.tipo), pieza:piezaDe(e.tipo), url:d.url, mime:d.tipo});
   }
   let h="";
   // portada
@@ -526,7 +538,7 @@ async function informeDe(x, num, ident, conLog){
       h+=hoja(`<h2 class="sec" style="text-align:center">Evidencia fotográfica</h2>
         <div class="etapa">${esc(n)}</div>
         <div class="rej">${trozo.map((f,k)=>`<figure><img src="${f.url}">
-          <figcaption>Foto. ${i+k+1}</figcaption></figure>`).join("")}</div>`);
+          <figcaption>Foto. ${i+k+1}${f.pieza?" · "+esc(f.pieza):""}</figcaption></figure>`).join("")}</div>`);
     }
   }
   // reporte firmado
@@ -602,7 +614,7 @@ async function generar(){
     for(const e of (ev[llave(x)]||[])){
       const d=await bajar(e.ruta);
       // ojo: 'clase' es FOTO/REPORTE y 'mime' es image/jpeg; no mezclarlos
-      if(d) arch.push({clase:e.tipo, url:d.url, mime:d.tipo});
+      if(d) arch.push({clase:etapaDe(e.tipo), pieza:piezaDe(e.tipo), url:d.url, mime:d.tipo});
     }
     const porEtapa = t => arch.filter(f=>f.clase===t);
     partes.push(`<div class="serv">

@@ -133,6 +133,58 @@
   .b-cam,.b-gal{flex:1;justify-content:center;padding:13px 8px;font-size:13px;
     border:1.5px dashed var(--line);background:#0F2C4A;color:var(--txt2)}
   .b-cam{border-style:solid;background:#17456E;color:var(--acc)}
+  /* ---------- camara con encuadre ----------
+     La camara del celular no deja dibujar nada encima, asi que el visor va
+     dentro de la app: se ve el recuadro y al disparar se recorta EXACTAMENTE lo
+     que quedo dentro. Por eso todas las fotos salen del mismo tamano. */
+  .cam{position:fixed;inset:0;z-index:120;background:#000;display:none;
+       flex-direction:column}
+  .cam.on{display:flex}
+  .cam-vis{position:relative;flex:1;overflow:hidden}
+  .cam-vis video{width:100%;height:100%;object-fit:cover;display:block}
+  .cam-marco{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:86%;aspect-ratio:4/3;border:3px solid #FFC61A;border-radius:8px;
+    box-shadow:0 0 0 3000px rgba(0,0,0,.45);pointer-events:none}
+  .cam-marco i{position:absolute;width:20px;height:20px;border:4px solid #FFC61A}
+  .cam-marco i.a{left:-3px;top:-3px;border-right:none;border-bottom:none}
+  .cam-marco i.b{right:-3px;top:-3px;border-left:none;border-bottom:none}
+  .cam-marco i.c{left:-3px;bottom:-3px;border-right:none;border-top:none}
+  .cam-marco i.d{right:-3px;bottom:-3px;border-left:none;border-top:none}
+  .cam-tit{position:absolute;left:0;right:0;top:14px;text-align:center;color:#fff;
+    font-size:15px;font-weight:800;text-shadow:0 1px 6px #000;padding:0 16px}
+  .cam-pista{position:absolute;left:0;right:0;bottom:14px;text-align:center;
+    color:#FFE9A6;font-size:12.5px;text-shadow:0 1px 6px #000;padding:0 22px}
+  .cam-barra{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 22px calc(14px + env(safe-area-inset-bottom));background:#000}
+  .cam-barra button{background:none;border:none;color:#EAF2FB;font-size:13.5px;
+    font-weight:700;padding:10px}
+  .cam-disparo{width:66px;height:66px;border-radius:50%;background:#fff;
+    border:4px solid #9DB6D2 !important;padding:0 !important}
+  .cam-aviso{color:#F0A9A5;font-size:12.5px;text-align:center;padding:14px 20px}
+
+  /* ---------- inventario por piezas ---------- */
+  .part{border:1px solid var(--line);border-radius:12px;padding:10px 11px;margin-bottom:9px;
+    background:#0F2C4A}
+  .part.lista{border-color:rgba(30,142,90,.55);background:rgba(30,142,90,.07)}
+  .part-cab{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:13.5px}
+  .part-cab b{font-weight:700}
+  .part-cab .cta{margin-left:auto;font-size:11px;font-weight:800;color:#5BD79B;
+    background:rgba(30,142,90,.2);border-radius:20px;padding:2px 9px}
+  .part-cab .req{margin-left:auto}
+  .part-acc{display:flex;gap:7px;align-items:center}
+  .b-part{flex:1;justify-content:center;padding:11px 8px;font-size:13px;
+    border:1.5px solid var(--line);background:#17456E;color:var(--acc)}
+  .pz-tipo{flex:0 0 auto;max-width:44%;font-size:12.5px;padding:8px 9px}
+  .pz-serie{width:100%;margin-top:8px;font-size:12.5px;padding:9px 10px}
+  .pzs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}
+  .pz{position:relative;width:74px}
+  .pz img{width:74px;height:56px;object-fit:cover;border-radius:8px;
+    border:1px solid var(--line);display:block}
+  .pz span{display:block;font-size:9.5px;color:var(--txt2);text-align:center;
+    margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pz button{position:absolute;top:-6px;right:-6px;width:21px;height:21px;padding:0;
+    border-radius:50%;background:var(--bad);color:#fff;font-size:12px;line-height:1}
+
   /* la camara es lo de siempre en campo; la galeria solo para servicios pasados */
   .b-cam.solo{display:flex;width:100%;justify-content:center;padding:15px 8px;font-size:14.5px}
   .liga-gal{display:block;width:100%;background:none;border:none;padding:9px 0 12px;
@@ -207,6 +259,22 @@
 <!-- cierre del servicio -->
 <div class="modal" id="mCierre" style="display:none">
   <div class="box" id="boxCierre"></div>
+</div>
+
+<!-- visor con encuadre: lo que quede dentro del recuadro es la foto -->
+<div class="cam" id="cam">
+  <div class="cam-vis">
+    <video id="camVideo" playsinline autoplay muted></video>
+    <div class="cam-marco"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i></div>
+    <div class="cam-tit" id="camTit"></div>
+    <div class="cam-pista" id="camPista">Acerca hasta que llene el recuadro. Solo el equipo, derecho y centrado.</div>
+  </div>
+  <div class="cam-aviso" id="camAviso" style="display:none"></div>
+  <div class="cam-barra">
+    <button onclick="camCerrar()">Cancelar</button>
+    <button class="cam-disparo" id="camBtn" onclick="camDisparar()"></button>
+    <button onclick="camGirar()">Girar</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -570,6 +638,31 @@ const BLOQUES_FIN = [
 
 const POR_COORD = {LEV:BLOQUES_LEV, CAT:BLOQUES_CAT};
 
+/* ---------- inventario del sitio, dentro del "Antes" ----------
+   Se levanta UNA vez: es lo que hay instalado, y eso no cambia entre el antes y
+   el despues. Cada foto sabe de que pieza es, asi el informe la titula sola y
+   —lo que mas sirve— el numero de aditamentos se escribe en el servicio en vez
+   de capturarse a mano en la oficina. Los campos de destino ya existen. */
+const PARTIDAS = [
+  {id:"EQUIPO", tit:"Equipo receptor", req:true, serie:true,
+   pista:"La carátula completa, derecha y que llene el recuadro"},
+  {id:"AMPLIFICADOR", tit:"Amplificador", cuenta:"amplificador", serie:true,
+   pista:"El amplificador de frente, con su etiqueta visible"},
+  {id:"REFORZADOR", tit:"Reforzador",
+   pista:"El reforzador completo dentro del recuadro"},
+  {id:"UPS", tit:"UPS", cuenta:"ups",
+   pista:"El respaldo de energía completo"},
+  {id:"ANTENA", tit:"Antena", cuenta:"antena",
+   pista:"La antena y su mástil"},
+  {id:"TROMPETA", tit:"Trompetas / bocinas", varias:true,
+   tipos:[["Plástico","plasticas"],["Aluminio","aluminio"],
+          ["Plafón","bocina_plafon"],["Dual elíptica","eliptica"]],
+   pista:"Una por bocina, que llene el recuadro"},
+  {id:"ESTROBO", tit:"Estrobos", varias:true, cuenta:"estrobo",
+   pista:"Una por estrobo"}
+];
+const PART_COORD = ["MANT","INST","PRY_ESP"];   // donde se interviene el equipo
+
 /* El receptor registra un tono de supervisión cada 3 horas. El técnico lo lee
    en la pantalla del equipo: si falta alguno, ese rato el equipo no estuvo
    recibiendo. Se pregunta en los mantenimientos, que es donde se revisa. */
@@ -602,8 +695,61 @@ function abrirCierre(coord, id, modo){
                barras: srv.senal_barras||""};
   }
   cie._bloques.forEach(b=>{ cie[b.campo]=[] });
+  // el inventario cuelga del "Antes" y solo donde se interviene el equipo
+  cie.partidas = (PART_COORD.indexOf((coord||"").toUpperCase())>=0 &&
+                  cie._bloques.some(b=>b.tipo==="ANTES")) ? {} : null;
+  if(cie.partidas){
+    PARTIDAS.forEach(p=>{ cie.partidas[p.id]=[] });
+    cie.series = {EQUIPO: srv.serie||"", AMPLIFICADOR:""};
+  }
   document.getElementById("mCierre").style.display="flex";
   pintarCierre();
+}
+
+/* ---------- inventario: una foto por pieza ---------- */
+function partAgregar(pid){
+  const p = PARTIDAS.find(x=>x.id===pid);
+  let variante = "";
+  if(p.tipos){
+    const sel = document.getElementById("tipo_"+pid);
+    variante = sel ? sel.value : p.tipos[0][0];
+  }
+  const n = cie.partidas[pid].length + 1;
+  const tit = p.varias ? `${p.tit.replace(/s$/,"")} ${n}${variante?" · "+variante:""}` : p.tit;
+  if(camSoportada()){
+    camPendiente = {pid:pid, variante:variante};
+    camAbrir("__part__", tit, p.pista);
+  }else{
+    document.getElementById("inPart").dataset.pid = pid;
+    document.getElementById("inPart").dataset.variante = variante;
+    document.getElementById("inPart").click();
+  }
+}
+function partQuitar(pid, i){
+  cie.partidas[pid].splice(i,1);
+  pintarCierre();
+}
+function partSerie(pid, v){ cie.series[pid] = v }
+
+/* cuenta cuantas piezas de cada tipo se fotografiaron, para escribirlas en el
+   servicio: es el dato que hoy se teclea en la oficina */
+function conteoPartidas(){
+  const out = {};
+  if(!cie.partidas) return out;
+  for(const p of PARTIDAS){
+    const lista = cie.partidas[p.id];
+    if(!lista.length) continue;
+    if(p.tipos){
+      for(const [nombre,campo] of p.tipos){
+        const n = lista.filter(f=>f.variante===nombre).length;
+        if(n) out[campo] = String(n);
+      }
+    }else if(p.cuenta){
+      out[p.cuenta] = String(lista.length);
+    }
+  }
+  if(cie.series && (cie.series.EQUIPO||"").trim()) out.serie = cie.series.EQUIPO.trim();
+  return out;
 }
 
 /* el técnico marca lo que vio en la pantalla del receptor */
@@ -624,7 +770,11 @@ const MODOS = {
 
 /* ¿ese bloque ya está cubierto, sea con lo ya subido o con lo que trae ahora? */
 function cubierto(b){
-  return ((cie.srv._ev && cie.srv._ev[b.tipo]) ? 1 : 0) + cie[b.campo].length > 0;
+  const ya = (cie.srv._ev && cie.srv._ev[b.tipo]) ? 1 : 0;
+  // en el "Antes" la foto del equipo del inventario ya cuenta como evidencia
+  const inv = (b.tipo==="ANTES" && cie.partidas)
+            ? PARTIDAS.reduce((n,p)=>n+cie.partidas[p.id].length, 0) : 0;
+  return ya + cie[b.campo].length + inv > 0;
 }
 function cerrarHoja(){
   document.getElementById("mCierre").style.display="none"; cie=null;
@@ -637,13 +787,54 @@ function pintarCierre(){
   const listo = faltan.length===0;
   const quedan = esObra(s) ? (s.dias_est - s.dia_n) : 0;
 
+  /* el inventario: un renglón por pieza, con su "+" para las que se repiten */
+  const partida = p => {
+    const lista = cie.partidas[p.id], hay = lista.length;
+    const fotos = lista.map((f,i)=>`
+      <div class="pz">
+        <img src="${f.url}">
+        <span>${f.variante || (p.varias ? "#"+(i+1) : "")}</span>
+        <button onclick="partQuitar('${p.id}',${i})">✕</button>
+      </div>`).join("");
+    const selTipo = p.tipos ? `
+      <select id="tipo_${p.id}" class="pz-tipo">
+        ${p.tipos.map(([n])=>`<option>${n}</option>`).join("")}</select>` : "";
+    return `
+      <div class="part ${hay?"lista":""}">
+        <div class="part-cab">
+          <b>${p.tit}</b>
+          ${p.req?'<span class="req'+(hay?" listo":"")+'">'+(hay?"listo":"obligatorio")+'</span>'
+                 :(hay?`<span class="cta">${hay}</span>`:"")}
+        </div>
+        ${hay?`<div class="pzs">${fotos}</div>`:""}
+        <div class="part-acc">
+          ${selTipo}
+          <button class="b-part" onclick="partAgregar('${p.id}')">
+            ${hay&&p.varias?"+ Agregar otra":(hay?"Repetir foto":"📷 Tomar foto")}</button>
+        </div>
+        ${p.serie?`<input class="pz-serie" placeholder="Número de serie"
+           value="${(cie.series[p.id]||"").replace(/"/g,"&quot;")}"
+           oninput="partSerie('${p.id}',this.value)">`:""}
+      </div>`;
+  };
+
+  const seccionPartidas = () => !cie.partidas ? "" : `
+    <div class="lbl">Inventario del sitio
+      <span class="req ${cie.partidas.EQUIPO.length?"listo":""}">${cie.partidas.EQUIPO.length?"listo":"obligatorio"}</span></div>
+    <p class="pista">Una foto por pieza, centrada en el recuadro. Con esto se llena
+       solo el número de aditamentos del servicio.</p>
+    ${PARTIDAS.map(partida).join("")}
+    <input type="file" id="inPart" accept="image/*" capture="environment"
+           style="display:none" onchange="agregarPartida(this)">`;
+
   const bloque = b => {
     const ok=cubierto(b), ya=s._ev&&s._ev[b.tipo];
     return `
       <div class="lbl">${b.titulo}
         <span class="req ${ok?"listo":""}">${ok?"listo":"obligatorio"}</span></div>
       <p class="pista">${b.pista}</p>
-      <button class="b-cam solo" onclick="document.getElementById('in_${b.campo}_cam').click()">📷 Tomar foto</button>
+      ${b.tipo==="ANTES" ? seccionPartidas() : ""}
+      <button class="b-cam solo" onclick="abrirFoto('${b.campo}','${b.titulo.replace(/'/g,"")}','${(b.pista||"").replace(/'/g,"")}')">📷 Tomar foto</button>
       <button class="liga-gal" onclick="document.getElementById('in_${b.campo}_gal').click()">${b.pdf?"o subir de la galería / un PDF":"o subir de la galería"}</button>
       ${ya?'<div class="ya">Ya tiene archivos cargados de esta etapa.</div>':""}
       <!-- sin "multiple": con el, el celular ignora la orden de abrir la camara
@@ -725,11 +916,126 @@ function thumbs(campo){
 }
 function quitar(campo,i){ cie[campo].splice(i,1); pintarCierre() }
 
+/* ============ camara con encuadre ============
+   Todas las fotos salen de 1200x900: se recorta lo que quedo dentro del
+   recuadro amarillo. Asi el informe deja de verse disparejo y basta una foto
+   por partida en vez de varias "por si acaso". */
+const FOTO_W = 1200, FOTO_H = 900;      // 4:3, el mismo que el recuadro
+let camStream = null, camDestino = null, camFrontal = false, camPendiente = null;
+
+function camSoportada(){
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
+            window.isSecureContext);
+}
+
+async function camAbrir(campo, titulo, pista){
+  camDestino = {campo:campo};
+  document.getElementById("camTit").textContent = titulo || "";
+  if(pista) document.getElementById("camPista").textContent = pista;
+  document.getElementById("cam").classList.add("on");
+  document.getElementById("camAviso").style.display = "none";
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode: camFrontal?"user":{ideal:"environment"},
+             width:{ideal:1920}, height:{ideal:1440}}, audio:false});
+    const v = document.getElementById("camVideo");
+    v.srcObject = camStream;
+    await v.play();
+  }catch(e){
+    // sin permiso o sin camara: se cae al camino de siempre y se recorta igual
+    camCerrar();
+    toast("No se pudo abrir la cámara, usa el botón de la galería", true);
+  }
+}
+
+function camGirar(){
+  camFrontal = !camFrontal;
+  const d = camDestino;
+  camCerrar();
+  if(d) camAbrir(d.campo, document.getElementById("camTit").textContent);
+}
+
+function camCerrar(){
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream = null }
+  document.getElementById("cam").classList.remove("on");
+  document.getElementById("camVideo").srcObject = null;
+}
+
+/* El video se muestra recortado a la pantalla (object-fit:cover), asi que hay
+   que traducir el recuadro de la pantalla a coordenadas del video real. */
+function camRecorte(){
+  const v = document.getElementById("camVideo");
+  const vis = document.querySelector(".cam-vis").getBoundingClientRect();
+  const mar = document.querySelector(".cam-marco").getBoundingClientRect();
+  const esc = Math.max(vis.width / v.videoWidth, vis.height / v.videoHeight);
+  const offX = (vis.width  - v.videoWidth  * esc) / 2;
+  const offY = (vis.height - v.videoHeight * esc) / 2;
+  return {sx:(mar.left - vis.left - offX)/esc, sy:(mar.top - vis.top - offY)/esc,
+          sw:mar.width/esc, sh:mar.height/esc};
+}
+
+async function camDisparar(){
+  const v = document.getElementById("camVideo");
+  if(!v.videoWidth) return;
+  const r = camRecorte();
+  const c = document.createElement("canvas");
+  c.width = FOTO_W; c.height = FOTO_H;
+  c.getContext("2d").drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, FOTO_W, FOTO_H);
+  const blob = await new Promise(res=>c.toBlob(res, "image/jpeg", 0.72));
+  const campo = camDestino.campo, pend = camPendiente;
+  camCerrar(); camPendiente = null;
+  const foto = {blob:blob, url:URL.createObjectURL(blob),
+                tipoMime:"image/jpeg", nombre:"foto.jpg"};
+  if(campo==="__part__" && pend){
+    foto.variante = pend.variante;
+    cie.partidas[pend.pid].push(foto);
+  }else{
+    cie[campo].push(foto);
+  }
+  pintarCierre();
+}
+
+/* un solo camino para las fotos: el visor con recuadro y, si el telefono no lo
+   permite, la camara de siempre (que se recorta igual al guardarse) */
+function abrirFoto(campo, titulo, pista){
+  if(camSoportada()){ camPendiente = null; camAbrir(campo, titulo, pista) }
+  else document.getElementById("in_"+campo+"_cam").click();
+}
+
+/* respaldo cuando el telefono no deja abrir la camara dentro de la app */
+async function agregarPartida(input){
+  const pid = input.dataset.pid, variante = input.dataset.variante||"";
+  const files = [...input.files]; input.value = "";
+  for(const f of files){
+    try{
+      const blob = await recortarCentro(f);
+      cie.partidas[pid].push({blob:blob, url:URL.createObjectURL(blob),
+        tipoMime:blob.type||"image/jpeg", nombre:f.name, variante:variante});
+    }catch(e){ toast("No se pudo leer una imagen", true) }
+  }
+  pintarCierre();
+}
+
+/* Las que llegan de la galeria se recortan al centro con la misma proporcion,
+   para que no desentonen con las tomadas con el recuadro. */
+async function recortarCentro(file){
+  if(file.type==="application/pdf") return file;
+  const img = await createImageBitmap(file);
+  const objetivo = FOTO_W / FOTO_H;
+  let sw = img.width, sh = Math.round(img.width / objetivo);
+  if(sh > img.height){ sh = img.height; sw = Math.round(img.height * objetivo) }
+  const c = document.createElement("canvas");
+  c.width = FOTO_W; c.height = FOTO_H;
+  c.getContext("2d").drawImage(img, Math.round((img.width-sw)/2),
+    Math.round((img.height-sh)/2), sw, sh, 0, 0, FOTO_W, FOTO_H);
+  return await new Promise(r=>c.toBlob(r, "image/jpeg", 0.72));
+}
+
 async function agregar(input, campo){
   const files=[...input.files]; input.value="";
   for(const f of files){
     try{
-      const blob=await comprimir(f);
+      const blob=await recortarCentro(f);
       cie[campo].push({blob:blob, url:URL.createObjectURL(blob),
                        tipoMime:blob.type, nombre:f.name});
     }catch(e){ toast("No se pudo leer una imagen",true) }
@@ -776,7 +1082,10 @@ function confirmarCierre(){
 /* ============ guardar (con cola sin señal) ============ */
 async function subirArchivo(item, blob, tipo, i){
   const ext = blob.type==="application/pdf" ? "pdf" : "jpg";
-  const ruta = `${item.coord}/${item.tkt||("id"+item.id)}/${Date.now()}_${tipo}_${i}.${ext}`;
+  // el tipo puede venir compuesto (ANTES|TROMPETA|PLASTICO); en el nombre del
+  // archivo las barras no sirven, pero en la base se guarda completo
+  const enNombre = String(tipo).replace(/\|/g, "-");
+  const ruta = `${item.coord}/${item.tkt||("id"+item.id)}/${Date.now()}_${enNombre}_${i}.${ext}`;
   // sin upsert: una evidencia nunca debe pisar a otra. Si la ruta ya existiera
   // —no deberia, lleva la hora al milisegundo— es mejor que falle y se reintente
   // que perder la foto anterior.
@@ -796,6 +1105,7 @@ async function enviarCierre(item){
     const arr=item[campo]||[];
     for(let i=0;i<arr.length;i++) await subirArchivo(item, arr[i], tipo, i);
   }
+  for(const p of (item.partidas||[])) await subirArchivo(item, p.blob, p.tipo, p.n);
   await api(`servicios?coord=eq.${encodeURIComponent(item.coord)}&id=eq.${item.id}`,
             {method:"PATCH", body:JSON.stringify(item.body)});
 
@@ -843,6 +1153,19 @@ async function guardarCierre(s, modo, com){
               tecnico:tecnico, ts:new Date().toISOString().slice(0,19).replace("T"," ")};
   item.campos = cie._bloques.map(b=>[b.campo, b.tipo]);
   cie._bloques.forEach(b=>{ item[b.campo]=cie[b.campo].map(f=>f.blob) });
+  /* el inventario: cada foto viaja sabiendo de que pieza es —el informe la
+     titula con eso— y el conteo se escribe en el servicio, que es el dato que
+     hasta hoy se capturaba a mano */
+  if(cie.partidas){
+    item.partidas = [];
+    for(const p of PARTIDAS){
+      cie.partidas[p.id].forEach((f,i)=>{
+        item.partidas.push({tipo:"ANTES|"+p.id+(f.variante?"|"+f.variante.toUpperCase():""),
+                            blob:f.blob, n:i+1});
+      });
+    }
+    Object.assign(body, conteoPartidas());
+  }
   const listos={ATENDIDO:"Servicio cerrado ✓", FIN_OBRA:"Instalación concluida ✓",
                 CONTINUIDAD:"Avance guardado · la obra sigue abierta ✓",
                 REPROGRAMADO:"Reprogramado ✓"};
