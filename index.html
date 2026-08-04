@@ -197,6 +197,11 @@
     text-underline-offset:3px}
   .ya{font-size:11.5px;color:#5BD79B;margin:-4px 0 10px}
 
+  /* aviso de que se está trabajando con lo último bajado */
+  .sin-red{background:rgba(232,163,61,.14);border:1px solid rgba(232,163,61,.45);
+    color:#F0BE6E;border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:12px}
+  .sin-red b{color:#FFD79A}
+
   /* ---------- servicios de atrás sin evidencia ---------- */
   .b-atras{display:block;width:100%;margin:14px 0 4px;padding:13px;font-size:13.5px;
     background:#17456E;color:var(--acc);border:1px solid var(--line)}
@@ -253,6 +258,7 @@
   </header>
 
   <div class="cola" id="cola" style="display:none"></div>
+  <div id="sinRed"></div>
   <div class="sum" id="sum"></div>
   <div id="lista"><div class="load">Cargando…</div></div>
 
@@ -490,6 +496,30 @@ function pintarDias(){
 }
 
 /* ============ servicios ============ */
+/* El técnico entra a sótanos, bodegas y azoteas donde no hay señal. Sus
+   servicios se guardan en el teléfono cada vez que sí alcanza a bajarlos, para
+   que pueda verlos y cerrarlos aunque llegue sin internet. */
+function guardarSemanaLocal(){
+  try{
+    localStorage.setItem("md_semana", JSON.stringify(
+      {ts:new Date().toISOString(), tecnico:tecnico, filas:semana}));
+  }catch(e){}          // si no cabe, se sigue sin guardar: no vale tirar la app
+}
+function leerSemanaLocal(){
+  try{
+    const d=JSON.parse(localStorage.getItem("md_semana")||"null");
+    return (d && d.filas && d.tecnico===tecnico) ? d : null;
+  }catch(e){ return null }
+}
+function avisoSinSenal(cuando){
+  const d=new Date(cuando);
+  const f=d.toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short"});
+  const h=d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}).replace(/\s*\./g,"");
+  return `<div class="sin-red">📡 Sin internet · esto es lo que bajaste el ${f} a las ${h}.
+    <b>Puedes cerrar tus servicios igual</b>: se guardan en el teléfono y suben solos
+    cuando vuelva la señal.</div>`;
+}
+
 async function cargar(){
   document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
   const a=new Date(); a.setDate(a.getDate()+DESDE);
@@ -503,13 +533,26 @@ async function cargar(){
       "log_estado,log_saltos,log_ultimo,canal,senal_barras"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
-    await marcarEquipo();
-    await marcarEvidencias();
+    guardarSemanaLocal();
+    document.getElementById("sinRed").innerHTML="";
+    // estos dos son adorno: si fallan, la lista se ve igual
+    try{ await marcarEquipo() }catch(e){}
+    try{ await marcarEvidencias() }catch(e){}
     pintarDias(); pintar();
   }catch(e){
-    document.getElementById("lista").innerHTML=
-      '<div class="vacio"><div class="em">📡</div>No se pudo conectar.<br>Revisa tu internet.'+
-      '<br><br><button class="b-map" onclick="cargar()">Reintentar</button></div>';
+    const g=leerSemanaLocal();
+    if(g){
+      semana=g.filas;
+      document.getElementById("sinRed").innerHTML=avisoSinSenal(g.ts);
+      pintarDias(); pintar();
+    }else{
+      document.getElementById("sinRed").innerHTML="";
+      document.getElementById("lista").innerHTML=
+        '<div class="vacio"><div class="em">📡</div>No se pudo conectar y todavía no'+
+        ' hay nada guardado en este teléfono.<br>Conéctate una vez y ya podrás'+
+        ' trabajar sin señal.<br><br>'+
+        '<button class="b-map" onclick="cargar()">Reintentar</button></div>';
+    }
   }
 }
 
