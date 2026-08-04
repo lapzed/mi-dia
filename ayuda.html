@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Cómo se usa</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.6;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:820px;margin:0 auto;padding:0 18px 70px}
+
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:13px 18px;margin:0 -18px 18px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:820px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+
+  .tabs{display:flex;gap:8px;margin:0 0 22px}
+  .tabs a{flex:1;text-align:center;padding:13px 10px;border-radius:12px;text-decoration:none;
+    background:var(--card);border:1px solid var(--line);color:var(--txt);font-weight:700;font-size:14px}
+  .tabs a.on{background:var(--acc);color:#07203a;border-color:var(--acc)}
+
+  h1{font-size:23px;margin:26px 0 6px;line-height:1.25}
+  h2{font-size:19px;margin:34px 0 8px;padding-top:14px;border-top:1px solid var(--line)}
+  h3{font-size:15.5px;margin:22px 0 6px;color:var(--acc)}
+  p{margin:8px 0}
+  .intro{color:var(--txt2);font-size:14.5px;margin-bottom:4px}
+
+  .paso{display:flex;gap:12px;margin:14px 0;align-items:flex-start}
+  .num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--acc);color:#07203a;
+    font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+
+  .btn{display:inline-block;background:#17456E;color:var(--acc);border:1px solid var(--line);
+    border-radius:9px;padding:2px 9px;font-size:13.5px;font-weight:700;white-space:nowrap}
+  .btn.ok{background:rgba(30,142,90,.22);color:#5BD79B;border-color:rgba(30,142,90,.5)}
+  .btn.warn{background:rgba(232,163,61,.18);color:#F0BE6E;border-color:rgba(232,163,61,.5)}
+  .btn.bad{background:rgba(198,65,59,.18);color:#F0A9A5;border-color:rgba(198,65,59,.5)}
+
+  .item{background:var(--card);border:1px solid var(--line);border-radius:13px;
+    padding:13px 15px;margin:11px 0}
+  .item .q{font-size:12.5px;color:var(--txt2);margin-top:5px}
+  .item .cuando{font-size:12px;color:var(--txt3);margin-top:6px;font-style:italic}
+
+  .ojo{background:rgba(232,163,61,.12);border:1px solid rgba(232,163,61,.42);
+    border-radius:13px;padding:13px 15px;margin:16px 0;font-size:14px}
+  .ojo b{color:#FFD79A}
+  .bien{background:rgba(30,142,90,.12);border:1px solid rgba(30,142,90,.45);
+    border-radius:13px;padding:13px 15px;margin:16px 0;font-size:14px}
+  .bien b{color:#8FE6BB}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--txt2);padding:8px;border-bottom:1px solid var(--line)}
+  td{padding:9px 8px;border-bottom:1px solid rgba(29,66,103,.5);vertical-align:top}
+
+  .pantalla{background:#0F2C4A;border:1px dashed var(--line);border-radius:13px;
+    padding:14px;margin:14px 0;font-size:13px;color:var(--txt2)}
+  .pantalla .t{color:var(--txt);font-weight:700;font-size:14px;margin-bottom:7px}
+
+  .pie{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:12px;color:var(--txt3);text-align:center}
+  @media print{
+    body{background:#fff;color:#000} header,.tabs{display:none}
+    .item,.ojo,.bien,.pantalla{border-color:#bbb;background:#f7f7f7;color:#000}
+    h3{color:#0B2038} .btn{background:#eee;color:#000;border-color:#999}
+    td,th{color:#000}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">CÓMO SE USA</div></div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <a href="#tecnicos" class="on">📱 Para técnicos</a>
+    <a href="#coordinacion">💻 Para coordinación</a>
+  </div>
+
+<!-- ================= TÉCNICOS ================= -->
+<h1 id="tecnicos">📱 Para los técnicos</h1>
+<p class="intro">La aplicación del celular. Aquí ves los servicios que te tocan y
+los cierras en el sitio, sin esperar a llegar a la oficina.</p>
+
+<h2>Antes de salir: entra una vez</h2>
+<div class="paso"><div class="num">1</div><div>
+  Abre <b>lapzed.github.io/mi-dia</b> en el celular. Guárdala en la pantalla de inicio
+  para no escribirla cada vez.</div></div>
+<div class="paso"><div class="num">2</div><div>
+  Busca <b>tu nombre</b> en la lista y escribe tu clave. Solo se hace la primera vez:
+  el teléfono te recuerda.</div></div>
+
+<div class="ojo"><b>Esto es lo más importante de todo:</b> abre la aplicación
+<b>antes de salir, donde haya señal</b>, aunque sea diez segundos. Con eso tu día
+queda guardado en el teléfono y podrás trabajar aunque en el sitio no haya internet.
+Si no la abriste antes, en un sótano no habrá nada que mostrarte.</div>
+
+<h2>Tu día</h2>
+<div class="pantalla">
+  <div class="t">Lo que ves al entrar</div>
+  Arriba, una <b>tira de días</b>: 7 días para atrás y 4 para adelante. Hoy está al centro.
+  Toca otro día para ver qué hubo o qué viene.<br><br>
+  Abajo, una <b>tarjeta por servicio</b> con la hora, el ticket, el sitio, la dirección,
+  quién te recibe y las notas que dejó la coordinación.
+</div>
+
+<h3>Los dos botones de cada tarjeta</h3>
+<div class="item"><span class="btn">📞 Llamar</span>
+  <div class="q">Marca directo al contacto del sitio. Úsalo antes de llegar,
+  para que te estén esperando.</div></div>
+<div class="item"><span class="btn">📍 Cómo llegar</span>
+  <div class="q">Abre el mapa con la dirección puesta. Si el sitio tiene coordenadas,
+  te lleva al punto exacto, no a la calle.</div></div>
+
+<h2>Cerrar un servicio</h2>
+<p>Cuando terminas, abres el servicio y eliges <b>cómo salió</b>. Hay cuatro respuestas
+posibles y cada una hace algo distinto:</p>
+
+<div class="item"><span class="btn ok">✓ Atendido</span>
+  <div class="q"><b>El servicio quedó terminado.</b> Es el cierre normal.
+  Te va a pedir las fotos y el reporte firmado.</div></div>
+
+<div class="item"><span class="btn warn">↷ Sigue en proceso</span>
+  <div class="q"><b>Solo en instalaciones de varios días.</b> Trabajaste hoy pero la
+  instalación no está terminada. Se registra tu avance y el trabajo sigue abierto
+  para mañana.</div>
+  <div class="cuando">No lo uses para decir "ya casi": si terminaste, es Atendido.</div></div>
+
+<div class="item"><span class="btn ok">✓ Instalación concluida</span>
+  <div class="q"><b>Solo en instalaciones de varios días.</b> Ya quedó funcionando.
+  Cierra la instalación completa y cancela los días que sobraban.</div></div>
+
+<div class="item"><span class="btn bad">↻ Reprogramar</span>
+  <div class="q"><b>No se pudo hacer.</b> No había permiso, el cliente no estaba,
+  faltaba material. <b>Tienes que escribir por qué</b> — sin eso no deja guardar.
+  No pide fotos.</div>
+  <div class="cuando">Esto no es un regaño: que quede escrito es lo que permite
+  reclamar el día trabajado.</div></div>
+
+<div class="item"><span class="btn">✎ Agregar evidencia o nota</span>
+  <div class="q">El servicio ya estaba cerrado y quieres <b>agregarle fotos</b> que
+  faltaban. No cambia nada del servicio, solo suma la evidencia.</div></div>
+
+<h2>La hoja de cierre, sección por sección</h2>
+
+<h3>Log de eventos <span style="font-size:12px;color:var(--txt3)">(solo mantenimientos y proyectos especiales)</span></h3>
+<p>El equipo guarda un tono cada 3 horas. Revisa su pantalla y contesta:</p>
+<div class="item"><span class="btn ok">✓ Continuo</span> &nbsp; <span class="btn bad">⚠ Con saltos</span>
+  <div class="q">Si hay saltos, anota <b>cuáles</b> faltan. También se te pide el
+  último registro, el canal y las barras de señal.</div>
+  <div class="cuando">Con esto el informe al cliente se arma solo. Antes había que
+  copiar 25 renglones a mano.</div></div>
+
+<h3>1 · Antes del servicio — el inventario</h3>
+<p>Aquí se levanta <b>qué hay instalado en el sitio</b>. Una foto por pieza:</p>
+<table>
+  <tr><th>Pieza</th><th>Qué se pide</th></tr>
+  <tr><td><b>Equipo receptor</b><br><span style="color:var(--warn);font-size:11.5px">obligatorio</span></td>
+      <td>La carátula completa y derecha. Además escribe el <b>número de serie</b>.</td></tr>
+  <tr><td>Amplificador</td><td>De frente, con su etiqueta visible.</td></tr>
+  <tr><td>Reforzador · UPS · Antena</td><td>La pieza completa dentro de la guía.</td></tr>
+  <tr><td><b>Trompetas / bocinas</b></td>
+      <td>Una foto por bocina. Antes de cada una <b>elige de qué tipo es</b>:
+      plástico, aluminio, plafón o dual elíptica. Luego <span class="btn">+ Agregar otra</span></td></tr>
+  <tr><td><b>Estrobos</b></td>
+      <td>Igual, una por estrobo, con <span class="btn">+ Agregar otra</span>.
+      Hay sitios con más de quince.</td></tr>
+</table>
+<div class="bien"><b>Para qué tanto detalle:</b> con esas fotos el sistema cuenta solo
+cuántos aditamentos hay. Ese número es el que usa la oficina para cotizar y para
+calcular cuánto dura un servicio. Antes alguien lo tecleaba de memoria.</div>
+
+<h3>2 · Durante &nbsp;·&nbsp; 3 · Después</h3>
+<p>Las mismas piezas, pero <b>solo las que trabajaste</b>. En "Durante" va la pieza
+mientras la intervienes; en "Después", ya terminada y funcionando. No hay que
+repetir todo el inventario.</p>
+
+<h3>4 · Reporte firmado</h3>
+<p>La hoja de trabajo que firmó el cliente. Foto o PDF. <b>Sin esto no cierra el
+servicio.</b></p>
+
+<h3>Comentarios</h3>
+<p>Qué se hizo, qué batería se cambió, qué quedó pendiente, qué equipo se llevó a
+laboratorio. Lo que escribas aquí lo lee la coordinación.</p>
+
+<h2>La cámara con recuadro</h2>
+<p>Al tocar <span class="btn">📷 Tomar foto</span> se abre la cámara <b>dentro de la
+aplicación</b>, con un <b>recuadro amarillo</b>.</p>
+<div class="paso"><div class="num">1</div><div>
+  Acomoda la pieza <b>dentro del recuadro</b>. Lo que quede fuera no sale en la foto.</div></div>
+<div class="paso"><div class="num">2</div><div>
+  Adentro hay una <b>guía punteada</b> que te dice cuánto debe ocupar la pieza:<br>
+  • <b>Grande</b> (equipo, amplificador): que la llene, porque hay que leer la etiqueta.<br>
+  • <b>Chica</b> (trompetas, estrobos, antena): deja ver el muro o el techo alrededor,
+  para saber <b>dónde</b> está instalada.</div></div>
+<div class="paso"><div class="num">3</div><div>
+  Toca el botón redondo. Una foto por toma; vuelve a tocarlo para la siguiente.</div></div>
+<p><span class="btn">Girar</span> cambia entre cámara trasera y frontal.
+<span class="btn">Cancelar</span> sale sin tomar nada.</p>
+<div class="bien"><b>Por qué el recuadro:</b> así todas las fotos salen del mismo
+tamaño y el informe al cliente se ve parejo. Y como se ve bien a la primera,
+<b>basta una foto por pieza</b> — ya no hace falta tomar cinco por si alguna sale.</div>
+
+<p>Debajo del botón hay una liga: <span class="btn">o subir de la galería</span>.
+Sirve para fotos que ya traes en el celular — sobre todo de servicios pasados.</p>
+
+<h2><span class="btn">🗂️ Servicios pasados sin evidencia</span></h2>
+<p>Abajo de tu día hay este botón. Muestra <b>tus servicios ya cerrados que no tienen
+ni una foto</b>, del más reciente al más viejo, y puedes filtrarlos por mes.</p>
+<p>Al abrir uno puedes subirle lo que tengas guardado. <b>No se vuelve a cerrar nada</b>
+ni se cambia su fecha: solo se agrega lo que faltaba. Y aquí <b>nada es obligatorio</b>,
+sube lo que hayas conservado.</p>
+
+<h2>Cuando no hay internet</h2>
+<div class="bien">
+Si abriste la aplicación con señal antes de salir, en el sitio vas a ver tus servicios
+igual, con un aviso arriba que dice de cuándo son.<br><br>
+<b>Puedes cerrarlos normal.</b> Todo —incluidas las fotos— se guarda en el teléfono y
+sube solo cuando vuelve la señal. No tienes que hacer nada especial ni volver a capturar.
+</div>
+
+<!-- ================= COORDINACIÓN ================= -->
+<h1 id="coordinacion" style="margin-top:52px">💻 Para las coordinaciones</h1>
+<p class="intro">La estación en la computadora. Cada quien ve su tramo del trabajo.</p>
+
+<h2>Cómo entrar</h2>
+<p>Abre tu archivo <b>Estacion_TuNombre.xlsm</b> y da clic en
+<span class="btn">ABRIR MI ESTACION</span>. El sistema ya sabe quién eres y a qué
+coordinación perteneces.</p>
+
+<h2>Las cuatro etapas</h2>
+<p>Un servicio camina por cuatro momentos. Cada quien trabaja el suyo:</p>
+<table>
+  <tr><th>Etapa</th><th>Qué se hace</th></tr>
+  <tr><td><b>1 · Captura</b></td><td>Dar de alta el servicio: sitio, dirección, contacto,
+      qué equipo lleva.</td></tr>
+  <tr><td><b>2 · Programación</b></td><td>Asignar técnico, fecha, vehículo y viáticos.</td></tr>
+  <tr><td><b>3 · Coordinación</b></td><td>Confirmar la cita con el cliente y poner el estatus.</td></tr>
+  <tr><td><b>4 · Supervisión</b></td><td>Ver todo lo de todos, sin modificar. Es el tablero.</td></tr>
+</table>
+<div class="ojo"><b>Cada servicio tiene que pasar por su etapa.</b> Si intentas
+guardar uno que todavía va en una etapa anterior a la tuya, el sistema te avisa y no
+lo guarda. No es un capricho: si se brinca un paso, ese servicio se queda con los
+campos de antes vacíos y después nadie sabe qué pasó.</div>
+
+<h2>La pantalla</h2>
+<div class="pantalla">
+  <div class="t">Cómo está acomodada</div>
+  <b>Izquierda:</b> tu cola de trabajo, con un buscador arriba para hallar por ticket o
+  por nombre. Lo más viejo aparece primero.<br><br>
+  <b>Derecha:</b> el detalle del servicio que elegiste. Aquí capturas.<br><br>
+  <b>Abajo:</b> los botones.
+</div>
+
+<h3>El buscador y el filtro</h3>
+<div class="item"><b>Buscar</b> (arriba de la cola)
+  <div class="q">Escribe el ticket, el proyecto o el nombre del sitio y la lista se
+  reduce sola.</div></div>
+<div class="item"><span class="btn">☐ Ver todos (no solo pendientes)</span>
+  <div class="q">Normalmente ves solo lo que te toca ahora. Al marcarlo ves todos los
+  servicios, incluidos los que ya pasaron por ti.</div>
+  <div class="cuando">Útil para consultar; recuerda que aun así no puedes guardar
+  sobre un servicio que va en una etapa anterior.</div></div>
+<div class="item"><b>Filtro de supervisión</b> <span class="cuando">(solo etapa 4)</span>
+  <div class="q">Filtra por periodo (hoy, semana, mes o un rango) y por técnico.</div></div>
+
+<h2>Los botones, uno por uno</h2>
+<p>No todos salen siempre: cada uno aparece cuando sirve.</p>
+
+<div class="item"><span class="btn">+ Nuevo registro</span>
+  <div class="q">Da de alta un servicio que no existía.</div>
+  <div class="cuando">Aparece en la etapa 1 (Captura).</div></div>
+
+<div class="item"><span class="btn">Buscar sitio y jalar datos</span>
+  <div class="q">Busca un sitio que ya se atendió antes y <b>llena solo</b> dirección,
+  contacto, teléfono y equipo. Evita volver a teclear todo.</div>
+  <div class="cuando">Etapa 1. Úsalo siempre antes de capturar a mano.</div></div>
+
+<div class="item"><span class="btn">Cargar varias sucursales (archivo)</span>
+  <div class="q">Cuando un cliente compró lo mismo para muchas sucursales. Se ponen
+  los datos comunes una vez, se elige el kit y se sube el archivo con la lista.
+  Cada sucursal queda como un servicio aparte, editable.</div>
+  <div class="cuando">Etapa 1.</div></div>
+
+<div class="item"><span class="btn">Mapa + demanda de técnicos</span>
+  <div class="q">Muestra la semana de cada técnico —cuántas horas trae por día, en
+  verde, ámbar o rojo— y el mapa de los sitios. Sirve para no saturar a uno y dejar
+  a otro sin trabajo.</div>
+  <div class="cuando">Etapas 2 y 3.</div></div>
+
+<div class="item"><span class="btn">Obra varios días</span>
+  <div class="q">Para instalaciones que duran más de un día. Pones cuántos días y
+  crea un registro por día, de lunes a sábado, saltando domingos.</div>
+  <div class="cuando">La instalación cuenta como atendida <b>solo cuando termina</b>.
+  Mientras tanto son días de continuidad — pero se registran, porque el recurso se
+  usó y eso se cobra.</div></div>
+
+<div class="item"><span class="btn">Brigadas / auxiliares</span>
+  <div class="q">Cuando un servicio necesita <b>más de una cuadrilla</b> o un apoyo
+  extra. Todos quedan colgados del <b>mismo servicio</b>, no se duplica el registro.</div>
+  <div class="cuando">Quien quede asignado <b>ve el servicio en su celular</b>,
+  aunque no sea el técnico titular.</div></div>
+
+<div class="item"><span class="btn">Generar programacion (WhatsApp)</span>
+  <div class="q">Arma el mensaje del día ya formateado, agrupado por brigada y con la
+  liga del mapa de cada sitio. Lo copias y lo pegas en el grupo.</div>
+  <div class="cuando">Etapas 3 y 4.</div></div>
+
+<div class="item"><span class="btn">Ficha cotizacion</span>
+  <div class="q">Arma la ficha con lo que se levantó, para pasarla a costos.</div>
+  <div class="cuando">Solo en Levantamientos.</div></div>
+
+<div class="item"><span class="btn">Cierre del dia</span>
+  <div class="q">Revisa cómo cerró la jornada.</div>
+  <div class="cuando">Etapa 4.</div></div>
+
+<div class="item"><span class="btn">Monitoreo</span>
+  <div class="q">Captura de los equipos en línea por zona. Se llena <b>una sola vez</b>
+  y de ahí sale la tabla y la gráfica del tablero.</div>
+  <div class="cuando">Solo en CAT y Gerencia.</div></div>
+
+<div class="item"><span class="btn">Reporte a direccion</span>
+  <div class="q">Genera de un tirón los tres archivos de la semana y actualiza el
+  tablero. Antes se armaban a mano.</div>
+  <div class="cuando">Solo en Gerencia.</div></div>
+
+<h3>Los de abajo, que siempre están</h3>
+<div class="item"><span class="btn">Guardar</span>
+  <div class="q">Guarda lo que capturaste, <b>sin</b> mandarlo a la siguiente etapa.
+  Para cuando te falta un dato y vas a seguir después.</div></div>
+<div class="item"><span class="btn">Guardar y enviar &gt;&gt;</span>
+  <div class="q">Guarda <b>y pasa el servicio a la siguiente etapa</b>. Es el que
+  hace caminar el trabajo.</div>
+  <div class="cuando">En la etapa 3 solo avanza si la cita está confirmada.</div></div>
+<div class="item"><span class="btn">Refrescar</span>
+  <div class="q">Vuelve a bajar la información. Úsalo si alguien más capturó algo
+  mientras tenías la ventana abierta.</div></div>
+<div class="item"><span class="btn">&lt;&lt; Anterior etapa</span> &nbsp;
+  <span class="btn">Siguiente etapa &gt;&gt;</span>
+  <div class="q">Cambia entre etapas sin cerrar la ventana.</div>
+  <div class="cuando">Solo para quien trabaja varias etapas (Gerencia, Subgerencia,
+  Patricia, Jair, Alin, Iván).</div></div>
+<div class="item"><span class="btn">Cerrar</span>
+  <div class="q">Cierra la ventana. Lo guardado ya está guardado.</div></div>
+
+<h2>Dos cosas que evitan problemas</h2>
+<div class="ojo"><b>Cierra tu estación cuando termines.</b> Si la dejas abierta y se
+manda una actualización, se crea una copia en conflicto y puedes quedarte trabajando
+con una versión vieja sin darte cuenta.</div>
+<div class="ojo"><b>Si sale un error de programación</b>, elige <b>Finalizar</b>.
+Nunca "Depurar". Y si te pregunta si guardas los cambios al cerrar, di que <b>no</b>.</div>
+
+<div class="pie">
+  MDreieck S.A. de C.V. · Área Técnica<br>
+  ¿Algo no funciona como dice aquí? Avísale a Guillermo.
+</div>
+</div>
+
+<script>
+/* la pestaña de arriba sigue lo que estás leyendo */
+const enlaces=[...document.querySelectorAll(".tabs a")];
+addEventListener("scroll",()=>{
+  const y=scrollY+140, c=document.getElementById("coordinacion").offsetTop;
+  enlaces[0].classList.toggle("on", y<c);
+  enlaces[1].classList.toggle("on", y>=c);
+});
+</script>
+</body>
+</html>

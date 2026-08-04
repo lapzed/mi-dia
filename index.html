@@ -197,6 +197,12 @@
     text-underline-offset:3px}
   .ya{font-size:11.5px;color:#5BD79B;margin:-4px 0 10px}
 
+  /* la ayuda, a un toque desde donde sea */
+  .ayuda{margin-left:auto;width:27px;height:27px;border-radius:50%;flex:0 0 auto;
+    background:#17456E;color:var(--acc);border:1px solid var(--line);text-decoration:none;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+  .ayuda + .who{margin-left:10px}
+
   /* aviso de que se está trabajando con lo último bajado */
   .sin-red{background:rgba(232,163,61,.14);border:1px solid rgba(232,163,61,.45);
     color:#F0BE6E;border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:12px}
@@ -252,6 +258,7 @@
         <div class="bt">MD Control</div>
         <div class="bs">MI DÍA</div>
       </div>
+      <a class="ayuda" href="ayuda.html" title="Cómo se usa">?</a>
       <div class="who" id="who" onclick="pedirTecnico()"></div>
     </div>
     <div class="days" id="days"></div>
