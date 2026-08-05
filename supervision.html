@@ -122,7 +122,7 @@ const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
 const DOMINIO="mdcontrol.local";
 const JORNADA=480;                       // 8 horas efectivas
-const BASE=[19.359935,-99.195034];       // las oficinas, Ajusco 43
+const BASE=[19.365222085075313,-99.14512374641009];   // oficinas: Ajusco 43, Portales Nte
 
 /* Hay registros con la longitud sin el signo negativo o sin punto decimal, y
    basta uno para mandar el mapa a China. Se valida que caiga en México. */
@@ -248,7 +248,7 @@ function pintarHoy(){
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {attribution:"OpenStreetMap", maxZoom:18}).addTo(mapa);
   L.circleMarker(BASE,{radius:9,color:"#fff",weight:2,fillColor:"#0B2038",fillOpacity:1})
-    .addTo(mapa).bindPopup("<b>Oficinas MDreieck</b><br>Ajusco 43, Los Alpes");
+    .addTo(mapa).bindPopup("<b>Oficinas MDreieck</b><br>Ajusco 43, Portales Nte,<br>Benito Juárez, 03300");
   const pts=[BASE];
   brigs.forEach((t,i)=>{
     porBrig[t].forEach(s=>{
