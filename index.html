@@ -207,6 +207,20 @@
     display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
   .ayuda + .who{margin-left:10px}
 
+  /* ---------- propuestas del levantamiento ---------- */
+  .prop{border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-bottom:10px;
+    background:#0F2C4A}
+  .prop-cab{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+  .prop-nom{flex:1;font-weight:700;font-size:14px;padding:8px 10px}
+  .prop-x{background:none;border:none;color:var(--bad);font-size:12px;padding:6px}
+  .pc-tit{font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;
+    margin:11px 0 6px}
+  .pc-tit span{text-transform:none;letter-spacing:0;color:var(--txt3)}
+  .pcs{display:flex;flex-wrap:wrap;gap:7px}
+  .pc{display:flex;flex-direction:column;gap:3px}
+  .pc span{font-size:11px;color:var(--txt2)}
+  .pc input,.pc textarea{width:100%;padding:9px 10px;font-size:13.5px}
+
   /* aviso de que se está trabajando con lo último bajado */
   .sin-red{background:rgba(232,163,61,.14);border:1px solid rgba(232,163,61,.45);
     color:#F0BE6E;border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:12px}
@@ -388,7 +402,9 @@ function limpio(s){s=(s||"").trim();
    Decirle "sin internet" a alguien que sí tiene, lo manda a buscar donde no es. */
 async function api(path, opts, reintento){
   const o = opts||{};
-  const h = Object.assign({}, HDRb(), o.body?{"Content-Type":"application/json",Prefer:"return=minimal"}:{});
+  // los encabezados propios de la llamada mandan sobre los de siempre
+  const h = Object.assign({}, HDRb(),
+    o.body?{"Content-Type":"application/json",Prefer:"return=minimal"}:{}, o.headers||{});
   let r;
   try{
     r = await fetch(SUPA_URL+"/rest/v1/"+path, Object.assign({}, o, {headers:h}));
@@ -866,6 +882,9 @@ function abrirCierre(coord, id, modo){
   /* el inventario se lleva pieza por pieza en las tres etapas, solo donde se
      interviene el equipo. El conteo de aditamentos sale del "Antes", que es lo
      que hay instalado; en las otras dos son la prueba del trabajo. */
+  /* el levantamiento termina en una propuesta: es su producto */
+  cie.propuestas = ((coord||"").toUpperCase()==="LEV" &&
+                    (modo==="ATENDIDO" || modo==="REGULARIZAR")) ? [propNueva(1)] : null;
   cie.partidas = null;
   if(PART_COORD.indexOf((coord||"").toUpperCase())>=0){
     const etapas = cie._bloques.filter(b=>ETAPAS_PART.indexOf(b.tipo)>=0);
@@ -959,6 +978,39 @@ function regularizar(coord, id){
   s._ev = s._ev || {};
   abrirCierre(coord, id, "REGULARIZAR");
 }
+
+/* ============ propuestas del levantamiento ============
+   El cliente pide comparar: una solución completa y una económica. Se levantan
+   las dos en sitio, con el inmueble enfrente, que es cuando se sabe de verdad
+   qué se puede recortar y qué no. */
+const PROP_EQUIPO = [
+  ["equipo",           "Equipo"],
+  ["amplificador",     "Amplificador"],
+  ["amplificador_cap", "Capacidad del ampli."]
+];
+const PROP_PIEZAS = [
+  ["plasticas","Trompetas plástico"], ["aluminio","Trompetas aluminio"],
+  ["eliptica","Dual elíptica"],       ["bocina_plafon","Bocinas de plafón"],
+  ["estrobo","Estrobos"],             ["ups","UPS"], ["antena","Antenas"]
+];
+const PROP_CABLE = [
+  ["coaxial","Coaxial"], ["pot","Cable POT"], ["ur","Cable UR"],
+  ["p_gruesa","Tubería gruesa"], ["p_delgada","Tubería delgada"]
+];
+
+function propNueva(n){
+  return {n:n, nombre: n===1 ? "Completa" : "Económica", notas:""};
+}
+function propAgregar(){
+  cie.propuestas.push(propNueva(cie.propuestas.length+1));
+  pintarCierre();
+}
+function propQuitar(i){
+  cie.propuestas.splice(i,1);
+  cie.propuestas.forEach((p,k)=>{ p.n=k+1 });
+  pintarCierre();
+}
+function propCampo(i, campo, v){ cie.propuestas[i][campo] = v }
 
 /* ---------- inventario: una foto por pieza, en cada etapa ----------
    La misma lista de piezas se lleva en el antes, el durante y el despues; lo
@@ -1095,6 +1147,38 @@ function pintarCierre(){
     <p class="pista">${PISTA_PART[etapa]}</p>
     ${PARTIDAS.map(p=>partida(etapa,p)).join("")}`;
 
+  /* las propuestas, solo en levantamientos */
+  const campoProp = (i,p,[k,et],ancho) => `
+    <label class="pc" style="width:${ancho}">
+      <span>${et}</span>
+      <input value="${(p[k]||"").toString().replace(/"/g,"&quot;")}"
+             ${ancho==="100%"?"":'inputmode="numeric"'}
+             oninput="propCampo(${i},'${k}',this.value)"></label>`;
+
+  const propuesta = (p,i) => `
+    <div class="prop">
+      <div class="prop-cab">
+        <input class="prop-nom" value="${(p.nombre||"").replace(/"/g,"&quot;")}"
+               oninput="propCampo(${i},'nombre',this.value)">
+        ${i>0?`<button class="prop-x" onclick="propQuitar(${i})">✕ quitar</button>`:""}
+      </div>
+      <div class="pcs">${PROP_EQUIPO.map(c=>campoProp(i,p,c,"100%")).join("")}</div>
+      <div class="pc-tit">Cuántas piezas</div>
+      <div class="pcs">${PROP_PIEZAS.map(c=>campoProp(i,p,c,"48%")).join("")}</div>
+      <div class="pc-tit">Cableado <span>(tramos de 3 m)</span></div>
+      <div class="pcs">${PROP_CABLE.map(c=>campoProp(i,p,c,"48%")).join("")}</div>
+      <label class="pc" style="width:100%"><span>Notas de esta propuesta</span>
+        <textarea rows="2" oninput="propCampo(${i},'notas',this.value)">${esc(p.notas||"")}</textarea></label>
+    </div>`;
+
+  const seccionProp = () => !cie.propuestas ? "" : `
+    <div class="lbl">Propuesta para el cliente</div>
+    <p class="pista">Lo que se le va a cotizar. Si pidió comparar, agrega una
+       segunda con menos alcance.</p>
+    ${cie.propuestas.map(propuesta).join("")}
+    <button class="b-part" style="width:100%" onclick="propAgregar()">
+      + Otra propuesta</button>`;
+
   const bloque = b => {
     const ok=cubierto(b), ya=s._ev&&s._ev[b.tipo];
     return `
@@ -1159,6 +1243,7 @@ function pintarCierre(){
          <b>${faltan.map(b=>b.titulo.replace(/^\d+ · /,"")).join(", ")}</b>.</div>`}
       ${cie.log?seccionLog():""}
       ${cie._bloques.map(bloque).join("")}
+      ${seccionProp()}
     `}
 
     <div class="lbl">${esRep?"":(cie._bloques.length+1)+" · "}Comentarios ${
@@ -1463,6 +1548,13 @@ async function enviarCierre(item){
     for(let i=0;i<arr.length;i++) await subirArchivo(item, arr[i], tipo, i);
   }
   for(const p of (item.partidas||[])) await subirArchivo(item, p.blob, p.tipo, p.n);
+  for(const pr of (item.propuestas||[])){
+    await api("propuestas?on_conflict=coord,servicio_id,n",
+      {method:"POST",
+       headers:{Prefer:"resolution=merge-duplicates"},
+       body:JSON.stringify(Object.assign({coord:item.coord, servicio_id:item.id,
+                                          capturo:item.tecnico}, pr))});
+  }
   if(Object.keys(item.body||{}).length){
     await api(`servicios?coord=eq.${encodeURIComponent(item.coord)}&id=eq.${item.id}`,
               {method:"PATCH", body:JSON.stringify(item.body)});
@@ -1518,6 +1610,13 @@ async function guardarCierre(s, modo, com){
   /* el inventario: cada foto viaja sabiendo de que pieza es —el informe la
      titula con eso— y el conteo se escribe en el servicio, que es el dato que
      hasta hoy se capturaba a mano */
+  /* las propuestas viajan con el cierre: si no hay señal se guardan en el
+     teléfono junto con las fotos y suben después, igual que todo lo demás */
+  if(cie.propuestas){
+    item.propuestas = cie.propuestas
+      .filter(p=>Object.keys(p).some(k=>!["n","nombre"].includes(k) && (p[k]||"").toString().trim()))
+      .map(p=>Object.assign({}, p));
+  }
   if(cie.partidas){
     item.partidas = [];
     for(const etapa of ETAPAS_PART){
