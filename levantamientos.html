@@ -149,8 +149,12 @@
 <div class="modal" id="mLogin">
   <div class="box">
     <h2>Levantamientos</h2>
-    <p>Entra con el usuario de tu estación.</p>
-    <input id="inUsr" placeholder="usuario (ej. est.jair)" autocapitalize="none">
+    <p>Entra con tu estación. Cada quien ve lo de su coordinación.</p>
+    <select id="inUsr">
+      <option value="est.jair">Jair · Levantamientos</option>
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+    </select>
     <input id="inPwd" type="password" placeholder="clave"
            onkeydown="if(event.key==='Enter')entrar()">
     <div class="aviso" id="err" style="display:none"></div>
@@ -210,8 +214,10 @@ async function entrar(){
 }
 function salir(){ localStorage.removeItem("md_lev"); location.reload() }
 
+const NOMBRE_EST={"est.jair":"Jair","est.gerencia":"Gerencia","est.subgerencia":"Subgerencia"};
 async function arrancar(){
-  document.getElementById("who").innerHTML="<b>"+esc(ses.usuario||"")+"</b>salir";
+  document.getElementById("who").innerHTML=
+    "<b>"+esc(NOMBRE_EST[ses.usuario]||ses.usuario||"")+"</b>salir";
   document.getElementById("filtros").style.display="flex";
   /* sin fechas de arranque: los levantamientos se retrasan y hay que poder
      llegar a los de hace un año. Quien quiera acotar, pone el rango. */

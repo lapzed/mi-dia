@@ -286,15 +286,33 @@ async function renovar(){
 }
 
 /* ---------- acceso ---------- */
+/* Las coordinaciones también arman entregables de lo suyo, así que entran aquí
+   con el usuario de su estación. La base ya se encarga de que cada quien vea
+   solo su coordinación; gerencia y subgerencia ven las cinco. */
+const ESTACIONES=[
+  ["est.gerencia","Gerencia"], ["est.subgerencia","Subgerencia"],
+  ["est.jenifer","Jenifer · Mantenimientos"], ["est.ivan","Iván · Mantenimientos"],
+  ["est.patricia","Patricia · Mantenimientos"], ["est.ariana","Ariana · CAT"],
+  ["est.jair","Jair · Levantamientos"], ["est.alin","Alin · Instalaciones"],
+  ["est.banorte","Proyectos especiales"]
+];
+
 async function llenarUsuarios(){
   const sel=document.getElementById("selUsr");
+  const est=ESTACIONES.map(([u,n])=>`<option value="${u}">${esc(n)}</option>`).join("");
   try{
     const l=await api("login_usuarios?select=usuario,nombre,rol&order=nombre");
     const adm=l.filter(u=>u.rol==="ADMINISTRATIVO");
-    const lista=adm.length?adm:l;
     sel.innerHTML='<option value="">Elige tu nombre…</option>'+
-      lista.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("");
-  }catch(e){ sel.innerHTML='<option value="">Sin conexión</option>' }
+      (adm.length?'<optgroup label="Área administrativa">'+
+        adm.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("")+
+        '</optgroup>':"")+
+      '<optgroup label="Coordinaciones">'+est+'</optgroup>';
+  }catch(e){
+    // sin conexión igual se puede entrar: las estaciones no dependen de la consulta
+    sel.innerHTML='<option value="">Elige tu nombre…</option>'+
+      '<optgroup label="Coordinaciones">'+est+'</optgroup>';
+  }
 }
 async function entrar(){
   const u=(document.getElementById("selUsr").value||"").trim().toLowerCase();
