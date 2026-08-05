@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Levantamientos</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1180px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  .filtros{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+  .f{display:flex;flex-direction:column;gap:4px}
+  .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+  select,input,textarea{padding:9px 10px;border-radius:10px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:10px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  button:disabled{opacity:.45;cursor:default}
+  .mini{padding:5px 10px;font-size:11.5px}
+
+  .resumen{display:flex;gap:9px;margin-bottom:12px;flex-wrap:wrap}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:8px 14px;font-size:12px}
+  .pill b{font-size:17px;display:block}
+
+  .lev{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;margin-bottom:11px}
+  .lev-cab{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .lev-cab h3{margin:0;font-size:15.5px}
+  .lev-sub{font-size:12px;color:var(--txt2);margin-top:2px}
+  .lev-cab .der{margin-left:auto;display:flex;gap:7px}
+  .tag{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  .tag.no{background:rgba(232,163,61,.15);color:#F0BE6E}
+
+  .comp{overflow-x:auto;margin-top:12px}
+  .comp table{width:100%;border-collapse:collapse;font-size:13px;min-width:420px}
+  .comp th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--txt2);padding:7px 9px;border-bottom:1px solid var(--line)}
+  .comp th.p{color:var(--acc);font-size:13px;text-transform:none;letter-spacing:0}
+  .comp td{padding:6px 9px;border-bottom:1px solid rgba(29,66,103,.45)}
+  .comp td.et{color:var(--txt2);width:40%}
+  .comp tr.dif td{background:rgba(99,179,255,.07)}
+  .comp .n{font-variant-numeric:tabular-nums;font-weight:700}
+
+  .vacio{text-align:center;color:var(--txt2);padding:50px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:390px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 14px;font-size:12.5px;color:var(--txt2)}
+  .box input{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+
+  /* ---------- la ficha que se imprime ---------- */
+  #salida{display:none}
+  @media print{
+    body{background:#fff;color:#000}
+    header,.filtros,.resumen,#lista,.modal{display:none !important}
+    #salida{display:block !important}
+    .wrap{padding:0;max-width:none}
+  }
+  #salida .hoja{position:relative;page-break-after:always;padding:24mm 18mm;
+    min-height:247mm;font-family:Calibri,Carlito,"Segoe UI",sans-serif;color:#111}
+  #salida .hoja:last-child{page-break-after:auto}
+  #salida .marca img{height:46px}
+  #salida h1{font-size:17px;margin:14mm 0 2mm;text-align:center}
+  #salida .sitio{font-size:20px;font-weight:800;text-align:center;margin:0 0 2mm}
+  #salida .dir{font-size:11.5px;text-align:center;color:#333;margin-bottom:9mm}
+  #salida table.f{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:7mm}
+  #salida table.f th{background:#1F3864;color:#fff;padding:5px 7px;text-align:left;
+    border:1px solid #7d8fa8}
+  #salida table.f td{border:1px solid #9aa7b8;padding:4px 7px}
+  #salida table.f td.et{width:38%;color:#333}
+  #salida .pie{position:absolute;left:18mm;right:18mm;bottom:10mm;text-align:center;
+    font-size:9px;color:#3b3b3b;border-top:2px solid #1F3864;padding-top:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">LEVANTAMIENTOS</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="filtros" id="filtros" style="display:none">
+    <div class="f"><label>Cliente</label>
+      <select id="fCli" onchange="pintar()"><option value="">Todos</option></select></div>
+    <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
+    <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargar()"></div>
+    <div class="f"><label>Propuesta</label>
+      <select id="fProp" onchange="pintar()">
+        <option value="">Todos</option>
+        <option value="con">Con propuesta</option>
+        <option value="comp">Con comparativa (2 o más)</option>
+        <option value="sin">Sin propuesta</option></select></div>
+    <button class="pri" onclick="imprimirTodas()">Imprimir fichas</button>
+  </div>
+
+  <div class="resumen" id="resumen"></div>
+  <div id="lista"><div class="load">Entra para ver tus levantamientos.</div></div>
+</div>
+
+<div id="salida"></div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Levantamientos</h2>
+    <p>Entra con el usuario de tu estación.</p>
+    <input id="inUsr" placeholder="usuario (ej. est.jair)" autocapitalize="none">
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+const LOGO="logo.png";
+
+let ses=JSON.parse(localStorage.getItem("md_lev")||"null");
+let filas=[], props={};
+
+function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d|0)$/i.test(s)?"":s}
+function llave(x){ return x.coord+"|"+x.id }
+
+async function api(path,opts,reint){
+  const o=opts||{};
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,Object.assign({},o,{headers:hdr()}));
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return t?JSON.parse(t):null;
+}
+async function auth(cuerpo,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},
+     body:JSON.stringify(cuerpo)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardar(j){
+  ses={token:j.access_token, refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_lev",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardar(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value.trim();
+  const p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  if(!u||!p){ e.textContent="Escribe usuario y clave"; e.style.display="block"; return }
+  try{
+    guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("mLogin").style.display="none";
+    arrancar();
+  }catch(x){ e.textContent="No se pudo entrar: "+x.message; e.style.display="block" }
+}
+function salir(){ localStorage.removeItem("md_lev"); location.reload() }
+
+async function arrancar(){
+  document.getElementById("who").innerHTML="<b>"+esc(ses.usuario||"")+"</b>salir";
+  document.getElementById("filtros").style.display="flex";
+  const h=new Date(), d=new Date(); d.setMonth(d.getMonth()-3);
+  document.getElementById("fDe").value=d.toISOString().slice(0,10);
+  document.getElementById("fA").value=h.toISOString().slice(0,10);
+  cargar();
+}
+
+/* ---------- traer levantamientos y sus propuestas ---------- */
+async function cargar(){
+  document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
+  const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
+  let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,fecha_servicio,"+
+        "fecha_atencion,tecnico,tipo_inmueble,requerimientos,obs_coord,tiempo_inst_est,"+
+        "segurista_vigia,status&coord=eq.LEV&order=fecha_atencion.desc,nombre&limit=1000";
+  if(de) q+="&fecha_servicio=gte."+de;
+  if(a)  q+="&fecha_servicio=lte."+a;
+  try{
+    filas=await api(q);
+    props={};
+    if(filas.length){
+      const ids=[...new Set(filas.map(f=>f.id))];
+      for(let i=0;i<ids.length;i+=300){
+        const p=await api("propuestas?select=*&coord=eq.LEV&servicio_id=in.("+
+                          ids.slice(i,i+300).join(",")+")&order=n&limit=3000");
+        p.forEach(x=>{ const k="LEV|"+x.servicio_id; (props[k]=props[k]||[]).push(x) });
+      }
+    }
+    llenarClientes();
+    pintar();
+  }catch(e){
+    document.getElementById("lista").innerHTML=
+      '<div class="vacio">No se pudo consultar.<br>'+esc(String(e.message))+'</div>';
+  }
+}
+function llenarClientes(){
+  const set=[...new Set(filas.map(x=>(x.dependencia||"").trim()).filter(Boolean))].sort();
+  const sel=document.getElementById("fCli"), v=sel.value;
+  sel.innerHTML='<option value="">Todos</option>'+set.map(c=>`<option>${esc(c)}</option>`).join("");
+  sel.value=v;
+}
+
+/* ---------- la comparativa ---------- */
+const RENGLONES=[
+  ["equipo","Equipo"],["amplificador","Amplificador"],["amplificador_cap","Capacidad"],
+  ["antena","Antenas"],["plasticas","Trompetas plástico"],["aluminio","Trompetas aluminio"],
+  ["eliptica","Dual elíptica"],["bocina_plafon","Bocinas de plafón"],["estrobo","Estrobos"],
+  ["ups","UPS"],["coaxial","Coaxial (3 m)"],["pot","Cable POT (3 m)"],["ur","Cable UR (3 m)"],
+  ["p_gruesa","Tubería gruesa (3 m)"],["p_delgada","Tubería delgada (3 m)"],["notas","Notas"]
+];
+
+function comparativa(ps){
+  if(!ps.length) return "";
+  const usados=RENGLONES.filter(([k])=>ps.some(p=>limpio(p[k])));
+  if(!usados.length) return "";
+  return `<div class="comp"><table>
+    <tr><th></th>${ps.map(p=>`<th class="p">${esc(p.nombre||("Propuesta "+p.n))}</th>`).join("")}</tr>
+    ${usados.map(([k,et])=>{
+      const vals=ps.map(p=>limpio(p[k]));
+      const dif=ps.length>1 && new Set(vals).size>1;   // se resalta lo que cambia
+      return `<tr class="${dif?"dif":""}"><td class="et">${et}</td>
+        ${vals.map(v=>`<td class="${k==="notas"?"":"n"}">${esc(v||"—")}</td>`).join("")}</tr>`;
+    }).join("")}
+  </table></div>`;
+}
+
+function pintar(){
+  const cli=document.getElementById("fCli").value;
+  const fp=document.getElementById("fProp").value;
+  let v=filas.filter(x=>!cli||(x.dependencia||"").trim()===cli);
+  if(fp==="con")  v=v.filter(x=>(props[llave(x)]||[]).length>0);
+  if(fp==="comp") v=v.filter(x=>(props[llave(x)]||[]).length>1);
+  if(fp==="sin")  v=v.filter(x=>!(props[llave(x)]||[]).length);
+
+  const con=filas.filter(x=>(props[llave(x)]||[]).length>0).length;
+  const comp=filas.filter(x=>(props[llave(x)]||[]).length>1).length;
+  document.getElementById("resumen").innerHTML=
+    `<div class="pill"><b>${filas.length}</b>levantamientos</div>
+     <div class="pill"><b style="color:#5BD79B">${con}</b>con propuesta</div>
+     <div class="pill"><b style="color:#63B3FF">${comp}</b>con comparativa</div>
+     <div class="pill"><b style="color:#E8A33D">${filas.length-con}</b>sin propuesta</div>`;
+
+  if(!v.length){
+    document.getElementById("lista").innerHTML='<div class="vacio">Nada con esos filtros.</div>';
+    return;
+  }
+  document.getElementById("lista").innerHTML=v.map(x=>{
+    const ps=props[llave(x)]||[];
+    return `<div class="lev">
+      <div class="lev-cab">
+        <div>
+          <h3>${esc(x.nombre||"(sin nombre)")}</h3>
+          <div class="lev-sub">${esc(limpio(x.dependencia))}
+            ${x.tkt?" · "+esc(x.tkt):""} · ${esc(x.fecha_atencion||x.fecha_servicio||"")}
+            ${limpio(x.tecnico)?" · "+esc(x.tecnico):""}</div>
+        </div>
+        <div class="der">
+          ${ps.length?`<span class="tag">${ps.length} propuesta${ps.length>1?"s":""}</span>`
+                     :`<span class="tag no">sin propuesta</span>`}
+          ${ps.length?`<button class="mini" onclick="ficha('${x.coord}',${x.id})">Ficha</button>`:""}
+        </div>
+      </div>
+      ${comparativa(ps)}
+    </div>`;
+  }).join("");
+}
+
+/* ---------- ficha para el cliente ---------- */
+function hojaFicha(x, ps){
+  const usados=RENGLONES.filter(([k])=>ps.some(p=>limpio(p[k])));
+  return `<div class="hoja">
+    <div class="marca"><img src="${LOGO}"></div>
+    <h1>Propuesta de instalación del sistema de alerta sísmica</h1>
+    <div class="sitio">${esc((x.nombre||"").toUpperCase())}</div>
+    <div class="dir">${esc(limpio(x.direccion))}</div>
+    <table class="f">
+      <tr><td class="et">Cliente</td><td>${esc(limpio(x.dependencia))}</td></tr>
+      <tr><td class="et">Levantamiento</td><td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td></tr>
+      <tr><td class="et">Realizó</td><td>${esc(limpio(x.tecnico))}</td></tr>
+      ${limpio(x.tipo_inmueble)?`<tr><td class="et">Tipo de inmueble</td><td>${esc(x.tipo_inmueble)}</td></tr>`:""}
+      ${limpio(x.segurista_vigia)?`<tr><td class="et">Requiere segurista o vigía</td><td>${esc(x.segurista_vigia)}</td></tr>`:""}
+      ${limpio(x.tiempo_inst_est)?`<tr><td class="et">Tiempo estimado de instalación</td><td>${esc(x.tiempo_inst_est)} min</td></tr>`:""}
+    </table>
+    <table class="f">
+      <tr><th></th>${ps.map(p=>`<th>${esc(p.nombre||("Propuesta "+p.n))}</th>`).join("")}</tr>
+      ${usados.map(([k,et])=>`<tr><td class="et">${et}</td>
+        ${ps.map(p=>`<td>${esc(limpio(p[k])||"—")}</td>`).join("")}</tr>`).join("")}
+    </table>
+    ${limpio(x.requerimientos)?`<p style="font-size:11.5px"><b>Requerimientos:</b> ${esc(x.requerimientos)}</p>`:""}
+    <div class="pie">Magdalena 202, Col. Del Valle, Benito Juárez, C.P. 03100, CDMX, Tel. 551107 8307<br>
+      www.mdreieck.com.mx</div>
+  </div>`;
+}
+function ficha(coord,id){
+  const x=filas.find(s=>s.coord===coord&&s.id===id);
+  const ps=props[llave(x)]||[];
+  document.getElementById("salida").innerHTML=hojaFicha(x,ps);
+  setTimeout(()=>window.print(),300);
+}
+function imprimirTodas(){
+  const cli=document.getElementById("fCli").value;
+  const fp=document.getElementById("fProp").value;
+  let v=filas.filter(x=>!cli||(x.dependencia||"").trim()===cli);
+  if(fp==="con")  v=v.filter(x=>(props[llave(x)]||[]).length>0);
+  if(fp==="comp") v=v.filter(x=>(props[llave(x)]||[]).length>1);
+  v=v.filter(x=>(props[llave(x)]||[]).length);
+  if(!v.length){ alert("No hay levantamientos con propuesta en lo que estás viendo."); return }
+  document.getElementById("salida").innerHTML=v.map(x=>hojaFicha(x,props[llave(x)])).join("");
+  setTimeout(()=>window.print(),400);
+}
+
+(async function(){
+  if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
+})();
+</script>
+</body>
+</html>
