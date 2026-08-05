@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Supervisión</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 16px 60px}
+  header{position:sticky;top:0;z-index:400;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1240px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  select,input{padding:9px 10px;border-radius:10px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:10px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .tabs button{flex:1;min-width:150px}
+  .tabs button.on{background:var(--acc);color:#07203a}
+
+  h2{font-size:16px;margin:22px 0 10px}
+  .sub{font-size:12.5px;color:var(--txt2);margin:-6px 0 12px}
+
+  #mapa{height:420px;border-radius:14px;border:1px solid var(--line);overflow:hidden;z-index:1}
+  .leaflet-popup-content-wrapper{background:#12314F;color:#EAF2FB;border-radius:11px}
+  .leaflet-popup-tip{background:#12314F}
+  .leaflet-popup-content{margin:11px 13px;font-size:13px;line-height:1.45}
+  .pin{border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.5)}
+
+  .brigadas{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-top:14px}
+  .brig{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px 14px}
+  .brig .n{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px}
+  .punto{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+  .barra{height:9px;border-radius:6px;background:#0F2C4A;margin:9px 0 6px;overflow:hidden}
+  .barra i{display:block;height:100%;border-radius:6px}
+  .brig .d{font-size:12px;color:var(--txt2)}
+  .brig .h{font-size:11.5px;margin-top:5px;color:var(--txt3)}
+
+  .alerta{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--warn);
+    border-radius:13px;padding:13px 15px;margin-bottom:11px}
+  .alerta.grave{border-left-color:var(--bad)}
+  .alerta h3{margin:0 0 3px;font-size:14.5px}
+  .alerta .q{font-size:12.5px;color:var(--txt2)}
+  .alerta .num{float:right;font-size:22px;font-weight:800;line-height:1}
+  .alerta.grave .num{color:#F0A9A5} .alerta .num{color:#F0BE6E}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line)}
+  td{padding:8px 9px;border-bottom:1px solid rgba(29,66,103,.5);vertical-align:top}
+  .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  .dias{font-weight:800;font-variant-numeric:tabular-nums}
+  .dias.rojo{color:#F0A9A5} .dias.ambar{color:#F0BE6E}
+
+  .vacio{text-align:center;color:var(--txt2);padding:44px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:900;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:20px;
+    max-width:390px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 14px;font-size:12.5px;color:var(--txt2)}
+  .box select,.box input{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">SUPERVISIÓN</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="on" onclick="ver('hoy')">📍 Dónde anda cada brigada</button>
+    <button onclick="ver('atoro')">⏳ Lo que se está atorando</button>
+    <button onclick="ver('manana')">⚠️ Lo que va a fallar</button>
+  </div>
+
+  <div id="cuerpo"><div class="load">Entra para supervisar.</div></div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Supervisión</h2>
+    <p>Solo gerencia y subgerencia.</p>
+    <select id="inUsr">
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+    </select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+const JORNADA=480;                       // 8 horas efectivas
+const BASE=[19.359935,-99.195034];       // las oficinas, Ajusco 43
+
+/* Hay registros con la longitud sin el signo negativo o sin punto decimal, y
+   basta uno para mandar el mapa a China. Se valida que caiga en México. */
+function coord(x){
+  const la=parseFloat(x.lat), lo=parseFloat(x.long);
+  if(!la||!lo) return null;
+  if(la<14||la>33||lo<-118||lo>-86) return null;
+  return [la,lo];
+}
+
+let ses=JSON.parse(localStorage.getItem("md_sup")||"null");
+let todos=[], vista="hoy", mapa=null, capa=null;
+
+function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function dias(f){ return Math.round((new Date(hoyISO())-new Date(f))/86400000) }
+
+async function api(path,opts,reint){
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,Object.assign({},opts||{},{headers:hdr()}));
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return t?JSON.parse(t):null;
+}
+async function auth(c,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(c)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardar(j){
+  ses={token:j.access_token,refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_sup",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardar(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  try{
+    guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("mLogin").style.display="none"; arrancar();
+  }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
+}
+function salir(){ localStorage.removeItem("md_sup"); location.reload() }
+
+async function arrancar(){
+  document.getElementById("who").innerHTML="<b>"+esc(ses.usuario||"")+"</b>salir";
+  document.getElementById("tabs").style.display="flex";
+  document.getElementById("cuerpo").innerHTML='<div class="load">Cargando…</div>';
+  try{
+    todos=[];
+    const q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,fecha_servicio,"+
+            "horario_atencion,status,tecnico,auxiliar,duracion_est,cita_confirmada,obs_coord"+
+            "&order=fecha_servicio.desc";
+    for(let off=0;off<9000;off+=1000){
+      const t=await api(q+"&limit=1000&offset="+off);
+      todos=todos.concat(t);
+      if(t.length<1000) break;
+    }
+    ver(vista);
+  }catch(e){
+    document.getElementById("cuerpo").innerHTML='<div class="vacio">No se pudo consultar.</div>';
+  }
+}
+
+function abierto(x){ return ["ATENDIDO","CANCELADO"].indexOf((x.status||"").toUpperCase())<0 }
+function ver(v){
+  vista=v;
+  [...document.querySelectorAll(".tabs button")].forEach((b,i)=>
+    b.classList.toggle("on", ["hoy","atoro","manana"][i]===v));
+  if(v==="hoy") pintarHoy();
+  if(v==="atoro") pintarAtoro();
+  if(v==="manana") pintarManana();
+}
+
+/* ================= 1. dónde anda cada brigada ================= */
+const COLORES=["#63B3FF","#5BD79B","#F0BE6E","#F0A9A5","#C39BD3","#7FD1D8","#FFD79A",
+               "#9DB6D2","#B5E48C","#FFB4A2","#A0C4FF","#BDB2FF","#FFC6FF"];
+function colorDe(i){ return COLORES[i%COLORES.length] }
+
+function pintarHoy(){
+  const hoy=hoyISO();
+  const dia=todos.filter(x=>x.fecha_servicio===hoy);
+  const porBrig={};
+  dia.forEach(x=>{
+    const t=limpio(x.tecnico)||"Sin asignar";
+    (porBrig[t]=porBrig[t]||[]).push(x);
+  });
+  const brigs=Object.keys(porBrig).sort((a,b)=>porBrig[b].length-porBrig[a].length);
+
+  document.getElementById("cuerpo").innerHTML=`
+    <h2>Hoy · ${dia.length} servicios en ${brigs.length} brigadas</h2>
+    <p class="sub">Cada color es una brigada. El punto grande es la oficina.
+       Toca un punto para ver de qué servicio se trata.</p>
+    <div id="mapa"></div>
+    <div class="brigadas">${brigs.map((t,i)=>{
+      const ss=porBrig[t];
+      const min=ss.reduce((a,s)=>a+(parseInt(s.duracion_est,10)||0),0);
+      const hechos=ss.filter(s=>(s.status||"").toUpperCase()==="ATENDIDO").length;
+      const pct=Math.min(100,Math.round(min/JORNADA*100));
+      const col=min>JORNADA?"#F0A9A5":(min<JORNADA*0.5?"#F0BE6E":"#5BD79B");
+      return `<div class="brig">
+        <div class="n"><span class="punto" style="background:${colorDe(i)}"></span>${esc(t)}</div>
+        <div class="barra"><i style="width:${pct}%;background:${col}"></i></div>
+        <div class="d">${ss.length} servicio${ss.length>1?"s":""} ·
+          ${hechos} cerrado${hechos!==1?"s":""} ·
+          ${(min/60).toFixed(1)} h estimadas</div>
+        <div class="h">${ss.slice(0,4).map(s=>
+          (limpio(s.horario_atencion)||"--:--")+"  "+esc((s.nombre||"").slice(0,26))).join("<br>")}
+          ${ss.length>4?"<br>…y "+(ss.length-4)+" más":""}</div>
+      </div>`;
+    }).join("")}</div>`;
+
+  if(mapa){ mapa.remove(); mapa=null }
+  mapa=L.map("mapa",{scrollWheelZoom:false}).setView(BASE,10);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {attribution:"OpenStreetMap", maxZoom:18}).addTo(mapa);
+  L.circleMarker(BASE,{radius:9,color:"#fff",weight:2,fillColor:"#0B2038",fillOpacity:1})
+    .addTo(mapa).bindPopup("<b>Oficinas MDreieck</b><br>Ajusco 43, Los Alpes");
+  const pts=[BASE];
+  brigs.forEach((t,i)=>{
+    porBrig[t].forEach(s=>{
+      const c=coord(s);
+      if(!c) return;
+      pts.push(c);
+      L.circleMarker(c,{radius:7,color:"#fff",weight:1.5,
+        fillColor:colorDe(i),fillOpacity:.95, className:"pin"})
+        .addTo(mapa)
+        .bindPopup(`<b>${esc(s.nombre||"")}</b><br>${esc(limpio(s.dependencia))}<br>
+          ${limpio(s.horario_atencion)||"sin hora"} · ${esc(t)}<br>
+          <span style="color:#9DB6D2">${esc(s.status||"pendiente")}</span>`);
+    });
+  });
+  /* el encuadre va después de que el contenedor ya tiene alto: si se pide antes,
+     Leaflet mide cero y el mapa se queda mirando el mundo entero */
+  setTimeout(()=>{
+    mapa.invalidateSize();
+    if(pts.length>1) mapa.fitBounds(pts,{padding:[30,30]});
+  }, 120);
+  const sinCoord=dia.filter(x=>!coord(x)).length;
+  const malas=dia.filter(x=>x.lat&&x.long&&!coord(x)).length;
+  if(sinCoord) document.getElementById("cuerpo").insertAdjacentHTML("beforeend",
+    `<p class="sub" style="margin-top:12px">⚠️ ${sinCoord} servicio(s) de hoy no salen en el
+     mapa${malas?` — ${malas} de ellos tienen la coordenada mal capturada`:" por no tener coordenadas"}.</p>`);
+}
+
+/* ================= 2. lo que se está atorando ================= */
+function pintarAtoro(){
+  const hoy=hoyISO();
+  const v=todos.filter(x=>abierto(x)&&x.fecha_servicio&&x.fecha_servicio<hoy)
+               .sort((a,b)=>a.fecha_servicio.localeCompare(b.fecha_servicio));
+  const porCoord={}; v.forEach(x=>{ porCoord[x.coord]=(porCoord[x.coord]||0)+1 });
+  const rep=v.filter(x=>(x.status||"").toUpperCase().indexOf("REPROGRAMAD")>=0).length;
+
+  document.getElementById("cuerpo").innerHTML=`
+    <h2>${v.length} servicios abiertos con la fecha ya pasada</h2>
+    <p class="sub">Ni cerrados ni cancelados: siguen contando como trabajo pendiente.
+       ${rep?rep+" de ellos están como reprogramados.":""}</p>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px">
+      ${Object.entries(porCoord).sort((a,b)=>b[1]-a[1]).map(([c,n])=>
+        `<div class="alerta" style="flex:1;min-width:130px;margin:0">
+           <span class="num">${n}</span><h3>${esc(c)}</h3></div>`).join("")}
+    </div>
+    <table><thead><tr><th>Días parado</th><th>Fecha</th><th>Coord</th><th>Sitio</th>
+      <th>Técnico</th><th>Estatus</th></tr></thead><tbody>
+      ${v.slice(0,150).map(x=>{
+        const d=dias(x.fecha_servicio);
+        const cl=d>180?"rojo":(d>60?"ambar":"");
+        return `<tr>
+          <td class="dias ${cl}">${d}</td>
+          <td>${esc(x.fecha_servicio)}</td>
+          <td><span class="tag">${esc(x.coord)}</span></td>
+          <td>${esc((x.nombre||"").slice(0,40))}<br>
+              <span style="color:var(--txt3);font-size:11.5px">${esc(limpio(x.dependencia))}</span></td>
+          <td>${esc(limpio(x.tecnico)||"—")}</td>
+          <td>${esc(x.status||"sin estatus")}</td></tr>`;
+      }).join("")}
+    </tbody></table>
+    ${v.length>150?`<p class="sub" style="margin-top:12px">Se muestran los 150 más viejos
+      de ${v.length}.</p>`:""}`;
+}
+
+/* ================= 3. lo que va a fallar ================= */
+function pintarManana(){
+  const hoy=hoyISO();
+  const proximos=todos.filter(x=>abierto(x)&&x.fecha_servicio&&x.fecha_servicio>=hoy);
+  const sinTec=proximos.filter(x=>!limpio(x.tecnico));
+  const sinCita=proximos.filter(x=>(x.cita_confirmada||"")!=="SI");
+  const sinCoord=proximos.filter(x=>!coord(x));
+  const sinHora=proximos.filter(x=>!limpio(x.horario_atencion));
+
+  const bloque=(tit,q,lista,grave)=>`
+    <div class="alerta ${grave?"grave":""}">
+      <span class="num">${lista.length}</span>
+      <h3>${tit}</h3><div class="q">${q}</div>
+    </div>
+    ${lista.length?`<table style="margin-bottom:20px"><thead><tr>
+      <th>Fecha</th><th>Coord</th><th>Sitio</th><th>Técnico</th></tr></thead><tbody>
+      ${lista.slice(0,25).map(x=>`<tr>
+        <td>${esc(x.fecha_servicio)}</td>
+        <td><span class="tag">${esc(x.coord)}</span></td>
+        <td>${esc((x.nombre||"").slice(0,44))}</td>
+        <td>${esc(limpio(x.tecnico)||"—")}</td></tr>`).join("")}
+      ${lista.length>25?`<tr><td colspan="4" style="color:var(--txt3)">…y ${lista.length-25} más</td></tr>`:""}
+    </tbody></table>`:""}`;
+
+  document.getElementById("cuerpo").innerHTML=`
+    <h2>De hoy en adelante: ${proximos.length} servicios</h2>
+    <p class="sub">Lo que hoy ya se ve que va a dar problema.</p>
+    ${bloque("Sin técnico asignado","Nadie va a ir. Hay que programarlos.",sinTec,true)}
+    ${bloque("Sin cita confirmada","El cliente puede no estar cuando llegue la brigada.",sinCita,false)}
+    ${bloque("Sin coordenadas","El técnico no va a poder abrir el mapa para llegar.",sinCoord,false)}
+    ${bloque("Sin hora","La brigada no sabe a qué hora se comprometió.",sinHora,false)}`;
+}
+
+(async function(){
+  if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
+})();
+</script>
+</body>
+</html>

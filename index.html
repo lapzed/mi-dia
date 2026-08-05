@@ -707,7 +707,12 @@ function pintar(){
     const cl=claseEstatus(x.status), nt=notas(x);
     const dir=limpio(x.direccion), dep=limpio(x.dependencia), tip=limpio(x.tipo_servicio);
     const pers=limpio(x.personal_atiende);
-    const dest=x.lat&&x.long ? `${x.lat},${x.long}` : encodeURIComponent(dir||x.nombre||"");
+    /* Hay coordenadas mal capturadas —la longitud sin el signo negativo, que en
+       México siempre lo lleva—, y con esas el mapa manda al técnico al otro lado
+       del mundo. Si no cae en México, se navega por dirección, que nunca falla. */
+    const cla=parseFloat(x.lat), clo=parseFloat(x.long);
+    const buena = cla && clo && cla>=14 && cla<=33 && clo>=-118 && clo<=-86;
+    const dest = buena ? `${cla},${clo}` : encodeURIComponent(dir||x.nombre||"");
     const tel=limpio(x.telefono).replace(/[^\d+]/g,"");
     const cerrado=cl==="ok";
     return `<div class="card ${cerrado?"done":""}">
