@@ -57,7 +57,7 @@
   .comp th.p{color:var(--acc);font-size:13px;text-transform:none;letter-spacing:0}
   .comp td{padding:6px 9px;border-bottom:1px solid rgba(29,66,103,.45)}
   .comp td.et{color:var(--txt2);width:40%}
-  .comp tr.dif td{background:rgba(99,179,255,.07)}
+  .comp .tot{background:rgba(99,179,255,.10);font-weight:800}
   .comp .n{font-variant-numeric:tabular-nums;font-weight:700}
 
   .vacio{text-align:center;color:var(--txt2);padding:50px}
@@ -114,9 +114,9 @@
     <div class="f"><label>Propuesta</label>
       <select id="fProp" onchange="pintar()">
         <option value="">Todos</option>
-        <option value="con">Con propuesta</option>
-        <option value="comp">Con comparativa (2 o más)</option>
-        <option value="sin">Sin propuesta</option></select></div>
+        <option value="con">Ya levantados</option>
+        <option value="comp">De varios equipos</option>
+        <option value="sin">Sin capturar</option></select></div>
     <button class="pri" onclick="imprimirTodas()">Imprimir fichas</button>
   </div>
 
@@ -125,6 +125,26 @@
 </div>
 
 <div id="salida"></div>
+
+<!-- cargar fotos de un levantamiento ya hecho, sin tocar el servicio -->
+<div class="modal" id="mSubir" style="display:none">
+  <div class="box">
+    <h2>Agregar fotos</h2>
+    <p><b id="subSitio"></b><br><span id="subFecha"></span></p>
+    <label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">¿Qué son?</label>
+    <select id="subEtapa">
+      <option value="LEVANTAMIENTO">Fotos del levantamiento</option>
+      <option value="REPORTE">Reporte firmado</option>
+    </select>
+    <label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin:9px 0 4px">Archivos</label>
+    <input id="subFile" type="file" accept="image/*,application/pdf" multiple>
+    <div class="aviso" id="subErr" style="display:none"></div>
+    <button class="pri" id="subBtn" style="width:100%;justify-content:center"
+            onclick="guardarSubida()">Guardar</button>
+    <button style="width:100%;justify-content:center;margin-top:8px"
+            onclick="document.getElementById('mSubir').style.display='none'">Cancelar</button>
+  </div>
+</div>
 
 <div class="modal" id="mLogin">
   <div class="box">
@@ -193,9 +213,8 @@ function salir(){ localStorage.removeItem("md_lev"); location.reload() }
 async function arrancar(){
   document.getElementById("who").innerHTML="<b>"+esc(ses.usuario||"")+"</b>salir";
   document.getElementById("filtros").style.display="flex";
-  const h=new Date(), d=new Date(); d.setMonth(d.getMonth()-3);
-  document.getElementById("fDe").value=d.toISOString().slice(0,10);
-  document.getElementById("fA").value=h.toISOString().slice(0,10);
+  /* sin fechas de arranque: los levantamientos se retrasan y hay que poder
+     llegar a los de hace un año. Quien quiera acotar, pone el rango. */
   cargar();
 }
 
@@ -205,11 +224,18 @@ async function cargar(){
   const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
   let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,fecha_servicio,"+
         "fecha_atencion,tecnico,tipo_inmueble,requerimientos,obs_coord,tiempo_inst_est,"+
-        "segurista_vigia,status&coord=eq.LEV&order=fecha_atencion.desc,nombre&limit=1000";
+        "segurista_vigia,status&coord=eq.LEV&order=fecha_atencion.desc,nombre";
   if(de) q+="&fecha_servicio=gte."+de;
   if(a)  q+="&fecha_servicio=lte."+a;
   try{
-    filas=await api(q);
+    filas=[];
+    for(let off=0; off<8000; off+=1000){
+      const t=await api(q+"&limit=1000&offset="+off);
+      filas=filas.concat(t);
+      if(t.length<1000) break;
+      document.getElementById("lista").innerHTML=
+        '<div class="load">Cargando… '+filas.length+' levantamientos</div>';
+    }
     props={};
     if(filas.length){
       const ids=[...new Set(filas.map(f=>f.id))];
@@ -233,27 +259,36 @@ function llenarClientes(){
   sel.value=v;
 }
 
-/* ---------- la comparativa ---------- */
+/* ---------- las sonorizaciones del inmueble ----------
+   No son versiones de lo mismo: cada una es un equipo para un área distinta del
+   predio. Lo que ocupa costos es el desglose por área y, sobre todo, el total. */
 const RENGLONES=[
-  ["equipo","Equipo"],["amplificador","Amplificador"],["amplificador_cap","Capacidad"],
+  ["equipo","Equipo receptor"],["amplificador","Amplificador"],["amplificador_cap","Capacidad"],
   ["antena","Antenas"],["plasticas","Trompetas plástico"],["aluminio","Trompetas aluminio"],
   ["eliptica","Dual elíptica"],["bocina_plafon","Bocinas de plafón"],["estrobo","Estrobos"],
   ["ups","UPS"],["coaxial","Coaxial (3 m)"],["pot","Cable POT (3 m)"],["ur","Cable UR (3 m)"],
   ["p_gruesa","Tubería gruesa (3 m)"],["p_delgada","Tubería delgada (3 m)"],["notas","Notas"]
 ];
 
+const SUMABLES=["amplificador","plasticas","aluminio","eliptica","bocina_plafon","estrobo","ups",
+                "antena","coaxial","pot","ur","p_gruesa","p_delgada"];
+
+function suma(ps,k){
+  const t=ps.reduce((a,p)=>a+(parseFloat(p[k])||0),0);
+  return t ? String(t) : "";
+}
 function comparativa(ps){
   if(!ps.length) return "";
   const usados=RENGLONES.filter(([k])=>ps.some(p=>limpio(p[k])));
   if(!usados.length) return "";
+  const varias=ps.length>1;
   return `<div class="comp"><table>
-    <tr><th></th>${ps.map(p=>`<th class="p">${esc(p.nombre||("Propuesta "+p.n))}</th>`).join("")}</tr>
-    ${usados.map(([k,et])=>{
-      const vals=ps.map(p=>limpio(p[k]));
-      const dif=ps.length>1 && new Set(vals).size>1;   // se resalta lo que cambia
-      return `<tr class="${dif?"dif":""}"><td class="et">${et}</td>
-        ${vals.map(v=>`<td class="${k==="notas"?"":"n"}">${esc(v||"—")}</td>`).join("")}</tr>`;
-    }).join("")}
+    <tr><th></th>${ps.map(p=>`<th class="p">${esc(p.nombre||("Área "+p.n))}</th>`).join("")}
+      ${varias?`<th class="p tot">Total</th>`:""}</tr>
+    ${usados.map(([k,et])=>`<tr><td class="et">${et}</td>
+        ${ps.map(p=>`<td class="${k==="notas"?"":"n"}">${esc(limpio(p[k])||"—")}</td>`).join("")}
+        ${varias?`<td class="n tot">${SUMABLES.includes(k)?esc(suma(ps,k)||"—"):"—"}</td>`:""}
+      </tr>`).join("")}
   </table></div>`;
 }
 
@@ -266,12 +301,12 @@ function pintar(){
   if(fp==="sin")  v=v.filter(x=>!(props[llave(x)]||[]).length);
 
   const con=filas.filter(x=>(props[llave(x)]||[]).length>0).length;
-  const comp=filas.filter(x=>(props[llave(x)]||[]).length>1).length;
+  const equipos=filas.reduce((a,x)=>a+(props[llave(x)]||[]).length,0);
   document.getElementById("resumen").innerHTML=
     `<div class="pill"><b>${filas.length}</b>levantamientos</div>
-     <div class="pill"><b style="color:#5BD79B">${con}</b>con propuesta</div>
-     <div class="pill"><b style="color:#63B3FF">${comp}</b>con comparativa</div>
-     <div class="pill"><b style="color:#E8A33D">${filas.length-con}</b>sin propuesta</div>`;
+     <div class="pill"><b style="color:#5BD79B">${con}</b>ya levantados</div>
+     <div class="pill"><b style="color:#63B3FF">${equipos}</b>equipos por instalar</div>
+     <div class="pill"><b style="color:#E8A33D">${filas.length-con}</b>sin capturar</div>`;
 
   if(!v.length){
     document.getElementById("lista").innerHTML='<div class="vacio">Nada con esos filtros.</div>';
@@ -288,14 +323,54 @@ function pintar(){
             ${limpio(x.tecnico)?" · "+esc(x.tecnico):""}</div>
         </div>
         <div class="der">
-          ${ps.length?`<span class="tag">${ps.length} propuesta${ps.length>1?"s":""}</span>`
-                     :`<span class="tag no">sin propuesta</span>`}
+          ${ps.length?`<span class="tag">${ps.length} equipo${ps.length>1?"s":""}</span>`
+                     :`<span class="tag no">sin capturar</span>`}
+          <button class="mini" onclick="abrirSubir('${x.coord}',${x.id})">+ fotos</button>
           ${ps.length?`<button class="mini" onclick="ficha('${x.coord}',${x.id})">Ficha</button>`:""}
         </div>
       </div>
       ${comparativa(ps)}
     </div>`;
   }).join("");
+}
+
+/* ---------- subir fotos de levantamientos pasados ----------
+   Los levantamientos se retrasan y el material llega despues, a veces por
+   correo. Se carga aqui sin tocar el servicio: ya esta atendido. */
+let subir=null;
+function abrirSubir(coord,id){
+  const x=filas.find(s=>s.coord===coord&&s.id===id); if(!x) return;
+  subir={coord:coord,id:id,srv:x};
+  document.getElementById("subSitio").textContent=(x.nombre||"")+(x.tkt?" · "+x.tkt:"");
+  document.getElementById("subFecha").textContent=
+    "Levantado el "+(x.fecha_atencion||x.fecha_servicio||"—")+" · "+(limpio(x.tecnico)||"sin técnico");
+  document.getElementById("subErr").style.display="none";
+  document.getElementById("subFile").value="";
+  document.getElementById("mSubir").style.display="flex";
+}
+async function guardarSubida(){
+  const inp=document.getElementById("subFile"), err=document.getElementById("subErr");
+  const btn=document.getElementById("subBtn");
+  if(!inp.files.length){ err.textContent="Elige al menos un archivo"; err.style.display="block"; return }
+  const tipo=document.getElementById("subEtapa").value, x=subir.srv;
+  btn.disabled=true;
+  try{
+    for(let i=0;i<inp.files.length;i++){
+      btn.textContent=`Subiendo ${i+1}/${inp.files.length}…`;
+      const f=inp.files[i];
+      const ext=f.type==="application/pdf"?"pdf":"jpg";
+      const ruta=`${x.coord}/${x.tkt||("id"+x.id)}/${Date.now()}_${tipo}_${i}.${ext}`;
+      const r=await fetch(`${SUPA_URL}/storage/v1/object/evidencias/${ruta}`,
+        {method:"POST",headers:Object.assign({},hdr(),{"Content-Type":f.type||"image/jpeg"}),body:f});
+      if(!r.ok) throw new Error("no se pudo guardar ("+r.status+")");
+      await api("evidencias",{method:"POST",
+        headers:{"Content-Type":"application/json",Prefer:"return=minimal"},
+        body:JSON.stringify({coord:x.coord,servicio_id:x.id,tkt:x.tkt||"",tipo:tipo,
+                             ruta:ruta,tecnico:x.tecnico||ses.usuario})});
+    }
+    document.getElementById("mSubir").style.display="none";
+  }catch(e){ err.textContent=e.message; err.style.display="block" }
+  finally{ btn.disabled=false; btn.textContent="Guardar" }
 }
 
 /* ---------- ficha para el cliente ---------- */
@@ -314,10 +389,14 @@ function hojaFicha(x, ps){
       ${limpio(x.segurista_vigia)?`<tr><td class="et">Requiere segurista o vigía</td><td>${esc(x.segurista_vigia)}</td></tr>`:""}
       ${limpio(x.tiempo_inst_est)?`<tr><td class="et">Tiempo estimado de instalación</td><td>${esc(x.tiempo_inst_est)} min</td></tr>`:""}
     </table>
+    <p style="font-size:11.5px;margin:0 0 3mm"><b>${ps.length}</b>
+      ${ps.length===1?"equipo necesario":"equipos necesarios"} para alertar a todo el inmueble.</p>
     <table class="f">
-      <tr><th></th>${ps.map(p=>`<th>${esc(p.nombre||("Propuesta "+p.n))}</th>`).join("")}</tr>
+      <tr><th></th>${ps.map(p=>`<th>${esc(p.nombre||("Área "+p.n))}</th>`).join("")}
+        ${ps.length>1?`<th>Total</th>`:""}</tr>
       ${usados.map(([k,et])=>`<tr><td class="et">${et}</td>
-        ${ps.map(p=>`<td>${esc(limpio(p[k])||"—")}</td>`).join("")}</tr>`).join("")}
+        ${ps.map(p=>`<td>${esc(limpio(p[k])||"—")}</td>`).join("")}
+        ${ps.length>1?`<td><b>${SUMABLES.includes(k)?esc(suma(ps,k)||"—"):"—"}</b></td>`:""}</tr>`).join("")}
     </table>
     ${limpio(x.requerimientos)?`<p style="font-size:11.5px"><b>Requerimientos:</b> ${esc(x.requerimientos)}</p>`:""}
     <div class="pie">Magdalena 202, Col. Del Valle, Benito Juárez, C.P. 03100, CDMX, Tel. 551107 8307<br>

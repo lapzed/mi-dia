@@ -185,6 +185,7 @@
     border:1.5px solid var(--line);background:#17456E;color:var(--acc)}
   .pz-tipo{flex:0 0 auto;max-width:44%;font-size:12.5px;padding:8px 9px}
   .pz-serie{width:100%;margin-top:8px;font-size:12.5px;padding:9px 10px}
+  .pz-nota{font-size:11.5px;color:var(--txt2);margin-top:7px;line-height:1.4}
   .pzs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}
   .pz{position:relative;width:74px}
   .pz img{width:74px;height:56px;object-fit:cover;border-radius:8px;
@@ -211,6 +212,8 @@
   .prop{border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-bottom:10px;
     background:#0F2C4A}
   .prop-cab{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+  .prop-n{flex:0 0 24px;height:24px;border-radius:50%;background:var(--acc);color:#07203a;
+    font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
   .prop-nom{flex:1;font-weight:700;font-size:14px;padding:8px 10px}
   .prop-x{background:none;border:none;color:var(--bad);font-size:12px;padding:6px}
   .pc-tit{font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;
@@ -816,7 +819,9 @@ const POR_COORD = {LEV:BLOQUES_LEV, CAT:BLOQUES_CAT};
    (55) para lo que va montado en techo o muro, donde importa igual saber DÓNDE
    está instalado. El recuadro exterior no cambia: la foto siempre sale igual. */
 const PARTIDAS = [
-  {id:"EQUIPO", tit:"Equipo receptor", req:true, serie:true, guia:90,
+  /* hay inmuebles con varios receptores —la Anáhuac lleva siete—, así que se
+     fotografía uno por uno y cada quien con su número de serie */
+  {id:"EQUIPO", tit:"Equipos receptores", req:true, varias:true, seriePieza:true, guia:90,
    pista:"La carátula completa y derecha, llenando la guía"},
   {id:"AMPLIFICADOR", tit:"Amplificador", cuenta:"amplificador", serie:true, guia:90,
    pista:"De frente, con su etiqueta visible"},
@@ -979,12 +984,16 @@ function regularizar(coord, id){
   abrirCierre(coord, id, "REGULARIZAR");
 }
 
-/* ============ propuestas del levantamiento ============
-   El cliente pide comparar: una solución completa y una económica. Se levantan
-   las dos en sitio, con el inmueble enfrente, que es cuando se sabe de verdad
-   qué se puede recortar y qué no. */
+/* ============ sonorizaciones del levantamiento ============
+   Un predio grande no se alerta con un solo equipo: hay que sonorizar por áreas
+   para que el aviso llegue a toda la población del inmueble. La Universidad
+   Anáhuac lleva siete. Cada una es un equipo con sus propios aditamentos, y se
+   identifica por dónde va, que es lo que después permite instalarla.
+
+   Aquí no hay número de serie: el equipo todavía no existe en el sitio, se está
+   proponiendo. */
 const PROP_EQUIPO = [
-  ["equipo",           "Equipo"],
+  ["equipo",           "Equipo receptor"],
   ["amplificador",     "Amplificador"],
   ["amplificador_cap", "Capacidad del ampli."]
 ];
@@ -998,9 +1007,7 @@ const PROP_CABLE = [
   ["p_gruesa","Tubería gruesa"], ["p_delgada","Tubería delgada"]
 ];
 
-function propNueva(n){
-  return {n:n, nombre: n===1 ? "Completa" : "Económica", notas:""};
-}
+function propNueva(n){ return {n:n, nombre:"", notas:""} }   // el nombre es el área
 function propAgregar(){
   cie.propuestas.push(propNueva(cie.propuestas.length+1));
   pintarCierre();
@@ -1024,6 +1031,9 @@ function partAgregar(etapa, pid){
   if(p.tipos){
     const sel = document.getElementById("tipo_"+etapa+"_"+pid);
     variante = sel ? sel.value : p.tipos[0][0];
+  }else if(p.seriePieza){
+    const inp = document.getElementById("serie_"+etapa+"_"+pid);
+    variante = inp ? inp.value.trim() : "";     // aquí la "variante" es la serie
   }
   const n = partLista(etapa, pid).length + 1;
   const tit = (p.varias ? `${p.tit.replace(/s$/,"")} ${n}${variante?" · "+variante:""}` : p.tit)
@@ -1063,6 +1073,11 @@ function conteoPartidas(){
       }
     }else if(p.cuenta){
       out[p.cuenta] = String(lista.length);
+    }
+    // los equipos: se cuentan y sus series quedan juntas
+    if(p.id==="EQUIPO" && lista.length){
+      const series = lista.map(f=>(f.variante||"").trim()).filter(Boolean);
+      if(series.length) out.serie = series.join(" · ");
     }
   }
   if(cie.series && (cie.series.EQUIPO||"").trim()) out.serie = cie.series.EQUIPO.trim();
@@ -1120,7 +1135,9 @@ function pintarCierre(){
       </div>`).join("");
     const selTipo = p.tipos ? `
       <select id="tipo_${etapa}_${p.id}" class="pz-tipo">
-        ${p.tipos.map(([n])=>`<option>${n}</option>`).join("")}</select>` : "";
+        ${p.tipos.map(([n])=>`<option>${n}</option>`).join("")}</select>`
+      : (p.seriePieza && etapa==="ANTES" ? `
+      <input id="serie_${etapa}_${p.id}" class="pz-tipo" placeholder="Núm. de serie">` : "");
     return `
       <div class="part ${hay?"lista":""}">
         <div class="part-cab">
@@ -1138,6 +1155,8 @@ function pintarCierre(){
         ${(p.serie && etapa==="ANTES")?`<input class="pz-serie" placeholder="Número de serie"
            value="${(cie.series[p.id]||"").replace(/"/g,"&quot;")}"
            oninput="partSerie('${p.id}',this.value)">`:""}
+        ${(p.seriePieza && hay)?`<div class="pz-nota">Cada equipo con su serie: ${
+          lista.map(f=>f.variante||"sin serie").join(" · ")}</div>`:""}
       </div>`;
   };
 
@@ -1158,7 +1177,9 @@ function pintarCierre(){
   const propuesta = (p,i) => `
     <div class="prop">
       <div class="prop-cab">
-        <input class="prop-nom" value="${(p.nombre||"").replace(/"/g,"&quot;")}"
+        <span class="prop-n">${p.n}</span>
+        <input class="prop-nom" placeholder="¿Dónde va? Edificio A, gimnasio…"
+               value="${(p.nombre||"").replace(/"/g,"&quot;")}"
                oninput="propCampo(${i},'nombre',this.value)">
         ${i>0?`<button class="prop-x" onclick="propQuitar(${i})">✕ quitar</button>`:""}
       </div>
@@ -1172,12 +1193,13 @@ function pintarCierre(){
     </div>`;
 
   const seccionProp = () => !cie.propuestas ? "" : `
-    <div class="lbl">Propuesta para el cliente</div>
-    <p class="pista">Lo que se le va a cotizar. Si pidió comparar, agrega una
-       segunda con menos alcance.</p>
+    <div class="lbl">Sonorizaciones del inmueble
+      <span class="req ${cie.propuestas.length?"listo":""}">${cie.propuestas.length} en total</span></div>
+    <p class="pista">Una por cada equipo que se necesita para alertar a todo el
+       predio. Di dónde va cada una y qué lleva.</p>
     ${cie.propuestas.map(propuesta).join("")}
     <button class="b-part" style="width:100%" onclick="propAgregar()">
-      + Otra propuesta</button>`;
+      + Agregar otra sonorización</button>`;
 
   const bloque = b => {
     const ok=cubierto(b), ya=s._ev&&s._ev[b.tipo];
