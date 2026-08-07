@@ -196,7 +196,12 @@ async function arrancar(){
   }
 }
 
-function abierto(x){ return ["ATENDIDO","CANCELADO"].indexOf((x.status||"").toUpperCase())<0 }
+/* CONTINUIDAD no es un servicio sin cerrar: es una obra que dura varios días y
+   ese día no se concluyó. Cuenta como trabajo en curso, no como pendiente. */
+function enProceso(x){ return (x.status||"").toUpperCase()==="CONTINUIDAD" }
+function abierto(x){
+  return ["ATENDIDO","CANCELADO","CONTINUIDAD"].indexOf((x.status||"").toUpperCase())<0;
+}
 function ver(v){
   vista=v;
   [...document.querySelectorAll(".tabs button")].forEach((b,i)=>
@@ -279,17 +284,25 @@ function pintarHoy(){
 }
 
 /* ================= 2. lo que se está atorando ================= */
+const DIAS_OBRA_VIEJA=30;   // más de un mes "en proceso" ya no es una obra en curso
+
 function pintarAtoro(){
   const hoy=hoyISO();
-  const v=todos.filter(x=>abierto(x)&&x.fecha_servicio&&x.fecha_servicio<hoy)
+  /* Se suman dos cosas distintas: lo que quedó pendiente, y las obras que
+     siguen "en proceso" desde hace más de un mes. Una obra de varios días es
+     normal; una de año y medio es un registro que nadie cerró. */
+  const v=todos.filter(x=>x.fecha_servicio&&x.fecha_servicio<hoy&&
+            (abierto(x) || (enProceso(x)&&dias(x.fecha_servicio)>DIAS_OBRA_VIEJA)))
                .sort((a,b)=>a.fecha_servicio.localeCompare(b.fecha_servicio));
   const porCoord={}; v.forEach(x=>{ porCoord[x.coord]=(porCoord[x.coord]||0)+1 });
   const rep=v.filter(x=>(x.status||"").toUpperCase().indexOf("REPROGRAMAD")>=0).length;
+  const obras=v.filter(enProceso).length;
 
   document.getElementById("cuerpo").innerHTML=`
-    <h2>${v.length} servicios abiertos con la fecha ya pasada</h2>
-    <p class="sub">Ni cerrados ni cancelados: siguen contando como trabajo pendiente.
-       ${rep?rep+" de ellos están como reprogramados.":""}</p>
+    <h2>${v.length} servicios detenidos</h2>
+    <p class="sub">Con la fecha ya pasada y sin cerrar.
+       ${rep?rep+" están como reprogramados. ":""}
+       ${obras?obras+" son obras que llevan más de un mes en proceso — las de varios días recién empezadas no cuentan aquí.":""}</p>
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px">
       ${Object.entries(porCoord).sort((a,b)=>b[1]-a[1]).map(([c,n])=>
         `<div class="alerta" style="flex:1;min-width:130px;margin:0">
@@ -307,7 +320,8 @@ function pintarAtoro(){
           <td>${esc((x.nombre||"").slice(0,40))}<br>
               <span style="color:var(--txt3);font-size:11.5px">${esc(limpio(x.dependencia))}</span></td>
           <td>${esc(limpio(x.tecnico)||"—")}</td>
-          <td>${esc(x.status||"sin estatus")}</td></tr>`;
+          <td>${esc(x.status||"sin estatus")}${enProceso(x)
+            ? '<br><span style="color:var(--txt3);font-size:11px">obra sin concluir</span>':""}</td></tr>`;
       }).join("")}
     </tbody></table>
     ${v.length>150?`<p class="sub" style="margin-top:12px">Se muestran los 150 más viejos
@@ -370,19 +384,24 @@ function pintarHecho(){
   const porCoord={}, porTec={};
   v.forEach(x=>{
     const c=x.coord||"?";
-    porCoord[c]=porCoord[c]||{total:0,hecho:0};
-    porCoord[c].total++; if(cerrado(x)) porCoord[c].hecho++;
+    porCoord[c]=porCoord[c]||{total:0,hecho:0,proceso:0};
+    porCoord[c].total++;
+    if(cerrado(x)) porCoord[c].hecho++;
+    else if(enProceso(x)) porCoord[c].proceso++;
     if(cerrado(x)){
       const t=limpio(x.tecnico)||"sin técnico";
       porTec[t]=(porTec[t]||0)+1;
     }
   });
+  const proceso=v.filter(enProceso);
   const pend=v.filter(x=>abierto(x));
 
   document.getElementById("cuerpo").innerHTML=`
     <h2>Lo realizado</h2>
     <p class="sub">Del ${de} al ${a} · ${v.length} servicios programados,
-       <b style="color:#5BD79B">${hechos.length} atendidos</b>.</p>
+       <b style="color:#5BD79B">${hechos.length} atendidos</b>${proceso.length
+         ? ` y <b style="color:#63B3FF">${proceso.length} en proceso</b> (obras de varios días)`
+         : ""}.</p>
     <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
       <div><label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Desde</label>
         <input type="date" id="pDe" value="${de}"></div>
@@ -397,9 +416,10 @@ function pintarHecho(){
       ${Object.entries(porCoord).sort((x,y)=>y[1].total-x[1].total).map(([c,d])=>`
         <div class="alerta" style="flex:1;min-width:150px;margin:0;border-left-color:${
           d.hecho===d.total?"#1E8E5A":"#E8A33D"}">
-          <span class="num" style="color:${d.hecho===d.total?"#5BD79B":"#F0BE6E"}">${d.hecho}<span
+          <span class="num" style="color:${d.hecho+d.proceso===d.total?"#5BD79B":"#F0BE6E"}">${d.hecho}<span
             style="font-size:13px;color:var(--txt3)">/${d.total}</span></span>
-          <h3>${esc(c)}</h3><div class="q">atendidos de programados</div>
+          <h3>${esc(c)}</h3><div class="q">atendidos${d.proceso
+            ? ` · <span style="color:#63B3FF">${d.proceso} en proceso</span>`:""}</div>
         </div>`).join("")}
     </div>
 
@@ -410,6 +430,16 @@ function pintarHecho(){
         || '<tr><td colspan="2" class="q">Nada cerrado en el periodo.</td></tr>'}
       </tbody></table>
 
+    ${proceso.length?`<h2>${proceso.length} siguen en proceso</h2>
+      <p class="sub">Obras de varios días: ese día no se concluyó porque el servicio
+         dura más. No son pendientes.</p>
+      <table style="margin-bottom:22px"><thead><tr><th>Fecha</th><th>Coord</th><th>Sitio</th>
+        <th>Técnico</th></tr></thead><tbody>
+        ${proceso.slice(0,40).map(x=>`<tr><td>${esc(x.fecha_servicio)}</td>
+          <td><span class="tag">${esc(x.coord)}</span></td>
+          <td>${esc((x.nombre||"").slice(0,42))}</td>
+          <td>${esc(limpio(x.tecnico)||"—")}</td></tr>`).join("")}
+      </tbody></table>`:""}
     ${pend.length?`<h2>Del periodo, ${pend.length} quedaron sin cerrar</h2>
       <table><thead><tr><th>Fecha</th><th>Coord</th><th>Sitio</th><th>Técnico</th><th>Estatus</th></tr></thead>
       <tbody>${pend.slice(0,80).map(x=>`<tr>
