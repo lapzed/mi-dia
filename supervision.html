@@ -372,7 +372,7 @@ function semanaOperativa(){
   const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   return [iso(jue), iso(mie)];
 }
-let periodo=null;
+let periodo=null, coordF="";
 function pintarHecho(){
   if(!periodo) periodo=semanaOperativa();
   const [de,a]=periodo;
@@ -395,6 +395,10 @@ function pintarHecho(){
   });
   const proceso=v.filter(enProceso);
   const pend=v.filter(x=>abierto(x));
+  const coords=[...new Set(todos.map(x=>x.coord).filter(Boolean))].sort();
+  // uno por uno, que es lo que se venía revisando a mano en la estación
+  const det=(coordF?v.filter(x=>x.coord===coordF):v)
+    .slice().sort((x,y)=>(x.fecha_servicio||"").localeCompare(y.fecha_servicio||""));
 
   document.getElementById("cuerpo").innerHTML=`
     <h2>Lo realizado</h2>
@@ -410,6 +414,11 @@ function pintarHecho(){
       <button class="pri" onclick="periodo=[document.getElementById('pDe').value,
         document.getElementById('pA').value];pintarHecho()">Ver ese periodo</button>
       <button onclick="periodo=semanaOperativa();pintarHecho()">Semana en curso</button>
+      <div><label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Coordinación</label>
+        <select id="pCo" onchange="coordF=this.value;pintarHecho()">
+          <option value="">Todas</option>
+          ${coords.map(c=>`<option value="${esc(c)}"${c===coordF?" selected":""}>${esc(c)}</option>`).join("")}
+        </select></div>
     </div>
 
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px">
@@ -448,7 +457,21 @@ function pintarHecho(){
         <td>${esc((x.nombre||"").slice(0,42))}</td>
         <td>${esc(limpio(x.tecnico)||"—")}</td>
         <td>${esc(x.status||"sin estatus")}</td></tr>`).join("")}
-      </tbody></table>`:""}`;
+      </tbody></table>`:""}
+
+    <h2 style="margin-top:26px">Uno por uno${coordF?" · "+esc(coordF):""}</h2>
+    <p class="sub">${det.length} servicio${det.length===1?"":"s"} del ${de} al ${a}, en orden de fecha.</p>
+    <table><thead><tr><th>Fecha</th><th>Coord</th><th>Ticket</th><th>Sitio</th>
+      <th>Técnico</th><th>Estatus</th></tr></thead><tbody>
+      ${det.map(x=>`<tr>
+        <td>${esc(x.fecha_servicio)}</td>
+        <td><span class="tag">${esc(x.coord)}</span></td>
+        <td>${esc(limpio(x.tkt)||"—")}</td>
+        <td>${esc(x.nombre||"")}</td>
+        <td>${esc(limpio(x.tecnico)||"—")}</td>
+        <td>${esc(x.status||"sin estatus")}</td></tr>`).join("")
+      ||'<tr><td colspan="6" class="q">No hay servicios en ese periodo.</td></tr>'}
+    </tbody></table>`;
 }
 
 (async function(){
