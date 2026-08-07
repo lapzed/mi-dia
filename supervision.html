@@ -96,6 +96,7 @@
     <button class="on" onclick="ver('hoy')">📍 Dónde anda cada brigada</button>
     <button onclick="ver('atoro')">⏳ Lo que se está atorando</button>
     <button onclick="ver('manana')">⚠️ Lo que va a fallar</button>
+    <button onclick="ver('hecho')">✅ Lo realizado</button>
   </div>
 
   <div id="cuerpo"><div class="load">Entra para supervisar.</div></div>
@@ -199,10 +200,11 @@ function abierto(x){ return ["ATENDIDO","CANCELADO"].indexOf((x.status||"").toUp
 function ver(v){
   vista=v;
   [...document.querySelectorAll(".tabs button")].forEach((b,i)=>
-    b.classList.toggle("on", ["hoy","atoro","manana"][i]===v));
+    b.classList.toggle("on", ["hoy","atoro","manana","hecho"][i]===v));
   if(v==="hoy") pintarHoy();
   if(v==="atoro") pintarAtoro();
   if(v==="manana") pintarManana();
+  if(v==="hecho") pintarHecho();
 }
 
 /* ================= 1. dónde anda cada brigada ================= */
@@ -343,6 +345,80 @@ function pintarManana(){
     ${bloque("Sin cita confirmada","El cliente puede no estar cuando llegue la brigada.",sinCita,false)}
     ${bloque("Sin coordenadas","El técnico no va a poder abrir el mapa para llegar.",sinCoord,false)}
     ${bloque("Sin hora","La brigada no sabe a qué hora se comprometió.",sinHora,false)}`;
+}
+
+/* ================= 4. lo realizado en un periodo =================
+   La pregunta de siempre: qué se hizo tal semana. Antes había que filtrar la
+   estación y contar a mano. */
+function semanaOperativa(){
+  // la semana del área corre de jueves a miércoles
+  const h=new Date();
+  const jue=new Date(h); jue.setDate(h.getDate()-((h.getDay()-4+7)%7));
+  const mie=new Date(jue); mie.setDate(jue.getDate()+6);
+  const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  return [iso(jue), iso(mie)];
+}
+let periodo=null;
+function pintarHecho(){
+  if(!periodo) periodo=semanaOperativa();
+  const [de,a]=periodo;
+  const enRango=x=>x.fecha_servicio&&x.fecha_servicio>=de&&x.fecha_servicio<=a;
+  const v=todos.filter(enRango);
+  const cerrado=x=>(x.status||"").toUpperCase()==="ATENDIDO";
+  const hechos=v.filter(cerrado);
+
+  const porCoord={}, porTec={};
+  v.forEach(x=>{
+    const c=x.coord||"?";
+    porCoord[c]=porCoord[c]||{total:0,hecho:0};
+    porCoord[c].total++; if(cerrado(x)) porCoord[c].hecho++;
+    if(cerrado(x)){
+      const t=limpio(x.tecnico)||"sin técnico";
+      porTec[t]=(porTec[t]||0)+1;
+    }
+  });
+  const pend=v.filter(x=>abierto(x));
+
+  document.getElementById("cuerpo").innerHTML=`
+    <h2>Lo realizado</h2>
+    <p class="sub">Del ${de} al ${a} · ${v.length} servicios programados,
+       <b style="color:#5BD79B">${hechos.length} atendidos</b>.</p>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+      <div><label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Desde</label>
+        <input type="date" id="pDe" value="${de}"></div>
+      <div><label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Hasta</label>
+        <input type="date" id="pA" value="${a}"></div>
+      <button class="pri" onclick="periodo=[document.getElementById('pDe').value,
+        document.getElementById('pA').value];pintarHecho()">Ver ese periodo</button>
+      <button onclick="periodo=semanaOperativa();pintarHecho()">Semana en curso</button>
+    </div>
+
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px">
+      ${Object.entries(porCoord).sort((x,y)=>y[1].total-x[1].total).map(([c,d])=>`
+        <div class="alerta" style="flex:1;min-width:150px;margin:0;border-left-color:${
+          d.hecho===d.total?"#1E8E5A":"#E8A33D"}">
+          <span class="num" style="color:${d.hecho===d.total?"#5BD79B":"#F0BE6E"}">${d.hecho}<span
+            style="font-size:13px;color:var(--txt3)">/${d.total}</span></span>
+          <h3>${esc(c)}</h3><div class="q">atendidos de programados</div>
+        </div>`).join("")}
+    </div>
+
+    <h2>Quién lo hizo</h2>
+    <table style="margin-bottom:22px"><thead><tr><th>Técnico</th><th>Servicios cerrados</th></tr></thead>
+      <tbody>${Object.entries(porTec).sort((x,y)=>y[1]-x[1]).map(([t,n])=>`
+        <tr><td>${esc(t)}</td><td class="dias">${n}</td></tr>`).join("")
+        || '<tr><td colspan="2" class="q">Nada cerrado en el periodo.</td></tr>'}
+      </tbody></table>
+
+    ${pend.length?`<h2>Del periodo, ${pend.length} quedaron sin cerrar</h2>
+      <table><thead><tr><th>Fecha</th><th>Coord</th><th>Sitio</th><th>Técnico</th><th>Estatus</th></tr></thead>
+      <tbody>${pend.slice(0,80).map(x=>`<tr>
+        <td>${esc(x.fecha_servicio)}</td>
+        <td><span class="tag">${esc(x.coord)}</span></td>
+        <td>${esc((x.nombre||"").slice(0,42))}</td>
+        <td>${esc(limpio(x.tecnico)||"—")}</td>
+        <td>${esc(x.status||"sin estatus")}</td></tr>`).join("")}
+      </tbody></table>`:""}`;
 }
 
 (async function(){
