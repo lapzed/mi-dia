@@ -199,8 +199,11 @@ async function arrancar(){
 /* CONTINUIDAD no es un servicio sin cerrar: es una obra que dura varios días y
    ese día no se concluyó. Cuenta como trabajo en curso, no como pendiente. */
 function enProceso(x){ return (x.status||"").toUpperCase()==="CONTINUIDAD" }
+/* Un prospecto sin técnico no es una alerta: todavía no se le destina recurso,
+   así que no se reporta como servicio ni como pendiente. */
 function abierto(x){
-  return ["ATENDIDO","CANCELADO","CONTINUIDAD"].indexOf((x.status||"").toUpperCase())<0;
+  return ["ATENDIDO","CANCELADO","CONTINUIDAD","PROSPECTO","ATENCION VENTAS"]
+         .indexOf((x.status||"").toUpperCase().trim())<0;
 }
 function ver(v){
   vista=v;
@@ -377,7 +380,12 @@ function pintarHecho(){
   if(!periodo) periodo=semanaOperativa();
   const [de,a]=periodo;
   const enRango=x=>x.fecha_servicio&&x.fecha_servicio>=de&&x.fecha_servicio<=a;
-  const v=todos.filter(enRango);
+  /* Prospecto y atención a ventas no se reportan: todavía no se le destinó un
+     recurso al servicio. Cancelado tampoco. Lo que no trae estatus sí cuenta:
+     es un servicio, nada más que nadie cerró el registro. */
+  const FUERA=["CANCELADO","PROSPECTO","ATENCION VENTAS"];
+  const cuenta=x=>FUERA.indexOf((x.status||"").toUpperCase().trim())<0;
+  const v=todos.filter(x=>enRango(x)&&cuenta(x));
   const cerrado=x=>(x.status||"").toUpperCase()==="ATENDIDO";
   const hechos=v.filter(cerrado);
 
