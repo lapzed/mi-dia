@@ -392,7 +392,7 @@ Object.defineProperty(window, "HDR", {get:HDRb});
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const NOMBRE_TIPO = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después",
   REPORTE:"Reporte", LEVANTAMIENTO:"Levantamiento", ATENCION:"Atención",
-  AVANCE:"Avance", LOG:"Log"};
+  AVANCE:"Avance", CROQUIS:"Croquis", LOG:"Log"};
 /* una semana atrás para poder regularizar servicios ya atendidos, y cuatro días
    adelante para ver lo que viene */
 const DESDE = -7, HASTA = 4;
@@ -867,7 +867,13 @@ const BLOQUES = [
 const BLOQUES_LEV = [
   {campo:"levanta",  tipo:"LEVANTAMIENTO", titulo:"1 · Fotos del levantamiento",
    pista:"El sitio, los puntos donde iría el equipo, accesos y alturas"},
-  {campo:"reportes", tipo:"REPORTE",       titulo:"2 · Reporte firmado",
+  /* El croquis es el producto del levantamiento: sin él, la propuesta es una
+     lista de piezas sin decir dónde va cada una. Puede ser el dibujo a mano
+     fotografiado o el plano marcado. */
+  {campo:"croquis",  tipo:"CROQUIS",       titulo:"2 · Croquis de lo propuesto",
+   pista:"Dónde va cada equipo, trompetas y estrobos. Vale la hoja dibujada a mano",
+   pdf:true},
+  {campo:"reportes", tipo:"REPORTE",       titulo:"3 · Reporte firmado",
    pista:"Formato que firmó el cliente", pdf:true}
 ];
 const BLOQUES_CAT = [
@@ -1649,13 +1655,34 @@ async function subirArchivo(item, blob, tipo, i){
   return ruta;
 }
 
-async function enviarCierre(item){
+/* Las fotos se subían de una en una y esperando cada respuesta. Con diez fotos
+   y una antena de sótano eso son diez viajes en fila, que es lo que se sentía
+   lentísimo. Se suben de tres en tres: mientras una espera respuesta las otras
+   ya van en camino. Más de tres en un celular con mala señal empeora, porque se
+   pelean el mismo canal. */
+const A_LA_VEZ = 3;
+async function subirEnParalelo(tareas, avisa){
+  let hechas = 0, siguiente = 0;
+  async function obrero(){
+    while(siguiente < tareas.length){
+      const mia = tareas[siguiente++];
+      await mia();
+      hechas++;
+      if(avisa) avisa(hechas, tareas.length);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(A_LA_VEZ, tareas.length)}, obrero));
+}
+
+async function enviarCierre(item, avisa){
   // primero las evidencias: si fallan, el TKT no debe quedar cerrado sin respaldo
+  const tareas = [];
   for(const [campo,tipo] of (item.campos||[])){
     const arr=item[campo]||[];
-    for(let i=0;i<arr.length;i++) await subirArchivo(item, arr[i], tipo, i);
+    arr.forEach((blob,i)=>tareas.push(()=>subirArchivo(item, blob, tipo, i)));
   }
-  for(const p of (item.partidas||[])) await subirArchivo(item, p.blob, p.tipo, p.n);
+  for(const p of (item.partidas||[])) tareas.push(()=>subirArchivo(item, p.blob, p.tipo, p.n));
+  await subirEnParalelo(tareas, avisa);
   for(const pr of (item.propuestas||[])){
     await api("propuestas?on_conflict=coord,servicio_id,n",
       {method:"POST",
@@ -1743,7 +1770,12 @@ async function guardarCierre(s, modo, com){
                 CONTINUIDAD:"Avance guardado · la obra sigue abierta ✓",
                 REPROGRAMADO:"Reprogramado ✓"};
   try{
-    await enviarCierre(item);
+    // el botón va diciendo por dónde va: sin eso, subir ocho fotos parece que
+    // se trabó y el técnico le pica otra vez
+    await enviarCierre(item, (n,total)=>{
+      const b=document.getElementById("btnGo");
+      if(b && total>1) b.textContent=`Subiendo foto ${n} de ${total}…`;
+    });
     toast(listos[modo]||"Guardado ✓");
     cerrarHoja(); cargar();
   }catch(e){

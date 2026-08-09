@@ -95,8 +95,13 @@
   /* ---------- informe final (el machote que se entrega al cliente) ----------
      Cada hoja lleva el domicilio al pie y su numero, como los informes que
      firma la empresa. */
+  /* La hoja mide EXACTAMENTE una carta. Antes era min-height 247mm más 52mm de
+     margen: 299mm sobre un papel de 297, así que cada hoja se derramaba dos
+     milímetros en la siguiente y ahí es donde las fotos salían cortadas. */
+  @page{size:A4;margin:0}
   #salida .hoja{position:relative;page-break-after:always;padding:26mm 20mm 26mm;
-    min-height:247mm;font-family:Calibri,Carlito,"Segoe UI",sans-serif;color:#111}
+    height:297mm;box-sizing:border-box;overflow:hidden;
+    font-family:Calibri,Carlito,"Segoe UI",sans-serif;color:#111}
   #salida .hoja:last-child{page-break-after:auto}
   #salida .hoja .marca{height:52px;margin-bottom:8px}
   #salida .hoja .marca img{height:52px}
@@ -117,10 +122,19 @@
   #salida .hoja ul.act{font-size:11.5px;line-height:1.55;padding-left:18px;margin:0}
   #salida .hoja ul.act li{margin-bottom:5px}
   #salida .hoja .etapa{text-align:center;font-size:13px;font-weight:700;margin:0 0 10px}
-  #salida .rej{display:flex;flex-wrap:wrap;gap:6mm;justify-content:center}
-  #salida .rej figure{margin:0;width:76mm;text-align:center}
-  #salida .rej img{width:100%;max-height:78mm;object-fit:contain;border:1px solid #bbb}
-  #salida .rej figcaption{font-size:10.5px;margin-top:3px}
+  /* Cuatro fotos por hoja, en dos filas parejas. La celda tiene alto fijo y la
+     foto se acomoda dentro: así una foto vertical y una horizontal ocupan lo
+     mismo y ninguna empuja a la de abajo fuera de la hoja. */
+  #salida .rej{display:grid;grid-template-columns:1fr 1fr;gap:5mm 6mm;
+    justify-items:center;align-content:start}
+  #salida .rej figure{margin:0;width:76mm;height:96mm;text-align:center;
+    display:flex;flex-direction:column;break-inside:avoid;page-break-inside:avoid}
+  #salida .rej img{width:100%;flex:1;min-height:0;object-fit:contain;
+    border:1px solid #bbb;background:#fafafa}
+  #salida .rej figcaption{font-size:10.5px;margin-top:3px;flex:none}
+  /* una sola foto —el reporte firmado o un croquis— se lleva la hoja entera */
+  #salida .rej.sola{grid-template-columns:1fr}
+  #salida .rej.sola figure{width:100%;height:198mm}
   #salida .hoja p.txt{font-size:11.5px;line-height:1.6;text-align:justify;margin:0 0 12px}
   #salida table.log{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:6px}
   #salida table.log th{background:#4A6489;color:#fff;text-align:center;font-size:11px;
@@ -246,7 +260,9 @@ let filas=[], ev={}, marcados=new Set();
    En levantamientos no se interviene el equipo: van las fotos del recorrido y
    el reporte, nada mas. */
 const ETAPAS=[["ANTES","Antes"],["DURANTE","Durante"],["DESPUES","Después"],["REPORTE","Reporte"]];
-const ETAPAS_LEV=[["LEVANTAMIENTO","Levantamiento"],["REPORTE","Reporte"]];
+const ETAPAS_LEV=[["LEVANTAMIENTO","Levantamiento"],
+                  ["CROQUIS","Croquis de la propuesta"],
+                  ["REPORTE","Reporte"]];
 const ETAPAS_CAT=[["ATENCION","Atención"],["REPORTE","Reporte"]];
 const POR_COORD={LEV:ETAPAS_LEV, CAT:ETAPAS_CAT};
 function etapasDe(coord){ return POR_COORD[(coord||"").toUpperCase()] || ETAPAS }
@@ -726,6 +742,16 @@ async function informeDe(x, num, ident, conLog){
     if(t==="REPORTE") continue;
     const g=arch.filter(f=>f.clase===t && !/pdf/.test(f.mime));
     if(!g.length) continue;
+    // El croquis es un plano: en un cuarto de hoja no se lee. Va uno por hoja.
+    if(t==="CROQUIS"){
+      g.forEach((f,k)=>{
+        h+=hoja(`<h2 class="sec" style="text-align:center">${esc(n)}</h2>
+          <div class="rej sola"><figure><img src="${f.url}">
+          ${g.length>1?`<figcaption>Croquis ${k+1} de ${g.length}</figcaption>`:""}
+          </figure></div>`);
+      });
+      continue;
+    }
     for(let i=0;i<g.length;i+=4){
       const trozo=g.slice(i,i+4);
       h+=hoja(`<h2 class="sec" style="text-align:center">Evidencia fotográfica</h2>
@@ -737,8 +763,13 @@ async function informeDe(x, num, ident, conLog){
   // reporte firmado
   const rep=arch.filter(f=>f.clase==="REPORTE" && !/pdf/.test(f.mime));
   if(rep.length){
-    h+=hoja(`<h2 class="sec" style="text-align:center">Reporte de servicio firmado</h2>
-      <div class="rej">${rep.map(f=>`<figure style="width:110mm"><img src="${f.url}" style="max-height:170mm"></figure>`).join("")}</div>`);
+    // el reporte firmado también va uno por hoja: es lo que el cliente revisa
+    rep.forEach((f,k)=>{
+      h+=hoja(`<h2 class="sec" style="text-align:center">Reporte de servicio firmado</h2>
+        <div class="rej sola"><figure><img src="${f.url}">
+        ${rep.length>1?`<figcaption>Hoja ${k+1} de ${rep.length}</figcaption>`:""}
+        </figure></div>`);
+    });
   }
   if(conLog) h+=hojaLog(x, ident);
   return h;
