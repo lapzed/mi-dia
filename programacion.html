@@ -194,9 +194,9 @@ function nombreDe(u){
    servicios: es peor —arrastra las variantes mal escritas— pero deja trabajar. */
 async function cargarCatalogos(){
   try{
-    const c=await api("catalogos?select=lista,valor,orden&activo=is.true&order=lista,orden");
+    const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
     CAT={};
-    c.forEach(x=>(CAT[x.lista]=CAT[x.lista]||[]).push(x.valor));
+    c.forEach(x=>(CAT[x.catalogo]=CAT[x.catalogo]||[]).push(x.valor));
     if(CAT.TECNICOS && CAT.TECNICOS.length) return;
   }catch(e){ CAT={} }
   const d=await api("servicios?select=tecnico,auxiliar,vehiculo,horario_atencion&limit=1000"+
