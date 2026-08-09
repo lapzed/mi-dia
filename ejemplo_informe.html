@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Entregables</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
+
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1180px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  .filtros{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+  .f{display:flex;flex-direction:column;gap:4px}
+  .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+  select,input{padding:9px 10px;border-radius:10px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:10px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  button:disabled{opacity:.45;cursor:default}
+
+  .resumen{display:flex;gap:9px;margin-bottom:12px;flex-wrap:wrap}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:8px 14px;font-size:12px}
+  .pill b{font-size:17px;display:block}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line);
+    position:sticky;top:74px;background:var(--bg)}
+  td{padding:9px;border-bottom:1px solid rgba(29,66,103,.5);vertical-align:top}
+  tr.sel td{background:rgba(99,179,255,.09)}
+  .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
+    background:#17456E;color:var(--acc)}
+  .ev{font-size:11px;font-weight:700}
+  .ev.si{color:#5BD79B} .ev.no{color:var(--warn)}
+  .et{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;
+    white-space:nowrap;display:inline-block;margin:1px 0}
+  .et.si{background:rgba(30,142,90,.2);color:#5BD79B}
+  .et.no{background:rgba(232,163,61,.15);color:#F0BE6E}
+  .mini{padding:5px 10px;font-size:11.5px;white-space:nowrap}
+  .lbl-min{display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:4px}
+  .vacio{text-align:center;color:var(--txt2);padding:50px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:400px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 14px;font-size:12.5px;color:var(--txt2)}
+  .box select,.box input{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+
+  /* ---------- el entregable ---------- */
+  #salida{display:none}
+  @media print{
+    body{background:#fff;color:#000}
+    header,.filtros,.resumen,#tabla,#pie,.modal{display:none !important}
+    #salida{display:block !important}
+    .wrap{padding:0;max-width:none}
+  }
+  #salida .portada{page-break-after:always;padding:60px 40px}
+  #salida h1{font-size:26px;margin:0 0 6px}
+  #salida .serv{page-break-inside:avoid;page-break-after:always;padding:24px 30px}
+  #salida .serv:last-child{page-break-after:auto}
+  #salida table.datos{width:100%;font-size:12px;margin-bottom:14px}
+  #salida table.datos td{padding:4px 6px;border-bottom:1px solid #ddd}
+  #salida table.datos td:first-child{width:150px;color:#555;font-weight:600}
+  #salida .fotos{display:flex;flex-wrap:wrap;gap:10px}
+  #salida .fotos img{max-width:47%;max-height:330px;border:1px solid #ccc}
+  #salida .cab{border-bottom:3px solid #0B2038;padding-bottom:8px;margin-bottom:14px;
+    display:flex;align-items:center;gap:10px}
+  #salida .cab .mk{font-weight:800;font-size:15px;color:#0B2038}
+  #salida .cab .der{margin-left:auto;font-size:11px;color:#555}
+
+  /* ---------- informe final (el machote que se entrega al cliente) ----------
+     Cada hoja lleva el domicilio al pie y su numero, como los informes que
+     firma la empresa. */
+  /* La hoja mide EXACTAMENTE una carta. Antes era min-height 247mm más 52mm de
+     margen: 299mm sobre un papel de 297, así que cada hoja se derramaba dos
+     milímetros en la siguiente y ahí es donde las fotos salían cortadas. */
+  @page{size:A4;margin:0}
+  #salida .hoja{position:relative;page-break-after:always;padding:26mm 20mm 26mm;
+    height:297mm;box-sizing:border-box;overflow:hidden;
+    font-family:Calibri,Carlito,"Segoe UI",sans-serif;color:#111}
+  #salida .hoja:last-child{page-break-after:auto}
+  #salida .hoja .marca{height:52px;margin-bottom:8px}
+  #salida .hoja .marca img{height:52px}
+  /* el logo del cliente, en la portada y del lado opuesto al de la empresa */
+  #salida .port .logo-cli{position:absolute;right:20mm;top:26mm;text-align:right}
+  #salida .port .logo-cli img{max-height:22mm;max-width:52mm;object-fit:contain}
+  #salida .hoja .npag{position:absolute;right:20mm;bottom:16mm;font-size:11px;color:#333}
+  #salida .hoja .pie{position:absolute;left:20mm;right:20mm;bottom:8mm;text-align:center;
+    font-size:9.5px;color:#3b3b3b;border-top:2px solid #1F3864;padding-top:5px}
+  #salida .hoja .pie a{color:#1F3864}
+  #salida .port h1{font-size:19px;font-weight:700;line-height:1.35;margin:34mm 0 0;
+    text-align:center;color:#111}
+  #salida .port .sitio{font-size:22px;font-weight:800;text-align:center;margin:14mm 0 0;
+    letter-spacing:.02em}
+  #salida .port .dir{font-size:12px;text-align:center;margin:52mm 0 0;line-height:1.5}
+  #salida .port .elab{font-size:12px;text-align:center;margin:6px 0 0;font-weight:600}
+  #salida .hoja h2.sec{font-size:14px;font-weight:700;margin:0 0 12px}
+  #salida .hoja ul.act{font-size:11.5px;line-height:1.55;padding-left:18px;margin:0}
+  #salida .hoja ul.act li{margin-bottom:5px}
+  #salida .hoja .etapa{text-align:center;font-size:13px;font-weight:700;margin:0 0 10px}
+  /* Cuatro fotos por hoja, en dos filas parejas. La celda tiene alto fijo y la
+     foto se acomoda dentro: así una foto vertical y una horizontal ocupan lo
+     mismo y ninguna empuja a la de abajo fuera de la hoja. */
+  #salida .rej{display:grid;grid-template-columns:1fr 1fr;gap:5mm 6mm;
+    justify-items:center;align-content:start}
+  #salida .rej figure{margin:0;width:76mm;height:96mm;text-align:center;
+    display:flex;flex-direction:column;break-inside:avoid;page-break-inside:avoid}
+  #salida .rej img{width:100%;flex:1;min-height:0;object-fit:contain;
+    border:1px solid #bbb;background:#fafafa}
+  #salida .rej figcaption{font-size:10.5px;margin-top:3px;flex:none}
+  /* una sola foto —el reporte firmado o un croquis— se lleva la hoja entera */
+  #salida .rej.sola{grid-template-columns:1fr}
+  #salida .rej.sola figure{width:100%;height:198mm}
+  #salida .hoja p.txt{font-size:11.5px;line-height:1.6;text-align:justify;margin:0 0 12px}
+  #salida table.log{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:6px}
+  #salida table.log th{background:#4A6489;color:#fff;text-align:center;font-size:11px;
+    padding:4px;border:1px solid #7d8fa8;letter-spacing:.04em}
+  #salida table.log td{border:1px solid #9aa7b8;padding:3px 5px;vertical-align:top;width:50%;
+    line-height:1.35}
+  #salida table.log td .ln{display:block;padding-left:9px}
+  #salida table.log td.falta{background:#fdeaea;color:#8a1c1c}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div>
+        <div class="bt">MD Control</div>
+        <div class="bs">ENTREGABLES AL CLIENTE</div>
+      </div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="filtros" id="filtros" style="display:none">
+    <div class="f"><label>Cliente</label>
+      <select id="fCli" onchange="cargar()"><option value="">Todos</option></select></div>
+    <div class="f"><label>Coordinación</label>
+      <select id="fCoord" onchange="cargar()">
+        <option value="">Todas</option><option>MANT</option><option>INST</option>
+        <option>LEV</option><option>CAT</option><option>PRY_ESP</option></select></div>
+    <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
+    <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargar()"></div>
+    <div class="f"><label>Evidencia</label>
+      <select id="fEv" onchange="pintar()">
+        <option value="">Todos</option>
+        <option value="completo">Solo completos</option>
+        <option value="falta">Les falta algo</option></select></div>
+    <div class="f"><label>Formato</label>
+      <select id="fForm" onchange="verFormato()">
+        <option value="lista">Reporte de servicios</option>
+        <option value="informe">Informe final (uno por sitio)</option></select></div>
+    <button onclick="marcarTodos()">Marcar todos</button>
+    <button class="pri" id="btnGen" onclick="generar()" disabled>Generar entregable</button>
+  </div>
+
+  <!-- lo que solo aplica al informe final -->
+  <div class="filtros" id="opsInforme" style="display:none">
+    <div class="f"><label>Número de mantenimiento</label>
+      <select id="iNum">
+        <option value="primer">primer</option>
+        <option value="segundo" selected>segundo</option>
+        <option value="tercer">tercer</option>
+        <option value="cuarto">cuarto</option></select></div>
+    <div class="f"><label>Identificador del receptor (log)</label>
+      <input id="iIdent" value="CIV-RWT-000000+0300-0000000" size="30"></div>
+    <div class="f"><label>Registro de eventos</label>
+      <select id="iLog">
+        <option value="si">Incluirlo</option>
+        <option value="no">Sin registro de eventos</option></select></div>
+  </div>
+
+  <!-- lo que las coordinaciones están esperando; va arriba de todo a propósito -->
+  <div id="pedidos"></div>
+
+  <div class="resumen" id="resumen"></div>
+  <div id="tabla"><div class="load">Entra para ver los servicios.</div></div>
+  <div id="pie"></div>
+</div>
+
+<div id="salida"></div>
+
+<!-- cargar evidencia de un servicio ya cerrado, sin volver a tocarlo -->
+<div class="modal" id="mSubir" style="display:none">
+  <div class="box">
+    <h2>Agregar evidencia</h2>
+    <p><b id="subSitio"></b><br><span id="subFecha"></span></p>
+    <label class="lbl-min">¿De qué momento son?</label>
+    <select id="subEtapa"></select>
+    <label class="lbl-min">Fotos o reporte escaneado</label>
+    <input id="subFile" type="file" accept="image/*,application/pdf" multiple>
+    <div class="aviso" id="subErr" style="display:none"></div>
+    <button class="pri" id="subBtn" style="width:100%;justify-content:center"
+            onclick="guardarSubida()">Guardar evidencia</button>
+    <button style="width:100%;justify-content:center;margin-top:8px"
+            onclick="cerrarSubir()">Cancelar</button>
+  </div>
+</div>
+
+<!-- el logo del cliente se pide una sola vez y queda para siempre -->
+<div class="modal" id="mLogo" style="display:none">
+  <div class="box">
+    <h2>Falta el logo de <span id="logoCli"></span></h2>
+    <p>Se guarda una sola vez y de aquí en adelante el informe de este cliente
+       ya lo trae. Conviene un PNG con fondo transparente.</p>
+    <input id="logoFile" type="file" accept="image/*">
+    <div class="aviso" id="logoErr" style="display:none"></div>
+    <button id="logoOmitir" style="width:100%;justify-content:center">
+      Seguir sin logo</button>
+  </div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Entregables</h2>
+    <p>Acceso del área administrativa.</p>
+    <select id="selUsr"><option value="">Cargando…</option></select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+const BUCKET="evidencias";
+const LOGO="logo.png";          // va en la misma carpeta que esta pagina
+
+let ses=JSON.parse(localStorage.getItem("md_ses")||"null");
+let filas=[], ev={}, marcados=new Set();
+
+/* La evidencia se toma en tres momentos del servicio, mas el reporte firmado.
+   En levantamientos no se interviene el equipo: van las fotos del recorrido y
+   el reporte, nada mas. */
+const ETAPAS=[["ANTES","Antes"],["DURANTE","Durante"],["DESPUES","Después"],["REPORTE","Reporte"]];
+const ETAPAS_LEV=[["LEVANTAMIENTO","Levantamiento"],
+                  ["CROQUIS","Croquis de la propuesta"],
+                  ["REPORTE","Reporte"]];
+const ETAPAS_CAT=[["ATENCION","Atención"],["REPORTE","Reporte"]];
+const POR_COORD={LEV:ETAPAS_LEV, CAT:ETAPAS_CAT};
+function etapasDe(coord){ return POR_COORD[(coord||"").toUpperCase()] || ETAPAS }
+
+function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+
+async function api(path,opts,reint){
+  const o=opts||{};
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,Object.assign({},o,{headers:hdr()}));
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+  return t?JSON.parse(t):null;
+}
+async function auth(cuerpo,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},
+     body:JSON.stringify(cuerpo)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardar(j){
+  const md=(j.user&&j.user.user_metadata)||{};
+  ses={token:j.access_token,refresh:j.refresh_token,nombre:md.nombre||"",
+       rol:md.rol||"",usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_ses",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ const n=ses.nombre,r=ses.rol; guardar(await auth({refresh_token:ses.refresh},"refresh_token"));
+       if(!ses.nombre){ses.nombre=n;ses.rol=r;localStorage.setItem("md_ses",JSON.stringify(ses))}
+       return true }catch(e){ return false }
+}
+
+/* ---------- acceso ---------- */
+/* Las coordinaciones también arman entregables de lo suyo, así que entran aquí
+   con el usuario de su estación. La base ya se encarga de que cada quien vea
+   solo su coordinación; gerencia y subgerencia ven las cinco. */
+const ESTACIONES=[
+  ["est.gerencia","Gerencia"], ["est.subgerencia","Subgerencia"],
+  ["est.jenifer","Jenifer · Mantenimientos"], ["est.ivan","Iván · Mantenimientos"],
+  ["est.patricia","Patricia · Mantenimientos"], ["est.ariana","Ariana · CAT"],
+  ["est.jair","Jair · Levantamientos"], ["est.alin","Alin · Instalaciones"],
+  ["est.banorte","Proyectos especiales"]
+];
+
+async function llenarUsuarios(){
+  const sel=document.getElementById("selUsr");
+  const est=ESTACIONES.map(([u,n])=>`<option value="${u}">${esc(n)}</option>`).join("");
+  try{
+    const l=await api("login_usuarios?select=usuario,nombre,rol&order=nombre");
+    const adm=l.filter(u=>u.rol==="ADMINISTRATIVO");
+    sel.innerHTML='<option value="">Elige tu nombre…</option>'+
+      (adm.length?'<optgroup label="Área administrativa">'+
+        adm.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("")+
+        '</optgroup>':"")+
+      '<optgroup label="Coordinaciones">'+est+'</optgroup>';
+  }catch(e){
+    // sin conexión igual se puede entrar: las estaciones no dependen de la consulta
+    sel.innerHTML='<option value="">Elige tu nombre…</option>'+
+      '<optgroup label="Coordinaciones">'+est+'</optgroup>';
+  }
+}
+async function entrar(){
+  const u=(document.getElementById("selUsr").value||"").trim().toLowerCase();
+  const p=document.getElementById("inPwd").value||"";
+  const err=document.getElementById("err");
+  if(!u||!p){ err.style.display="block"; err.textContent="Elige tu nombre y escribe la clave."; return }
+  err.style.display="none";
+  try{
+    guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("inPwd").value="";
+    arrancar();
+  }catch(e){
+    err.style.display="block";
+    err.textContent=/invalid/i.test(String(e))?"Usuario o clave incorrectos.":String(e).slice(0,90);
+  }
+}
+function salir(){
+  if(!confirm("¿Salir?")) return;
+  ses=null; localStorage.removeItem("md_ses"); location.reload();
+}
+
+/* ---------- datos ---------- */
+async function arrancar(){
+  document.getElementById("mLogin").style.display="none";
+  document.getElementById("filtros").style.display="flex";
+  document.getElementById("who").innerHTML="Salir<b>"+esc(ses.nombre||ses.usuario)+"</b>";
+  const h=new Date(), a=new Date(); a.setDate(a.getDate()-7);
+  document.getElementById("fDe").value=iso(a);
+  document.getElementById("fA").value=iso(h);
+  await llenarClientes();
+  cargar();
+  pedidos();
+}
+
+/* ---------- lo que las coordinaciones están esperando ----------
+   El coordinador cierra el servicio pero el TKT no se cierra en el CRM hasta que
+   hay informe final. Antes eso se pedía por WhatsApp y se perdía; ahora llega
+   aquí, con fecha y con quién lo pidió, y lo urgente va primero. */
+async function pedidos(){
+  const c=document.getElementById("pedidos");
+  let s;
+  try{
+    s=await api("solicitudes_informe?select=*&estado=neq.ENTREGADO"+
+                "&order=urgente.desc,ts_solicitud&limit=100");
+  }catch(e){ c.innerHTML=""; return }      // la tabla aún no existe
+  if(!s.length){ c.innerHTML=""; return }
+  const dias=t=>Math.round((Date.now()-new Date(t))/86400000);
+  c.innerHTML=`<div class="caja" style="background:var(--card);border:1px solid var(--line);
+      border-radius:14px;padding:15px;margin-bottom:14px">
+    <h2 style="margin:0 0 3px;font-size:15px">Informes que te están pidiendo
+      <span class="tag" style="background:#E8A33D;color:#3a2a08">${s.length}</span></h2>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:11px">
+      Sin estos informes las coordinaciones no pueden cerrar el TKT en el CRM.</div>
+    <div style="overflow-x:auto"><table><thead><tr>
+      <th>Pedido</th><th>Servicio</th><th>Quién</th><th>Para qué</th><th>Estado</th><th></th>
+    </tr></thead><tbody>
+    ${s.map((r,i)=>`<tr${r.urgente?' style="background:rgba(232,163,61,.10)"':''}>
+      <td>${esc((r.ts_solicitud||"").slice(0,10))}
+        <div style="font-size:11px;color:var(--txt3)">${dias(r.ts_solicitud)} días${
+          r.urgente?' · <b style="color:#F0BE6E">urgente</b>':""}</div></td>
+      <td><span class="tag">${esc(r.coord)}</span>
+        ${r.tkt?" TKT "+esc(r.tkt):""} · id ${esc(r.servicio_id)}</td>
+      <td>${esc(r.solicita||"")}</td>
+      <td style="font-size:12px">${esc(r.nota||"—")}</td>
+      <td>${esc((r.estado||"").toLowerCase())}</td>
+      <td style="white-space:nowrap">
+        ${r.estado==="SOLICITADO"
+          ? `<button class="mini" onclick="tomarPedido('${esc(r.coord)}',${r.servicio_id})">Lo estoy haciendo</button>`
+          : ""}
+        <button class="mini" onclick="entregarPedido('${esc(r.coord)}',${r.servicio_id})">Marcar entregado</button>
+      </td></tr>`).join("")}
+    </tbody></table></div></div>`;
+}
+async function tomarPedido(coord,id){
+  try{
+    await api(`solicitudes_informe?coord=eq.${encodeURIComponent(coord)}&servicio_id=eq.${id}`,
+      {method:"PATCH", body:JSON.stringify({estado:"EN PROCESO",
+        atiende: ses.nombre||ses.usuario})});
+    pedidos();
+  }catch(e){ alert("No se pudo: "+String(e).slice(0,120)) }
+}
+async function entregarPedido(coord,id){
+  if(!confirm("¿Ya entregaste ese informe final?\n\nLa coordinación va a verlo como entregado.")) return;
+  try{
+    await api(`solicitudes_informe?coord=eq.${encodeURIComponent(coord)}&servicio_id=eq.${id}`,
+      {method:"PATCH", body:JSON.stringify({estado:"ENTREGADO",
+        atiende: ses.nombre||ses.usuario, ts_entrega:new Date().toISOString()})});
+    pedidos();
+  }catch(e){ alert("No se pudo: "+String(e).slice(0,120)) }
+}
+
+async function llenarClientes(){
+  try{
+    const d=await api("servicios?select=dependencia&status=eq.ATENDIDO&dependencia=not.is.null&limit=5000");
+    const set=[...new Set(d.map(x=>(x.dependencia||"").trim()).filter(Boolean))].sort();
+    document.getElementById("fCli").innerHTML='<option value="">Todos</option>'+
+      set.map(c=>`<option>${esc(c)}</option>`).join("");
+  }catch(e){}
+}
+
+async function cargar(){
+  document.getElementById("tabla").innerHTML='<div class="load">Cargando…</div>';
+  marcados.clear();
+  const cli=document.getElementById("fCli").value;
+  const co=document.getElementById("fCoord").value;
+  const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
+  let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,tipo_servicio,"+
+        "fecha_servicio,fecha_atencion,horario_atencion,tecnico,auxiliar,personal_atiende,"+
+        "telefono,obs_coord,requerimientos,equipo,serie,"+
+        "canal,senal_barras,log_estado,log_saltos,log_ultimo&status=eq.ATENDIDO"+
+        "&order=fecha_atencion.desc,dependencia";
+  if(cli) q+="&dependencia=eq."+encodeURIComponent(cli);
+  if(co)  q+="&coord=eq."+co;
+  if(de)  q+="&fecha_servicio=gte."+de;
+  if(a)   q+="&fecha_servicio=lte."+a;
+  try{
+    /* de mil en mil: hay más de tres mil atendidos y el histórico completo se
+       tiene que poder recorrer, no solo lo más reciente */
+    filas=[];
+    for(let off=0; off<8000; off+=1000){
+      const t=await api(q+"&limit=1000&offset="+off);
+      filas=filas.concat(t);
+      if(t.length<1000) break;
+      document.getElementById("tabla").innerHTML=
+        '<div class="load">Cargando… '+filas.length+' servicios</div>';
+    }
+    await cargarEvidencias();
+    pintar();
+  }catch(err){
+    document.getElementById("tabla").innerHTML=
+      '<div class="vacio">No se pudo consultar.<br>'+esc(String(err).slice(0,120))+'</div>';
+  }
+}
+
+/* qué evidencia tiene ya cada servicio de los que están en pantalla */
+async function cargarEvidencias(){
+  ev={};
+  if(!filas.length) return;
+  const ids=[...new Set(filas.map(f=>f.id))];
+  for(let i=0;i<ids.length;i+=300){          // la consulta no admite una lista sin fin
+    const e=await api("evidencias?select=coord,servicio_id,tipo,ruta&servicio_id=in.("+
+                      ids.slice(i,i+300).join(",")+")&limit=5000");
+    e.forEach(x=>{ const k=x.coord+"|"+x.servicio_id; (ev[k]=ev[k]||[]).push(x) });
+  }
+}
+
+function llave(x){ return x.coord+"|"+x.id }
+/* el tipo puede venir compuesto: ANTES|TROMPETA|PLASTICO. La etapa es lo de
+   antes de la primera barra; lo demás dice qué pieza es. */
+function etapaDe(t){ return String(t||"").split("|")[0] }
+function piezaDe(t){
+  const p = String(t||"").split("|").slice(1);
+  if(!p.length) return "";
+  const nom = {EQUIPO:"Equipo receptor", AMPLIFICADOR:"Amplificador",
+               REFORZADOR:"Reforzador", UPS:"UPS", ANTENA:"Antena",
+               TROMPETA:"Trompeta", ESTROBO:"Estrobo"}[p[0]] || p[0];
+  const v = p[1] ? p[1].charAt(0)+p[1].slice(1).toLowerCase() : "";
+  return v ? nom+" · "+v : nom;
+}
+function tiene(x,tipo){ return (ev[llave(x)]||[]).some(e=>etapaDe(e.tipo)===tipo) }
+function completo(x){ return etapasDe(x.coord).every(([t])=>tiene(x,t)) }
+
+function visibles(){
+  const f=document.getElementById("fEv").value;
+  if(f==="completo") return filas.filter(x=>completo(x));
+  if(f==="falta")    return filas.filter(x=>!completo(x));
+  return filas;
+}
+
+function pintar(){
+  const v=visibles();
+  const comp=filas.filter(x=>completo(x)).length;
+  document.getElementById("resumen").innerHTML=
+    `<div class="pill"><b>${filas.length}</b>servicios atendidos</div>
+     <div class="pill"><b style="color:#5BD79B">${comp}</b>con evidencia completa</div>
+     <div class="pill"><b style="color:#E8A33D">${filas.length-comp}</b>les falta algo</div>
+     <div class="pill"><b style="color:#63B3FF">${marcados.size}</b>marcados</div>`;
+  if(!v.length){
+    document.getElementById("tabla").innerHTML='<div class="vacio">Nada con esos filtros.</div>';
+    document.getElementById("btnGen").disabled=true; return;
+  }
+  document.getElementById("tabla").innerHTML=
+   `<table><thead><tr>
+      <th style="width:32px"></th><th>Fecha</th><th>TKT</th><th>Coord</th><th>Cliente</th>
+      <th>Sitio</th><th>Técnico</th><th>Evidencia</th><th></th>
+    </tr></thead><tbody>`+
+    v.map(x=>`<tr id="tr${x.coord}_${x.id}" class="${marcados.has(llave(x))?"sel":""}">
+      <td><input type="checkbox" ${marcados.has(llave(x))?"checked":""}
+           onchange="marcar('${x.coord}',${x.id},this.checked)"></td>
+      <td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td>
+      <td>${x.tkt?`<span class="tag">${esc(x.tkt)}</span>`:""}</td>
+      <td>${esc(x.coord)}</td>
+      <td>${esc(limpio(x.dependencia))}</td>
+      <td>${esc(x.nombre)}</td>
+      <td>${esc(limpio(x.tecnico))}</td>
+      <td>${etapasDe(x.coord).map(([t,n])=>{
+        const c=(ev[llave(x)]||[]).filter(e=>etapaDe(e.tipo)===t).length;
+        return `<span class="et ${c?"si":"no"}">${c?"✓":"○"} ${esc(n)}</span>`}).join(" ")}</td>
+      <td><button class="mini" onclick="abrirSubir('${x.coord}',${x.id})">+ evidencia</button></td>
+    </tr>`).join("")+"</tbody></table>";
+  document.getElementById("btnGen").disabled = marcados.size===0;
+}
+
+function marcar(coord,id,on){
+  const k=coord+"|"+id;
+  if(on) marcados.add(k); else marcados.delete(k);
+  const tr=document.getElementById("tr"+coord+"_"+id);
+  if(tr) tr.className = on?"sel":"";
+  pintar();
+}
+function marcarTodos(){
+  const v=visibles();
+  const todos = v.every(x=>marcados.has(llave(x)));
+  v.forEach(x=> todos ? marcados.delete(llave(x)) : marcados.add(llave(x)));
+  pintar();
+}
+
+/* ---------- armar el entregable ----------
+   Las fotos viven en un bucket privado: se bajan con la sesion y se incrustan
+   en la hoja, para que el PDF salga completo y no dependa de la liga. */
+async function bajar(ruta){
+  const r=await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,{headers:hdr()});
+  if(!r.ok) return null;
+  const b=await r.blob();
+  return await new Promise(res=>{ const f=new FileReader();
+    f.onload=()=>res({url:f.result,tipo:b.type}); f.readAsDataURL(b) });
+}
+
+/* ---------- subir evidencia de servicios pasados ----------
+   El acervo de atrás no siempre lo tiene el técnico en el celular: muchas fotos
+   y reportes llegaron por correo o WhatsApp al área administrativa. Desde aquí
+   se cargan sin tocar el servicio: ya está atendido y su fecha es la que fue. */
+let subir = null;   // {coord, id}
+
+function abrirSubir(coord, id){
+  const x = filas.find(s=>s.coord===coord && s.id===id);
+  if(!x) return;
+  subir = {coord:coord, id:id, srv:x};
+  document.getElementById("subSitio").textContent =
+    (x.nombre||"") + (x.tkt?" · TKT "+x.tkt:"");
+  document.getElementById("subFecha").textContent =
+    "Atendido el " + (x.fecha_atencion||x.fecha_servicio||"—") +
+    " · " + (limpio(x.tecnico)||"sin técnico");
+  const se = document.getElementById("subEtapa");
+  se.innerHTML = etapasDe(x.coord).map(([t,n])=>`<option value="${t}">${n}</option>`).join("");
+  document.getElementById("subErr").style.display="none";
+  document.getElementById("subFile").value="";
+  document.getElementById("mSubir").style.display="flex";
+}
+function cerrarSubir(){ document.getElementById("mSubir").style.display="none"; subir=null }
+
+async function guardarSubida(){
+  const inp = document.getElementById("subFile");
+  const err = document.getElementById("subErr");
+  const btn = document.getElementById("subBtn");
+  if(!inp.files.length){ err.textContent="Elige al menos un archivo"; err.style.display="block"; return }
+  const tipo = document.getElementById("subEtapa").value;
+  const x = subir.srv;
+  btn.disabled = true;
+  try{
+    for(let i=0;i<inp.files.length;i++){
+      btn.textContent = `Subiendo ${i+1}/${inp.files.length}…`;
+      const f = inp.files[i];
+      const ext = f.type==="application/pdf" ? "pdf" : "jpg";
+      const ruta = `${x.coord}/${x.tkt||("id"+x.id)}/${Date.now()}_${tipo}_${i}.${ext}`;
+      const r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,
+        {method:"POST", headers:Object.assign({},hdr(),{"Content-Type":f.type||"image/jpeg"}),
+         body:f});
+      if(!r.ok) throw new Error("no se pudo guardar el archivo ("+r.status+
+                                (r.status===403?"): tu cuenta no tiene permiso de subir":")"));
+      await api("evidencias",{method:"POST",body:JSON.stringify({
+        coord:x.coord, servicio_id:x.id, tkt:x.tkt||"", tipo:tipo,
+        ruta:ruta, tecnico:x.tecnico||ses.nombre})});
+    }
+    await cargarEvidencias();      // para que la fila muestre lo que ya tiene
+    cerrarSubir();
+    pintar();
+  }catch(e){
+    err.textContent = e.message; err.style.display="block";
+  }finally{
+    btn.disabled=false; btn.textContent="Guardar evidencia";
+  }
+}
+
+/* ---------- logos de los clientes ----------
+   El logo se pide UNA vez y queda guardado para todos: la siguiente vez que
+   salga ese cliente, el informe ya lo trae. No se busca en internet a
+   proposito —lo que se baja de una busqueda suele venir en baja resolucion, con
+   marca de agua o siendo una version vieja del logotipo, y esto va firmado al
+   cliente. */
+const CARPETA_LOGOS = "logos";
+let logos = {};                    // cliente -> data URI, en memoria
+
+function claveCliente(nombre){
+  return (nombre||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
+         .replace(/[^A-Z0-9]+/g,"_").replace(/^_|_$/g,"") || "SIN_CLIENTE";
+}
+
+async function logoDe(cliente){
+  const k = claveCliente(cliente);
+  if(logos[k] !== undefined) return logos[k];
+  const d = await bajar(`${CARPETA_LOGOS}/${k}.png`);
+  logos[k] = d ? d.url : null;
+  return logos[k];
+}
+
+async function subirLogo(cliente, file){
+  const k = claveCliente(cliente);
+  // se normaliza a un alto fijo para que no baile de un informe a otro
+  const img = await createImageBitmap(file);
+  const alto = 150, ancho = Math.round(img.width * alto / img.height);
+  const c = document.createElement("canvas");
+  c.width = ancho; c.height = alto;
+  c.getContext("2d").drawImage(img, 0, 0, ancho, alto);
+  const blob = await new Promise(r=>c.toBlob(r, "image/png"));
+  const r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${CARPETA_LOGOS}/${k}.png`,
+    {method:"POST", headers:Object.assign({},hdr(),{"Content-Type":"image/png","x-upsert":"true"}),
+     body:blob});
+  if(!r.ok) throw new Error("no se pudo guardar el logo ("+r.status+")");
+  logos[k] = await new Promise(res=>{ const f=new FileReader();
+    f.onload=()=>res(f.result); f.readAsDataURL(blob) });
+  return logos[k];
+}
+
+/* ventana que pide el logo que falta; se resuelve cuando el usuario elige uno
+   o decide seguir sin el */
+function pedirLogo(cliente){
+  return new Promise(res=>{
+    const m = document.getElementById("mLogo");
+    document.getElementById("logoCli").textContent = cliente || "(sin cliente)";
+    document.getElementById("logoErr").style.display = "none";
+    m.style.display = "flex";
+    const inp = document.getElementById("logoFile");
+    inp.value = "";
+    const cerrar = v => { m.style.display="none"; inp.onchange=null;
+                          document.getElementById("logoOmitir").onclick=null; res(v) };
+    inp.onchange = async () => {
+      if(!inp.files[0]) return;
+      try{ cerrar(await subirLogo(cliente, inp.files[0])) }
+      catch(e){
+        const er = document.getElementById("logoErr");
+        er.textContent = e.message; er.style.display = "block";
+      }
+    };
+    document.getElementById("logoOmitir").onclick = () => {
+      logos[claveCliente(cliente)] = null;   // no se vuelve a preguntar en esta tanda
+      cerrar(null);
+    };
+  });
+}
+
+/* ---------- informe final ----------
+   El machote que la empresa entrega al cliente: portada, actividades,
+   evidencia por etapa y la bitacora de eventos del receptor. */
+
+const PIE=`<div class="pie">Magdalena 202, Col. Del Valle, Benito Juárez, C.P. 03100, CDMX, Tel. 551107 8307<br>
+  <a href="https://www.mdreieck.com.mx">www.mdreieck.com.mx</a></div>`;
+
+const ACTIVIDADES=[
+ "Revisión y mantenimiento del sistema Receptor Sarmex ®, verificando su instalación de equipo y aditamentos.",
+ "Revisión de conectores, display y teclado.",
+ "Supervisión y configuración del canal en el que se encuentra el Receptor Sarmex ®.",
+ "Supervisión y configuración de parámetros, respaldo de batería.",
+ "Verificar la intensidad de la señal.",
+ "Medición de DC y actualización de Software en caso de ser necesario.",
+ "Elaboración de reporte de actividades (hoja de trabajo – formato de reporte).",
+ "Sustitución de batería de respaldo en caso de ser necesario.",
+ "Revisión de parámetros de la fuente de alimentación.",
+ "Revisión del cableado de alimentación de los sistemas receptores hacia los aditamentos instalados en cada inmueble.",
+ "Revisión y prueba de audio de los aditamentos de sonorización.",
+ "Limpieza general del equipo receptor y sus aditamentos."];
+
+let nPag=0;
+function hoja(cuerpo, clase){
+  nPag++;
+  return `<div class="hoja ${clase||""}">
+    <div class="marca">${LOGO?`<img src="${LOGO}">`:`<b style="font-size:22px;color:#1F3864">MDreieck</b>`}</div>
+    ${cuerpo}<div class="npag">${nPag}</div>${PIE}</div>`;
+}
+
+/* Las 25 lineas del log se reconstruyen: el receptor guarda un tono cada 3
+   horas y solo cabe ese historial. Se parte del ultimo tono que vio el tecnico
+   y se cuenta hacia atras. El reloj del receptor deriva ~1.3 s por tono, por eso
+   los segundos bajan.  OJO: esto refleja lo que el tecnico reporto; si marco
+   saltos, se senalan como faltantes. */
+const DIAS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function lineasLog(ultimo, ident, saltos){
+  const base = ultimo ? new Date(ultimo.replace(" ","T")) : null;
+  if(!base || isNaN(base)) return null;
+  const falla = new Set(String(saltos||"").split(/[^0-9]+/).filter(Boolean).map(Number));
+  const out=[];
+  for(let i=0;i<25;i++){
+    const d=new Date(base.getTime() - i*3*3600*1000);
+    d.setSeconds(d.getSeconds() - Math.round(i*1.27));
+    const dd=String(d.getDate()).padStart(2,"0"), mm=String(d.getMonth()+1).padStart(2,"0");
+    const hh=String(d.getHours()).padStart(2,"0"), mi=String(d.getMinutes()).padStart(2,"0"),
+          ss=String(d.getSeconds()).padStart(2,"0");
+    out.push({n:String(i+1).padStart(2,"0"),
+      fecha:`${dd}-${mm}-${d.getFullYear()}(${DIAS[d.getDay()]}) ${hh}:${mi}:${ss}`,
+      falta:falla.has(i+1)});
+  }
+  return out.map(e=>({...e, linea:`${e.n}-->${ident}-________`}));
+}
+
+function hojaLog(x, ident){
+  const ls=lineasLog(x.log_ultimo, ident, x.log_saltos);
+  const sitio=(x.nombre||"").toUpperCase();
+  const cont = !ls ? "" : ls.filter(e=>e.falta).length;
+  const hallazgo = !ls
+    ? `No se descargó el registro de eventos en esta visita.`
+    : (cont===0
+       ? `En la revisión del log de eventos de <b>${esc(sitio)}</b> se observa que todos los tonos fueron recibidos de manera continua cada 3 horas, por lo que la operación del receptor es óptima.`
+       : `En la revisión del log de eventos de <b>${esc(sitio)}</b> se observan <b>${cont}</b> tono(s) no registrado(s) dentro del historial; el resto se recibió de manera continua cada 3 horas.`);
+
+  const detalle=hoja(`<h2 class="sec" style="text-align:center">DETALLE DE BITÁCORA DE EVENTOS</h2>
+    <p class="txt">Los sistemas receptores de alertamiento sísmico SARMEX ® se encuentran operando bajo la
+      frecuencia de transmisión de la señal del Sistema de Alerta Sísmica Mexicano (SASMEX ®), que es
+      propiedad del Gobierno de la Ciudad de México.</p>
+    <p class="txt">La red de transmisores SASMEX ® emite un tono de supervisión cada 3 horas las 24 horas del día.
+      Esta emisión de tonos es recibida por el sistema receptor de alertamiento sísmico SARMEX ® y guardada en
+      su registro de eventos, con la única finalidad de monitorear el buen funcionamiento del equipo, ya que la
+      emisión de la alerta sísmica es mediante este mismo método.</p>
+    <p class="txt">La capacidad de almacenamiento del log es de 25 registros, lo cual representa los tonos
+      recibidos en los últimos 3 días.</p>
+    <p class="txt">${hallazgo}</p>
+    ${limpio(x.canal)||limpio(x.senal_barras)?`<p class="txt">El receptor se encuentra configurado en
+      <b>canal ${esc(limpio(x.canal)||"—")}</b>${limpio(x.senal_barras)?` con <b>${esc(limpio(x.senal_barras))} barras</b> de señal`:""}.</p>`:""}
+    <p class="txt">Es importante hacer mención que un horario desfasado no repercute en la operación del equipo
+      receptor SARMEX ® ni en su activación.</p>`);
+
+  if(!ls) return detalle;
+  const mitad=13, izq=ls.slice(0,mitad), der=ls.slice(mitad);
+  const celda=e=>e?`<div>${e.fecha}<span class="ln">${e.linea}</span></div>`:"";
+  const filas=izq.map((e,i)=>`<tr>
+      <td class="${e.falta?"falta":""}">${celda(e)}${e.falta?'<div class="ln"><b>tono no registrado</b></div>':""}</td>
+      <td class="${der[i]&&der[i].falta?"falta":""}">${celda(der[i])}${der[i]&&der[i].falta?'<div class="ln"><b>tono no registrado</b></div>':""}</td>
+    </tr>`).join("");
+  return detalle + hoja(`<table class="log"><tr><th colspan="2">REGISTRO DE EVENTOS</th></tr>${filas}</table>`);
+}
+
+async function informeDe(x, num, ident, conLog){
+  const arch=[];
+  for(const e of (ev[llave(x)]||[])){
+    const d=await bajar(e.ruta);
+    if(d) arch.push({clase:etapaDe(e.tipo), pieza:piezaDe(e.tipo), url:d.url, mime:d.tipo});
+  }
+  let h="";
+  // portada: el logo del cliente va junto al de la empresa
+  const logoCli = await logoDe(x.dependencia);
+  h+=hoja(`${logoCli?`<div class="logo-cli"><img src="${logoCli}"></div>`:""}
+    <h1>Reporte del ${esc(num)} mantenimiento<br>por póliza a equipo receptor de la<br>
+      señal del sistema de alerta sísmica.</h1>
+    <div class="sitio">${esc((x.nombre||"").toUpperCase())}</div>
+    <div class="dir">${esc(limpio(x.direccion))}</div>
+    <div class="elab">Elaborado por: MDreieck S.A. de C.V.</div>`, "port");
+  // actividades
+  h+=hoja(`<h2 class="sec">Descripción de actividades:</h2>
+    <ul class="act">${ACTIVIDADES.map(a=>`<li>${a}</li>`).join("")}</ul>
+    <table class="datos" style="margin-top:16px;font-size:11.5px">
+      <tr><td>Sitio</td><td>${esc(x.nombre||"")}</td></tr>
+      <tr><td>Cliente</td><td>${esc(limpio(x.dependencia))}</td></tr>
+      <tr><td>Fecha de atención</td><td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td></tr>
+      <tr><td>Técnico</td><td>${esc(limpio(x.tecnico))}${limpio(x.auxiliar)?" / "+esc(limpio(x.auxiliar)):""}</td></tr>
+      ${limpio(x.equipo)?`<tr><td>Equipo</td><td>${esc(limpio(x.equipo))}${limpio(x.serie)?" · serie "+esc(limpio(x.serie)):""}</td></tr>`:""}
+      ${limpio(x.obs_coord)?`<tr><td>Observaciones</td><td>${esc(limpio(x.obs_coord))}</td></tr>`:""}
+    </table>`);
+  // evidencia por etapa, de a 4 fotos por hoja
+  for(const [t,n] of etapasDe(x.coord)){
+    if(t==="REPORTE") continue;
+    const g=arch.filter(f=>f.clase===t && !/pdf/.test(f.mime));
+    if(!g.length) continue;
+    // El croquis es un plano: en un cuarto de hoja no se lee. Va uno por hoja.
+    if(t==="CROQUIS"){
+      g.forEach((f,k)=>{
+        h+=hoja(`<h2 class="sec" style="text-align:center">${esc(n)}</h2>
+          <div class="rej sola"><figure><img src="${f.url}">
+          ${g.length>1?`<figcaption>Croquis ${k+1} de ${g.length}</figcaption>`:""}
+          </figure></div>`);
+      });
+      continue;
+    }
+    for(let i=0;i<g.length;i+=4){
+      const trozo=g.slice(i,i+4);
+      h+=hoja(`<h2 class="sec" style="text-align:center">Evidencia fotográfica</h2>
+        <div class="etapa">${esc(n)}</div>
+        <div class="rej">${trozo.map((f,k)=>`<figure><img src="${f.url}">
+          <figcaption>Foto. ${i+k+1}${f.pieza?" · "+esc(f.pieza):""}</figcaption></figure>`).join("")}</div>`);
+    }
+  }
+  // reporte firmado
+  const rep=arch.filter(f=>f.clase==="REPORTE" && !/pdf/.test(f.mime));
+  if(rep.length){
+    // el reporte firmado también va uno por hoja: es lo que el cliente revisa
+    rep.forEach((f,k)=>{
+      h+=hoja(`<h2 class="sec" style="text-align:center">Reporte de servicio firmado</h2>
+        <div class="rej sola"><figure><img src="${f.url}">
+        ${rep.length>1?`<figcaption>Hoja ${k+1} de ${rep.length}</figcaption>`:""}
+        </figure></div>`);
+    });
+  }
+  if(conLog) h+=hojaLog(x, ident);
+  return h;
+}
+
+async function generarInformes(sel){
+  const btn=document.getElementById("btnGen");
+  /* primero los logos que falten: se pregunta una vez por cliente y antes de
+     ponerse a armar, para no interrumpir a media tanda */
+  const clientes=[...new Set(sel.map(x=>(x.dependencia||"").trim()).filter(Boolean))];
+  const preguntados=new Set();
+  for(const c of clientes){
+    const k=claveCliente(c);
+    if(await logoDe(c)) continue;          // ya lo tiene guardado
+    if(preguntados.has(k)) continue;       // ya se preguntó en esta tanda
+    preguntados.add(k);
+    await pedirLogo(c);
+  }
+  const num=document.getElementById("iNum").value;
+  const ident=(document.getElementById("iIdent").value||"CIV-RWT-000000+0300-0000000").trim();
+  const conLog=document.getElementById("iLog").value==="si";
+  nPag=0;
+  const partes=[];
+  let hecho=0;
+  for(const x of sel){
+    hecho++; btn.textContent=`Armando ${hecho}/${sel.length}…`;
+    nPag=0;                       // cada informe numera sus hojas desde 1
+    partes.push(await informeDe(x, num, ident, conLog));
+  }
+  return partes.join("");
+}
+
+function verFormato(){
+  const esInf=document.getElementById("fForm").value==="informe";
+  document.getElementById("opsInforme").style.display=esInf?"flex":"none";
+  document.getElementById("btnGen").textContent=esInf?"Generar informe final":"Generar entregable";
+}
+
+async function generar(){
+  const btn=document.getElementById("btnGen");
+  btn.disabled=true; const t0=btn.textContent;
+  const sel=filas.filter(x=>marcados.has(llave(x)));
+  const faltan=sel.filter(x=>!completo(x));
+  if(faltan.length && !confirm(faltan.length+" de los marcados no tienen la evidencia completa.\n"+
+       "¿Generar el entregable de todos modos?")){ btn.disabled=false; return }
+
+  if(document.getElementById("fForm").value==="informe"){
+    document.getElementById("salida").innerHTML=await generarInformes(sel);
+    btn.textContent=t0; btn.disabled=false;
+    setTimeout(()=>window.print(),400);
+    return;
+  }
+
+  let hecho=0;
+  const partes=[];
+  const cli=document.getElementById("fCli").value||"varios clientes";
+  const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
+
+  partes.push(`<div class="portada">
+    <div class="cab"><span class="mk">MDREIECK</span>
+      <span class="der">Generado ${new Date().toLocaleDateString("es-MX")} · ${esc(ses.nombre)}</span></div>
+    <h1>Reporte de servicios</h1>
+    <p style="font-size:14px;color:#333;margin:2px 0 22px">
+      ${esc(cli)}<br>Periodo ${esc(de)} al ${esc(a)}</p>
+    <table class="datos">
+      <tr><td>Servicios incluidos</td><td>${sel.length}</td></tr>
+      <tr><td>Con evidencia completa</td><td>${sel.length-faltan.length}</td></tr>
+    </table>
+    <table class="datos"><tr><td>TKT</td><td>Sitio</td><td>Fecha</td></tr>
+      ${sel.map(x=>`<tr><td>${esc(x.tkt||"")}</td><td>${esc(x.nombre)}</td>
+        <td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td></tr>`).join("")}
+    </table></div>`);
+
+  for(const x of sel){
+    hecho++; btn.textContent=`Armando ${hecho}/${sel.length}…`;
+    const arch=[];
+    for(const e of (ev[llave(x)]||[])){
+      const d=await bajar(e.ruta);
+      // ojo: 'clase' es FOTO/REPORTE y 'mime' es image/jpeg; no mezclarlos
+      if(d) arch.push({clase:etapaDe(e.tipo), pieza:piezaDe(e.tipo), url:d.url, mime:d.tipo});
+    }
+    const porEtapa = t => arch.filter(f=>f.clase===t);
+    partes.push(`<div class="serv">
+      <div class="cab"><span class="mk">MDREIECK</span>
+        <span class="der">${esc(x.tkt?"TKT "+x.tkt:"")} · ${esc(x.coord)}</span></div>
+      <h2 style="font-size:17px;margin:0 0 10px">${esc(x.nombre)}</h2>
+      <table class="datos">
+        <tr><td>Cliente</td><td>${esc(limpio(x.dependencia))}</td></tr>
+        <tr><td>Servicio</td><td>${esc(limpio(x.tipo_servicio))}</td></tr>
+        <tr><td>Dirección</td><td>${esc(limpio(x.direccion))}</td></tr>
+        <tr><td>Fecha de atención</td><td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td></tr>
+        <tr><td>Técnico</td><td>${esc(limpio(x.tecnico))}${limpio(x.auxiliar)?" / "+esc(limpio(x.auxiliar)):""}</td></tr>
+        <tr><td>Atendió por el cliente</td><td>${esc(limpio(x.personal_atiende))}</td></tr>
+        ${limpio(x.equipo)?`<tr><td>Equipo</td><td>${esc(limpio(x.equipo))}${limpio(x.serie)?" · serie "+esc(limpio(x.serie)):""}</td></tr>`:""}
+        ${limpio(x.obs_coord)?`<tr><td>Observaciones</td><td>${esc(limpio(x.obs_coord))}</td></tr>`:""}
+      </table>
+      ${etapasDe(x.coord).map(([t,n])=>{
+        const g=porEtapa(t);
+        const tit = t==="REPORTE" ? "REPORTE FIRMADO"
+                 : (["LEVANTAMIENTO","ATENCION"].indexOf(t)>=0 ? "EVIDENCIA FOTOGRÁFICA"
+                                                               : "EVIDENCIA · "+n.toUpperCase());
+        if(!g.length) return `<p style="font-size:12px;color:#a00;margin:10px 0 0">${t==="REPORTE"?"Sin reporte firmado":"Sin evidencia de "+esc(n.toLowerCase())}</p>`;
+        return `<p style="font-size:12px;font-weight:700;margin:14px 0 6px">${tit}</p>
+          <div class="fotos">${g.map(f=>/pdf/.test(f.mime)
+            ?`<p style="font-size:12px">El reporte se entregó en PDF</p>`
+            :`<img src="${f.url}">`).join("")}</div>`;
+      }).join("")}
+    </div>`);
+  }
+
+  document.getElementById("salida").innerHTML=partes.join("");
+  btn.textContent=t0; btn.disabled=false;
+  setTimeout(()=>window.print(),400);
+}
+
+/* ---------- arranque ---------- */
+(async function(){
+  if(ses && ses.rol==="ADMINISTRATIVO"){ await renovar(); arrancar() }
+  else { llenarUsuarios() }
+})();
+</script>
+
+<script>
+/* ---------- modo muestra: no toca la base ni pide clave ---------- */
+function _foto(txt, c1, c2, vert){
+  const w = vert?900:1400, h = vert?1400:900;
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  const g=cv.getContext("2d");
+  const gr=g.createLinearGradient(0,0,w,h); gr.addColorStop(0,c1); gr.addColorStop(1,c2);
+  g.fillStyle=gr; g.fillRect(0,0,w,h);
+  g.strokeStyle="#f5c518"; g.lineWidth=20; g.strokeRect(34,34,w-68,h-68);
+  g.fillStyle="#fff"; g.textAlign="center";
+  g.font="bold 62px system-ui"; g.fillText(txt, w/2, h/2);
+  g.font="32px system-ui"; g.fillText("(foto de muestra)", w/2, h/2+58);
+  return cv.toDataURL("image/jpeg", 0.75);
+}
+window.addEventListener("load", async function(){
+  document.getElementById("mLogin").style.display="none";
+  bajar  = async r => ({url:_foto(r.split("_").pop().replace(".jpg",""),
+                        "#26527a","#0d2b47", /_(2|5)_/.test(r)), tipo:"image/jpeg"});
+  logoDe = async () => null;
+  const x={coord:"MANT", id:1, tkt:"12788", nombre:"BAE 2804 VASCO DE QUIROGA",
+    dependencia:"NUEVA WALMART DE MEXICO",
+    direccion:"Av. Vasco de Quiroga 3800, Col. Santa Fe, Cuajimalpa, 05348, CDMX",
+    fecha_servicio:"2026-08-03", fecha_atencion:"2026-08-03",
+    tecnico:"Marcos Flores Hidalgo", auxiliar:"Alex Rojas Campusano",
+    equipo:"PA020 B", serie:"PA02011302001",
+    obs_coord:"Equipo en tercer piso, detrás de plafón. Se ajustó volumen a 85 dB."};
+  ev={"MANT|1":[
+    {tipo:"ANTES",                   ruta:"MANT/12788/_1_ANTES.jpg"},
+    {tipo:"ANTES|EQUIPO",            ruta:"MANT/12788/_2_EQUIPO.jpg"},
+    {tipo:"DURANTE",                 ruta:"MANT/12788/_3_DURANTE.jpg"},
+    {tipo:"DESPUES",                 ruta:"MANT/12788/_4_DESPUES.jpg"},
+    {tipo:"DESPUES|TROMPETA|PLASTICO",ruta:"MANT/12788/_5_TROMPETA.jpg"},
+    {tipo:"REPORTE",                 ruta:"MANT/12788/_6_REPORTE.jpg"}]};
+  document.getElementById("salida").innerHTML =
+    await informeDe(x, "segundo", "CIV-RWT-000000+0300-0000000", true);
+  const st=document.createElement("style");
+  st.textContent =
+    "#salida{display:block!important}"+
+    ".wrap>*:not(#salida){display:none!important}"+
+    "body{background:#59636f}"+
+    "#salida .hoja{background:#fff;margin:0 auto 16px;box-shadow:0 3px 16px rgba(0,0,0,.45)}"+
+    "@media print{body{background:#fff}#salida .hoja{box-shadow:none;margin:0}}"+
+    "#aviso{position:fixed;left:0;right:0;top:0;z-index:99;background:#0B2038;color:#EAF2FB;"+
+    "padding:9px 14px;font:13px system-ui;text-align:center}"+
+    "#salida{padding-top:44px}";
+  document.head.appendChild(st);
+  const av=document.createElement("div"); av.id="aviso";
+  av.textContent="EJEMPLO · Informe final de mantenimiento, con las fotos sustituidas por muestras. "+
+                 "Ctrl+P para verlo como se imprime.";
+  document.body.appendChild(av);
+});
+</script>
+
+</body>
+</html>
