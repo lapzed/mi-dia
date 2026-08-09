@@ -133,6 +133,7 @@
   #salida table.bit td.c{text-align:center}
   #salida table.ev td.act{font-size:11px;line-height:1.5;text-align:justify}
   #salida table.ev td.ph{text-align:center;padding:3px}
+  #salida table.ev td.ph .sinfoto{font-size:10px;color:#8a8a8a;padding:8mm 0}
   #salida table.ev td.ph .pieimg{font-size:10px;margin-top:3px;line-height:1.35}
   #salida table.ev td.ph img{max-width:76mm;max-height:66mm;object-fit:contain;
     border:1px solid #bbb}
@@ -842,8 +843,11 @@ const PROTOCOLO = [
 
 /* Que se le hace a cada componente. El texto es el del machote; la foto sale de
    lo que el tecnico etiqueto en la app (ANTES|TROMPETA|PLASTICO, etc.). */
+/* Cada componente se ata al campo del inventario que dice si el sitio lo
+   tiene. Un informe no debe hablar de un amplificador donde no hay
+   amplificador, ni callarse uno que si esta porque nadie le tomo foto. */
 const COMPONENTES = [
- {id:"EQUIPO", nom:"Equipo receptor SARMEX ®", act:[
+ {id:"EQUIPO", nom:"Equipo receptor SARMEX ®", inv:["equipo"], act:[
    ["Revisión física.", `Se revisa que el equipo quede libre de objetos ajenos al sistema; no se
      encontraron fracturas ni daño, se remueve la suciedad por medio de aire comprimido y espuma,
      se observa fijado de forma correcta, sus conectores quedan limpios y libres de suciedad, el
@@ -860,7 +864,7 @@ const COMPONENTES = [
    ["Revisión de funcionamiento.", `Se ejecutan las pruebas de funcionalidad del equipo receptor,
      confirmando la emisión de audio hacia los aditamentos y el registro del evento en su
      bitácora.`]]},
- {id:"TROMPETA", nom:"Altavoz trompeta", act:[
+ {id:"TROMPETA", nom:"Altavoz trompeta", inv:["plasticas","aluminio","eliptica","bocina_plafon"], act:[
    ["Revisión física.", `Se verificó que la orientación fuera la correcta para una óptima
      sonorización; el estado físico del altavoz se encuentra en buenas condiciones, está conectado
      al sistema receptor de alertamiento sísmico, así como la sujeción del altavoz, y se limpia con
@@ -877,24 +881,24 @@ const COMPONENTES = [
      “click” que confirma su operación; posteriormente se procede con la emisión de sonido por
      medio de las pruebas de funcionalidad del equipo receptor y se confirma la intensidad de
      audio.`]]},
- {id:"ESTROBO", nom:"Luz estrobo", act:[
+ {id:"ESTROBO", nom:"Luz estrobo", inv:["estrobo"], act:[
    ["Revisión física.", `Se examina el estado del dispositivo sin encontrar fisuras en el material,
      filtraciones ni quemaduras; la sujeción es firme y su conexión al sistema receptor es la
      adecuada. Se limpia para dejarlo libre de suciedad.`],
    ["Revisión de funcionamiento.", `Se confirma el destello de la luz estrobo durante las pruebas
      de funcionalidad del equipo receptor.`]]},
- {id:"ANTENA", nom:"Antena aérea dipolo", act:[
+ {id:"ANTENA", nom:"Antena aérea dipolo", inv:["antena"], act:[
    ["Revisión física.", `Se revisa que la antena se encuentre libre de obstáculos, sin fracturas ni
      corrosión, con la sujeción y orientación adecuadas, y se verifica el estado del cable coaxial
      y sus conectores.`],
    ["Revisión de parámetros.", `Se verifica la intensidad de la señal recibida, confirmando que se
      encuentra dentro de los valores óptimos de operación.`]]},
- {id:"AMPLIFICADOR", nom:"Amplificador", act:[
+ {id:"AMPLIFICADOR", nom:"Amplificador", inv:["amplificador"], act:[
    ["Revisión física.", `Se revisa el estado del amplificador, su fijación, conectores y cableado;
      se limpia con aire comprimido para dejarlo libre de polvo.`],
    ["Revisión de parámetros.", `Se miden los valores de entrada y salida, confirmando que el
      equipo entrega la potencia adecuada hacia los aditamentos de sonorización.`]]},
- {id:"UPS", nom:"Respaldo de energía (UPS)", act:[
+ {id:"UPS", nom:"Respaldo de energía (UPS)", inv:["ups"], act:[
    ["Revisión física.", `Se revisa el estado del respaldo de energía, su conexión al sistema y el
      estado de sus terminales.`],
    ["Revisión de funcionamiento.", `Se comprueba que el respaldo sostenga la operación del equipo
@@ -1015,9 +1019,16 @@ async function informeDe(x, num, ident, conLog){
      la hoja recorta lo que se sale y aqui no hay forma de medir antes de pintar:
      mas vale una hoja corta que un informe al que le falte un pedazo. */
   const usada = new Set();
+  /* ¿el sitio tiene ese componente? Lo dice el inventario que declaró el
+     técnico; si no lo tiene, su apartado no aparece. */
+  const hayEn = c => (c.inv||[]).some(k=>{
+    const v=limpio(x[k]);
+    return c.id==="EQUIPO" ? !!v : (v!=="" && Number(v)>0);
+  });
   for(const c of COMPONENTES){
     const suyas = fotos.filter(f=>f.partida===c.id && f.clase!=="REPORTE");
-    if(!suyas.length) continue;
+    if(!suyas.length && !hayEn(c)) continue;
+
     suyas.forEach(f=>usada.add(f));
     /* el texto y el pie de foto pueden depender de lo medido en sitio: si la
        actividad viene como función, se resuelve con este servicio */
@@ -1026,8 +1037,9 @@ async function informeDe(x, num, ident, conLog){
       const pie = resolver(a[2]);
       return `<tr>
       <td class="act"><b>${esc(a[0])}</b> ${resolver(a[1])}</td>
-      <td class="ph">${suyas[i]?`<img src="${suyas[i].url}">`:""}
-        ${suyas[i]&&pie?`<div class="pieimg">${pie}</div>`:""}</td></tr>`;
+      <td class="ph">${suyas[i]
+        ? `<img src="${suyas[i].url}">${pie?`<div class="pieimg">${pie}</div>`:""}`
+        : `<div class="sinfoto">sin fotografía</div>`}</td></tr>`;
     }).join("");
     const sobran = suyas.slice(c.act.length);
     const bloque=`<div class="comp">${esc(c.nom)}</div>
