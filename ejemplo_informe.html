@@ -133,7 +133,8 @@
   #salida table.bit td.c{text-align:center}
   #salida table.ev td.act{font-size:11px;line-height:1.5;text-align:justify}
   #salida table.ev td.ph{text-align:center;padding:3px}
-  #salida table.ev td.ph img{max-width:76mm;max-height:70mm;object-fit:contain;
+  #salida table.ev td.ph .pieimg{font-size:10px;margin-top:3px;line-height:1.35}
+  #salida table.ev td.ph img{max-width:76mm;max-height:66mm;object-fit:contain;
     border:1px solid #bbb}
   #salida .comp{font-weight:800;font-size:13.5px;margin:0 0 6px}
   #salida .firmas{display:flex;justify-content:center;margin-top:20mm;
@@ -824,9 +825,13 @@ const PROTOCOLO = [
     corrosión, con la sujeción y la orientación adecuadas, y el estado del cable coaxial y sus
     conectores.`]},
  {t:"2- Revisión de parámetros a componentes del sistema receptor de alertamiento sísmico SARMEX ®.",
-  p:[`Se verifican y actualizan los parámetros de operación: fecha, hora, canal de recepción,
-    intensidad de la señal recibida, voltaje de la fuente de alimentación y voltaje de la batería
-    de respaldo, así como los valores de salida hacia los aditamentos de sonorización.`,
+  p:[x=>`Se verifican y actualizan los parámetros de operación: fecha, hora, canal de recepción${
+      limpio(x.canal)?` —se encuentra en el <b>canal ${esc(x.canal)}</b>—`:""}, intensidad de la
+    señal recibida${limpio(x.senal_barras)?` —<b>${esc(x.senal_barras)} barras</b>—`:""}, voltaje
+    de la fuente de alimentación${limpio(x.volt_linea)?` —<b>${esc(x.volt_linea)} V</b>—`:""} y
+    voltaje de la batería de respaldo${limpio(x.volt_bateria)?` —<b>${esc(x.volt_bateria)} Vcd</b>—`:""},
+    así como los valores de salida hacia los aditamentos de sonorización${
+      limpio(x.amperaje)?` —<b>${esc(x.amperaje)} A</b>—`:""}.`,
    `Es importante mencionar que el voltaje medido es el suministrado mediante la línea principal
     que conecta al equipo.`]},
  {t:"3- Revisión del funcionamiento de los componentes del sistema receptor de alertamiento sísmico SARMEX ®.",
@@ -846,8 +851,12 @@ const COMPONENTES = [
      el texto y los dígitos de manera legible, la operación de los botones es la adecuada, el sello
      de garantía se encuentra en buenas condiciones y el estado de las baterías y sus terminales
      es bueno.`],
-   ["Revisión de parámetros.", `Se verificaron fecha, hora, canal de recepción e intensidad de la
-     señal, así como el voltaje de la fuente y el de la batería de respaldo.`],
+   ["Revisión de parámetros.", x=>`Se verificaron fecha, hora, canal de recepción${
+       limpio(x.canal)?` —canal <b>${esc(x.canal)}</b>—`:""} e intensidad de la señal${
+       limpio(x.senal_barras)?`, con <b>${esc(x.senal_barras)} barras</b>`:""}, así como el
+     voltaje de la fuente${limpio(x.volt_linea)?` (<b>${esc(x.volt_linea)} V</b>)`:""} y el de la
+     batería de respaldo${limpio(x.volt_bateria)?` (<b>${esc(x.volt_bateria)} Vcd</b>)`:""}.`,
+     x=>limpio(x.volt_bateria)?`Voltaje de batería ${esc(x.volt_bateria)} Vcd`:""],
    ["Revisión de funcionamiento.", `Se ejecutan las pruebas de funcionalidad del equipo receptor,
      confirmando la emisión de audio hacia los aditamentos y el registro del evento en su
      bitácora.`]]},
@@ -856,6 +865,14 @@ const COMPONENTES = [
      sonorización; el estado físico del altavoz se encuentra en buenas condiciones, está conectado
      al sistema receptor de alertamiento sísmico, así como la sujeción del altavoz, y se limpia con
      aire comprimido y espuma para dejarlo libre de suciedad e impurezas.`],
+   ["Revisión de parámetros.", x=>`Se miden los parámetros a verificar${
+       limpio(x.volt_linea)||limpio(x.amperaje)
+       ? `, encontrando valores óptimos siendo de <b>${esc(limpio(x.volt_linea)||"—")} V</b> y
+          <b>${esc(limpio(x.amperaje)||"—")} A</b> los valores de salida del equipo`
+       : ""}. Es importante mencionar que el voltaje medido es suministrado mediante la línea
+     principal que conecta al equipo.`,
+     x=>limpio(x.volt_linea)?`Voltaje medido ${esc(x.volt_linea)} V${
+        limpio(x.amperaje)?` / Medición de amperaje ${esc(x.amperaje)} A`:""}`:""],
    ["Revisión de funcionamiento.", `Se comprueba el funcionamiento del altavoz emitiendo un
      “click” que confirma su operación; posteriormente se procede con la emisión de sonido por
      medio de las pruebas de funcionalidad del equipo receptor y se confirma la intensidad de
@@ -951,8 +968,9 @@ async function informeDe(x, num, ident, conLog){
   const piezas=[];
   PROTOCOLO.forEach(b=>{
     b.p.forEach((t,k)=>{
-      const html=(k===0&&b.t?`<h3 class="sub2">${b.t}</h3>`:"")+`<p class="txt">${t}</p>`;
-      piezas.push({html:html, peso:t.replace(/<[^>]+>/g,"").length + (k===0&&b.t?150:0)});
+      const txt = typeof t==="function" ? t(x) : t;
+      const html=(k===0&&b.t?`<h3 class="sub2">${b.t}</h3>`:"")+`<p class="txt">${txt}</p>`;
+      piezas.push({html:html, peso:txt.replace(/<[^>]+>/g,"").length + (k===0&&b.t?150:0)});
     });
   });
   const total=piezas.reduce((a,x)=>a+x.peso,0);
@@ -1001,9 +1019,16 @@ async function informeDe(x, num, ident, conLog){
     const suyas = fotos.filter(f=>f.partida===c.id && f.clase!=="REPORTE");
     if(!suyas.length) continue;
     suyas.forEach(f=>usada.add(f));
-    const filas = c.act.map((a,i)=>`<tr>
-      <td class="act"><b>${esc(a[0])}</b> ${a[1]}</td>
-      <td class="ph">${suyas[i]?`<img src="${suyas[i].url}">`:""}</td></tr>`).join("");
+    /* el texto y el pie de foto pueden depender de lo medido en sitio: si la
+       actividad viene como función, se resuelve con este servicio */
+    const resolver = v => typeof v==="function" ? v(x) : v;
+    const filas = c.act.map((a,i)=>{
+      const pie = resolver(a[2]);
+      return `<tr>
+      <td class="act"><b>${esc(a[0])}</b> ${resolver(a[1])}</td>
+      <td class="ph">${suyas[i]?`<img src="${suyas[i].url}">`:""}
+        ${suyas[i]&&pie?`<div class="pieimg">${pie}</div>`:""}</td></tr>`;
+    }).join("");
     const sobran = suyas.slice(c.act.length);
     const bloque=`<div class="comp">${esc(c.nom)}</div>
       <table class="bit ev"><tr><th>ACTIVIDAD</th><th style="width:78mm">EVIDENCIA FOTOGRÁFICA</th></tr>
@@ -1177,6 +1202,7 @@ window.addEventListener("load", async function(){
     equipo:"PA020 B", serie:"PA02011302001",
     log_ultimo:"2026-08-03 11:37", log_estado:"CONTINUO",
     canal:"3", senal_barras:"4",
+    volt_bateria:"13.46", volt_linea:"11.54", amperaje:"1.76",
     obs_coord:"Equipo en tercer piso, detrás de plafón. Se ajustó volumen a 85 dB."};
   ev={"MANT|1":[
     {tipo:"ANTES",                   ruta:"MANT/12788/_1_ANTES.jpg"},

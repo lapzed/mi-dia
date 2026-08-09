@@ -941,6 +941,11 @@ const INVENTARIO = [["plasticas","Trompetas de plástico"],["aluminio","Trompeta
   ["estrobo","Luz estrobo"],["antena","Antena dipolo"],
   ["amplificador","Amplificador"],["ups","Respaldo (UPS)"]];
 
+/* lo que el técnico mide en sitio y el informe repite en el texto */
+const MEDICIONES = [["volt_bateria","Voltaje de batería","Vcd","13.46"],
+  ["volt_linea","Voltaje de línea / salida","V","11.54"],
+  ["amperaje","Amperaje de salida","A","1.76"]];
+
 const PART_COORD = ["MANT","INST","PRY_ESP"];   // donde se interviene el equipo
 const ETAPAS_PART = ["ANTES","DURANTE","DESPUES"];
 const NOMBRE_ETAPA = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después"};
@@ -1001,6 +1006,9 @@ function abrirCierre(coord, id, modo){
      (modo==="ATENDIDO" || modo==="FIN_OBRA" || modo==="REGULARIZAR")){
     cie.inv = {equipo: srv.equipo||"", serie: srv.serie||""};
     INVENTARIO.forEach(([k])=>{ cie.inv[k] = (srv[k]==null?"":String(srv[k])) });
+    /* Lo que se mide con el multímetro. El informe lo dice en el texto y al pie
+       de la foto, y cambia en cada visita: tiene que salir de aquí. */
+    MEDICIONES.forEach(([k])=>{ cie.inv[k] = (srv[k]==null?"":String(srv[k])) });
   }
   cie.partidas = null;
   if(PART_COORD.indexOf((coord||"").toUpperCase())>=0){
@@ -1350,6 +1358,14 @@ function pintarCierre(){
       <div class="inv">${INVENTARIO.map(([k,et])=>`
         <label>${et}
           <input type="number" min="0" inputmode="numeric" value="${esc(I[k])}"
+                 oninput="invCampo('${k}',this.value)"></label>`).join("")}</div>
+
+      <div class="lbl" style="margin-top:14px">Mediciones</div>
+      <p class="pista">Lo que marca el multímetro. Va en el informe, al pie de la
+         foto y en el texto, así que se escribe tal cual se leyó.</p>
+      <div class="inv">${MEDICIONES.map(([k,et,u,ej])=>`
+        <label>${et} <span style="color:var(--txt3)">(${u})</span>
+          <input inputmode="decimal" placeholder="${ej}" value="${esc(I[k]||"")}"
                  oninput="invCampo('${k}',this.value)"></label>`).join("")}</div>`;
   }
 
@@ -1809,7 +1825,7 @@ async function guardarCierre(s, modo, com){
     if(cie.inv){
       if(limpio(cie.inv.equipo)) body.equipo = cie.inv.equipo.trim();
       if(limpio(cie.inv.serie))  body.serie  = cie.inv.serie.trim();
-      INVENTARIO.forEach(([k])=>{
+      INVENTARIO.concat(MEDICIONES).forEach(([k])=>{
         const v=String(cie.inv[k]==null?"":cie.inv[k]).trim();
         if(v!=="") body[k]=v;
       });
