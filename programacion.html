@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Programación</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 16px 70px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1280px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  .barra{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+  .f{display:flex;flex-direction:column;gap:4px}
+  .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+  select,input,textarea{padding:8px 9px;border-radius:9px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:9px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  button:disabled{opacity:.45;cursor:default}
+  .mini{padding:4px 9px;font-size:11.5px}
+
+  .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:7px 13px;font-size:12px}
+  .pill b{font-size:17px;display:block}
+
+  .tabla{overflow-x:auto;background:var(--card);border:1px solid var(--line);
+    border-radius:14px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1000px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--card)}
+  td{padding:5px 9px;border-bottom:1px solid rgba(29,66,103,.45);vertical-align:middle}
+  tr.lista:hover{background:rgba(99,179,255,.05)}
+  td select{padding:5px 7px;font-size:12px;max-width:170px}
+  .sitio{font-weight:600}
+  .sub{font-size:11px;color:var(--txt3)}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  .guardado{color:#5BD79B;font-size:11px}
+  .fallo{color:#F0A9A5;font-size:11px}
+
+  .vacio{text-align:center;color:var(--txt2);padding:46px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:820px;width:100%;max-height:92vh;overflow:auto}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 12px;font-size:12.5px;color:var(--txt2)}
+  .box input,.box select{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+  #msg{width:100%;height:46vh;font-family:ui-monospace,Consolas,monospace;font-size:12px;
+    line-height:1.5;white-space:pre;resize:vertical}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">PROGRAMACIÓN</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="barra" id="barra" style="display:none">
+    <div class="f"><label>Día</label><input type="date" id="fDia" onchange="cargar()"></div>
+    <div class="f"><label>Coordinación</label>
+      <select id="fCoord" onchange="cargar()">
+        <option value="">Todas</option>
+        <option>MANT</option><option>INST</option><option>LEV</option>
+        <option>PRY_ESP</option><option>CAT</option>
+      </select></div>
+    <button onclick="mover(-1)">◀ Día anterior</button>
+    <button onclick="mover(1)">Día siguiente ▶</button>
+    <button class="pri" onclick="verMensaje()">Generar mensaje</button>
+  </div>
+
+  <div class="resumen" id="resumen"></div>
+  <div id="lista"><div class="load">Entra para programar.</div></div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box" style="max-width:390px">
+    <h2>Programación</h2>
+    <p>Programación y coordinación del área técnica.</p>
+    <select id="inUsr">
+      <option value="est.ivan">Iván · Subgerencia</option>
+      <option value="est.patricia">Patricia · Coordinación</option>
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+    </select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<div class="modal" id="mMsg" style="display:none">
+  <div class="box">
+    <h2>Mensaje de programación</h2>
+    <p id="msgSub"></p>
+    <textarea id="msg" spellcheck="false"></textarea>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:11px">
+      <button class="pri" onclick="copiar()">Copiar</button>
+      <button onclick="mandarWhats()">Abrir WhatsApp</button>
+      <button onclick="guardarMensaje()" id="btnGuardaMsg">Guardar en el historial</button>
+      <button onclick="document.getElementById('mMsg').style.display='none'"
+              style="margin-left:auto">Cerrar</button>
+    </div>
+    <div id="msgEstado" style="font-size:12px;color:var(--txt2);margin-top:9px"></div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+
+/* Iván y Patricia trabajan en espejo: los mismos permisos y la misma pantalla.
+   Patricia toma el mando de la coordinación de mantenimientos en cuanto tenga
+   la capacidad, e Iván entra de suplente por la baja definitiva de Gabriel; que
+   uno vea algo que el otro no, en esa transición, solo estorba. */
+let ses=JSON.parse(localStorage.getItem("md_prog")||"null");
+let filas=[], CAT={}, EJEC={};
+
+function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
+  Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+
+async function api(path,opts,reint){
+  const o=Object.assign({},opts||{});
+  o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+  return t?JSON.parse(t):null;
+}
+async function auth(c,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(c)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardar(j){
+  ses={token:j.access_token,refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_prog",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardar(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  try{
+    guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("mLogin").style.display="none"; arrancar();
+  }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
+}
+function salir(){ localStorage.removeItem("md_prog"); location.reload() }
+
+function nombreDe(u){
+  return ({"est.ivan":"Iván","est.patricia":"Patricia",
+           "est.gerencia":"Gerencia","est.subgerencia":"Subgerencia"})[u] || u;
+}
+
+/* ---------- catálogos ----------
+   Vienen de la tabla `catalogos`, la misma lista que usan las estaciones. Si esa
+   tabla todavía no existe, se arman con los valores que ya están en los
+   servicios: es peor —arrastra las variantes mal escritas— pero deja trabajar. */
+async function cargarCatalogos(){
+  try{
+    const c=await api("catalogos?select=lista,valor,orden&activo=is.true&order=lista,orden");
+    CAT={};
+    c.forEach(x=>(CAT[x.lista]=CAT[x.lista]||[]).push(x.valor));
+    if(CAT.TECNICOS && CAT.TECNICOS.length) return;
+  }catch(e){ CAT={} }
+  const d=await api("servicios?select=tecnico,auxiliar,vehiculo,horario_atencion&limit=1000"+
+                    "&fecha_servicio=gte."+isoDe(-120));
+  const juntar=(k)=>[...new Set(d.map(x=>limpio(x[k])).filter(Boolean))].sort();
+  CAT.TECNICOS=juntar("tecnico"); CAT.AUXILIARES=juntar("auxiliar");
+  CAT.VEHICULOS=juntar("vehiculo");
+  CAT.HORARIOS=[...new Set(d.map(x=>hhmm(x.horario_atencion)).filter(Boolean))].sort();
+}
+async function cargarEjecutivos(){
+  try{
+    const f=await api("ejecutivos?select=alias,nombre,telefono");
+    EJEC={}; f.forEach(e=>{ EJEC[(e.alias||"").toUpperCase().trim()]=e });
+  }catch(e){ EJEC={} }
+}
+
+function isoDe(dias){
+  const d=new Date(); d.setDate(d.getDate()+(dias||0));
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function hhmm(h){
+  if(!h) return "";
+  const m=String(h).match(/^(\d{1,2}):(\d{2})/);
+  return m ? String(m[1]).padStart(2,"0")+":"+m[2] : "";
+}
+
+async function arrancar(){
+  document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
+  document.getElementById("barra").style.display="flex";
+  if(!document.getElementById("fDia").value)
+    document.getElementById("fDia").value=isoDe(1);   // se programa el día siguiente
+  document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
+  await cargarCatalogos();
+  await cargarEjecutivos();
+  cargar();
+}
+
+function mover(n){
+  const i=document.getElementById("fDia");
+  const d=new Date(i.value+"T12:00:00"); d.setDate(d.getDate()+n);
+  i.value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  cargar();
+}
+
+async function cargar(){
+  const dia=document.getElementById("fDia").value;
+  const co=document.getElementById("fCoord").value;
+  if(!dia) return;
+  document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
+  try{
+    filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,"+
+      "fecha_servicio,horario_atencion,status,tecnico,auxiliar,vehiculo,cita_confirmada,"+
+      "personal_atiende,telefono,ejecutivo,tipo_servicio,requerimientos,obs_prog,obs_coord,"+
+      "obs_captura,dias_est,dia_n"+
+      "&fecha_servicio=eq."+dia+(co?"&coord=eq."+co:"")+
+      "&order=horario_atencion,tkt&limit=400");
+    pintar();
+  }catch(e){
+    document.getElementById("lista").innerHTML=
+      '<div class="vacio">No se pudo consultar.<br><span class="sub">'+esc(String(e).slice(0,120))+'</span></div>';
+  }
+}
+
+function opciones(lista, valor){
+  const v=limpio(valor);
+  const hay=(CAT[lista]||[]);
+  const todos = v && hay.indexOf(v)<0 ? [v].concat(hay) : hay;   // no perder lo ya capturado
+  return '<option value=""></option>'+
+    todos.map(x=>`<option${x===v?" selected":""}>${esc(x)}</option>`).join("");
+}
+
+function pintar(){
+  const cont=document.getElementById("lista");
+  const conTec=filas.filter(x=>limpio(x.tecnico)).length;
+  const brig=new Set(filas.filter(x=>limpio(x.tecnico)).map(x=>limpio(x.tecnico))).size;
+  document.getElementById("resumen").innerHTML=`
+    <div class="pill"><b>${filas.length}</b>servicios del día</div>
+    <div class="pill"><b style="color:${conTec===filas.length?"#5BD79B":"#F0BE6E"}">${conTec}</b>con brigada</div>
+    <div class="pill"><b>${brig}</b>brigadas</div>`;
+  if(!filas.length){
+    cont.innerHTML='<div class="vacio">No hay servicios ese día.</div>';
+    return;
+  }
+  cont.innerHTML=`<div class="tabla"><table><thead><tr>
+    <th>Hora</th><th>Servicio</th><th>Técnico líder</th><th>Auxiliar</th>
+    <th>Vehículo</th><th>Cita</th><th></th></tr></thead><tbody>
+    ${filas.map((x,i)=>`<tr class="lista">
+      <td><select onchange="editar(${i},'horario_atencion',this.value)">
+            ${opciones("HORARIOS", hhmm(x.horario_atencion))}</select></td>
+      <td><div class="sitio">${esc(x.nombre||"")}</div>
+          <div class="sub"><span class="tag">${esc(x.coord)}</span>
+            ${x.tkt?" TKT "+esc(x.tkt):""}
+            ${limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):""}
+            ${limpio(x.status)?" · "+esc(x.status):""}</div></td>
+      <td><select onchange="editar(${i},'tecnico',this.value)">
+            ${opciones("TECNICOS", x.tecnico)}</select></td>
+      <td><select onchange="editar(${i},'auxiliar',this.value)">
+            ${opciones("AUXILIARES", x.auxiliar)}</select></td>
+      <td><select onchange="editar(${i},'vehiculo',this.value)">
+            ${opciones("VEHICULOS", x.vehiculo)}</select></td>
+      <td><select onchange="editar(${i},'cita_confirmada',this.value)">
+            <option value=""></option>
+            <option${(x.cita_confirmada||"")==="SI"?" selected":""}>SI</option>
+            <option${(x.cita_confirmada||"")==="NO"?" selected":""}>NO</option></select></td>
+      <td id="est${i}"></td>
+    </tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+/* Se guarda campo por campo, en cuanto se elige: si se guardara al final, una
+   pestaña cerrada a media captura se lleva el trabajo de la tarde. */
+async function editar(i, campo, valor){
+  const x=filas[i], celda=document.getElementById("est"+i);
+  const antes=x[campo];
+  x[campo]=valor;
+  celda.innerHTML='<span class="sub">guardando…</span>';
+  try{
+    const d=await api(`servicios?coord=eq.${encodeURIComponent(x.coord)}&id=eq.${x.id}`,
+      {method:"PATCH", headers:{Prefer:"return=representation"},
+       body:JSON.stringify({[campo]:valor})});
+    if(!d || !d.length) throw new Error("no encontró el servicio");
+    celda.innerHTML='<span class="guardado">✓</span>';
+    setTimeout(()=>{ if(celda) celda.innerHTML="" }, 2500);
+    document.getElementById("resumen") && pintarResumen();
+  }catch(e){
+    x[campo]=antes;
+    celda.innerHTML='<span class="fallo">no se guardó</span>';
+  }
+}
+function pintarResumen(){
+  const conTec=filas.filter(x=>limpio(x.tecnico)).length;
+  const brig=new Set(filas.filter(x=>limpio(x.tecnico)).map(x=>limpio(x.tecnico))).size;
+  document.getElementById("resumen").innerHTML=`
+    <div class="pill"><b>${filas.length}</b>servicios del día</div>
+    <div class="pill"><b style="color:${conTec===filas.length?"#5BD79B":"#F0BE6E"}">${conTec}</b>con brigada</div>
+    <div class="pill"><b>${brig}</b>brigadas</div>`;
+}
+
+/* ---------- el mensaje ----------
+   Mismo formato que venía saliendo de la estación, para que a los técnicos no
+   les cambie el texto que ya saben leer. */
+const DIAS=["DOMINGO","LUNES","MARTES","MIÉRCOLES","JUEVES","VIERNES","SÁBADO"];
+const MESES=["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO",
+             "SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+function titulo(iso){
+  const d=new Date(iso+"T12:00:00");
+  return "PROGRAMACION "+DIAS[d.getDay()]+" "+d.getDate()+" DE "+MESES[d.getMonth()]+
+         " DE "+d.getFullYear();
+}
+function entraAlMensaje(x){
+  const st=(x.status||"").toUpperCase().trim();
+  return (x.cita_confirmada||"").toUpperCase()==="SI" || st==="PROGRAMADO" ||
+         (st==="" && !!limpio(x.tecnico));
+}
+function ejecutivoTexto(x){
+  const crudo=limpio(x.ejecutivo);
+  if(!crudo) return "";
+  const e=EJEC[crudo.toUpperCase()];
+  const nom=(e&&e.nombre)||crudo, tel=e&&limpio(e.telefono);
+  return nom+(tel?"  Tel: "+tel:"");
+}
+function armarMensaje(){
+  const dia=document.getElementById("fDia").value;
+  const v=filas.filter(entraAlMensaje);
+  if(!v.length) return {texto:"", n:0};
+  const brigadas={};
+  v.forEach(x=>{
+    const k=[limpio(x.tecnico),limpio(x.auxiliar),limpio(x.vehiculo)].join("|");
+    (brigadas[k]=brigadas[k]||[]).push(x);
+  });
+  let s=titulo(dia)+"\n\n", num=0, b=0;
+  Object.keys(brigadas).sort().forEach(k=>{
+    const [tec,aux,veh]=k.split("|");
+    const lista=brigadas[k].slice().sort((a,c)=>hhmm(a.horario_atencion).localeCompare(hhmm(c.horario_atencion)));
+    b++;
+    s+="BRIGADA "+b+" - "+(tec||"POR ASIGNAR").toUpperCase()+
+       (aux?" | "+aux.toUpperCase():"")+(veh?" ("+veh+")":"")+"\n";
+    lista.forEach(x=>{
+      num++;
+      const dep=limpio(x.dependencia), nom=(x.nombre||"").trim();
+      const conDep = dep && nom.toUpperCase().indexOf(dep.toUpperCase())<0
+                   ? nom+" ("+dep+")" : nom;
+      s+=num+". "+(hhmm(x.horario_atencion)||"--:--")+"  "+conDep+
+         (limpio(x.tkt)?" - TKT "+x.tkt:"")+
+         (limpio(x.tipo_servicio)?" - "+x.tipo_servicio:"")+"\n";
+      if(limpio(x.direccion)) s+="   Dir: "+x.direccion.trim()+"\n";
+      const la=parseFloat(x.lat), lo=parseFloat(x.long);
+      if(la&&lo&&la>=14&&la<=33&&lo>=-118&&lo<=-86)
+        s+="   Ubicacion: https://www.google.com/maps?q="+la+","+lo+"\n";
+      const pe=limpio(x.personal_atiende), te=limpio(x.telefono);
+      if(pe||te) s+="   Contacto: "+pe+(pe&&te?"  Tel: ":(te?"Tel: ":""))+te+"\n";
+      const ej=ejecutivoTexto(x);
+      if(ej) s+="   Ejecutivo: "+ej+"\n";
+      const nota=[x.requerimientos,x.obs_prog,x.obs_coord,x.obs_captura]
+        .map(limpio).filter(Boolean).join(" · ");
+      if(nota) s+="   Nota: "+nota+"\n";
+    });
+    s+="\n";
+  });
+  return {texto:s, n:num};
+}
+function verMensaje(){
+  const {texto,n}=armarMensaje();
+  const fuera=filas.length-filas.filter(entraAlMensaje).length;
+  document.getElementById("msgSub").innerHTML= n
+    ? `${n} servicio${n===1?"":"s"} en el mensaje.` +
+      (fuera?` <b style="color:#F0BE6E">${fuera} se quedaron fuera</b>: entran los que
+        tienen cita confirmada, los que están en PROGRAMADO, y los que ya traen
+        brigada aunque no tengan estatus.`:"")
+    : "Ningún servicio del día entra al mensaje: falta confirmar cita, ponerlos en PROGRAMADO o asignarles brigada.";
+  document.getElementById("msg").value=texto;
+  document.getElementById("msgEstado").textContent="";
+  document.getElementById("mMsg").style.display="flex";
+}
+async function copiar(){
+  const t=document.getElementById("msg");
+  try{ await navigator.clipboard.writeText(t.value) }
+  catch(e){ t.select(); document.execCommand("copy") }
+  document.getElementById("msgEstado").textContent="Copiado. Pégalo en el grupo.";
+}
+function mandarWhats(){
+  const t=document.getElementById("msg").value;
+  window.open("https://wa.me/?text="+encodeURIComponent(t), "_blank");
+}
+async function guardarMensaje(){
+  const b=document.getElementById("btnGuardaMsg");
+  const e=document.getElementById("msgEstado");
+  b.disabled=true;
+  try{
+    await api("programacion",{method:"POST",body:JSON.stringify({
+      ts:new Date().toISOString().slice(0,19).replace("T"," "),
+      usuario:nombreDe(ses.usuario),
+      coord:document.getElementById("fCoord").value||null,
+      fecha:document.getElementById("fDia").value,
+      nsvc:armarMensaje().n,
+      texto:document.getElementById("msg").value})});
+    e.textContent="Guardado en el historial.";
+  }catch(x){ e.textContent="No se pudo guardar en el historial: "+String(x).slice(0,90) }
+  b.disabled=false;
+}
+
+(async function(){
+  if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
+})();
+</script>
+</body>
+</html>
