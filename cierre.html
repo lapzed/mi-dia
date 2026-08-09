@@ -130,6 +130,7 @@
 const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
 const DOMINIO="mdcontrol.local";
+const BUCKET="evidencias";
 
 /* Cada coordinador abre en la suya; gerencia y subgerencia ven todas. Es lo
    mismo que su rol en la estación: INTEGRAL sobre su coordinación. */
@@ -233,6 +234,7 @@ async function cargar(){
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+(co?"&coord=eq."+co:"")+
       "&order=fecha_servicio&limit=800");
     await cargarEvidencias();
+    await cargarSolicitudes();
     pintar();
   }catch(e){
     document.getElementById("lista").innerHTML=
@@ -282,7 +284,8 @@ function pintar(){
   if(!v.length){ cont.innerHTML='<div class="vacio">Nada pendiente aquí.</div>'; return }
   cont.innerHTML=`<div class="tabla"><table><thead><tr>
     <th>Fecha</th><th>Servicio</th><th>Brigada</th><th>Estatus</th>
-    <th>Atendido el</th><th>Evidencia</th><th>Nota de cierre</th><th></th>
+    <th>Atendido el</th><th>Evidencia</th><th>Nota de cierre</th>
+    <th>Informe final</th><th></th>
     </tr></thead><tbody>
     ${v.map(x=>{
       const i=filas.indexOf(x), d=dias(x.fecha_servicio), viejo=abierto(x)&&d>30;
@@ -306,8 +309,60 @@ function pintar(){
       <td><textarea class="nota" onchange="editar(${i},'obs_coord',this.value)"
             placeholder="por qué se cierra así">${esc(x.obs_coord||"")}</textarea>
         ${limpio(x.obs_prog)?`<div class="sub">${esc(x.obs_prog)}</div>`:""}</td>
+      <td>${informe(x,i)}</td>
       <td id="est${i}"></td></tr>`}).join("")}
   </tbody></table></div>`;
+}
+
+/* ---------- informe final ----------
+   El servicio se cierra aquí, pero el TKT no se cierra en el CRM hasta que hay
+   informe final, y ese lo hace Jesús. Pedirlo por WhatsApp se pierde: no se
+   sabe qué está pedido, desde cuándo, ni qué se entregó. */
+let SOL={};
+async function cargarSolicitudes(){
+  SOL={};
+  try{
+    const s=await api("solicitudes_informe?select=*&limit=1000");
+    s.forEach(r=>{ SOL[r.coord+"|"+r.servicio_id]=r });
+  }catch(e){ SOL=null }        // la tabla todavía no existe: no se estorba
+}
+function informe(x,i){
+  if(SOL===null) return '<span class="sub">—</span>';
+  const s=SOL[x.coord+"|"+x.id];
+  if(!s){
+    if(!cerrado(x)) return '<span class="sub">al cerrarlo</span>';
+    return `<button class="mini" onclick="pedirInforme(${i})">Pedir informe</button>`;
+  }
+  const cuando=(s.ts_solicitud||"").slice(0,10);
+  if(s.estado==="ENTREGADO")
+    return `<span class="guardado">✓ entregado</span>
+      <div class="sub">${esc((s.ts_entrega||"").slice(0,10))}${s.atiende?" · "+esc(s.atiende):""}</div>
+      ${s.ruta?`<a class="sub" href="#" onclick="abrirInforme('${esc(s.ruta)}');return false"
+         style="color:var(--acc)">ver el informe</a>`:""}`;
+  return `<span class="ev"><span class="no">● ${esc(s.estado.toLowerCase())}</span></span>
+    <div class="sub">pedido ${esc(cuando)}${s.urgente?" · urgente":""}</div>`;
+}
+async function pedirInforme(i){
+  const x=filas[i];
+  const nota=prompt("¿Para qué lo necesitas o qué debe decir?\n(opcional, ayuda a Jesús)","");
+  if(nota===null) return;
+  const urgente=confirm("¿Es urgente?\n\nAceptar = urgente, va primero en la lista de Jesús.\nCancelar = normal.");
+  try{
+    await api("solicitudes_informe?on_conflict=coord,servicio_id",
+      {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=representation"},
+       body:JSON.stringify([{coord:x.coord, servicio_id:x.id, tkt:x.tkt||"",
+         solicita:nombreDe(ses.usuario), urgente:urgente, nota:nota||null,
+         estado:"SOLICITADO"}])});
+    await cargarSolicitudes();
+    pintar();
+  }catch(e){ alert("No se pudo pedir: "+String(e).slice(0,140)) }
+}
+async function abrirInforme(ruta){
+  try{
+    const r=await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,{headers:hdr()});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    window.open(URL.createObjectURL(await r.blob()),"_blank");
+  }catch(e){ alert("No se pudo abrir: "+String(e).slice(0,120)) }
 }
 
 async function editar(i, campo, valor){

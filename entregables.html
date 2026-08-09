@@ -197,6 +197,9 @@
         <option value="no">Sin registro de eventos</option></select></div>
   </div>
 
+  <!-- lo que las coordinaciones están esperando; va arriba de todo a propósito -->
+  <div id="pedidos"></div>
+
   <div class="resumen" id="resumen"></div>
   <div id="tabla"><div class="load">Entra para ver los servicios.</div></div>
   <div id="pie"></div>
@@ -360,6 +363,64 @@ async function arrancar(){
   document.getElementById("fA").value=iso(h);
   await llenarClientes();
   cargar();
+  pedidos();
+}
+
+/* ---------- lo que las coordinaciones están esperando ----------
+   El coordinador cierra el servicio pero el TKT no se cierra en el CRM hasta que
+   hay informe final. Antes eso se pedía por WhatsApp y se perdía; ahora llega
+   aquí, con fecha y con quién lo pidió, y lo urgente va primero. */
+async function pedidos(){
+  const c=document.getElementById("pedidos");
+  let s;
+  try{
+    s=await api("solicitudes_informe?select=*&estado=neq.ENTREGADO"+
+                "&order=urgente.desc,ts_solicitud&limit=100");
+  }catch(e){ c.innerHTML=""; return }      // la tabla aún no existe
+  if(!s.length){ c.innerHTML=""; return }
+  const dias=t=>Math.round((Date.now()-new Date(t))/86400000);
+  c.innerHTML=`<div class="caja" style="background:var(--card);border:1px solid var(--line);
+      border-radius:14px;padding:15px;margin-bottom:14px">
+    <h2 style="margin:0 0 3px;font-size:15px">Informes que te están pidiendo
+      <span class="tag" style="background:#E8A33D;color:#3a2a08">${s.length}</span></h2>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:11px">
+      Sin estos informes las coordinaciones no pueden cerrar el TKT en el CRM.</div>
+    <div style="overflow-x:auto"><table><thead><tr>
+      <th>Pedido</th><th>Servicio</th><th>Quién</th><th>Para qué</th><th>Estado</th><th></th>
+    </tr></thead><tbody>
+    ${s.map((r,i)=>`<tr${r.urgente?' style="background:rgba(232,163,61,.10)"':''}>
+      <td>${esc((r.ts_solicitud||"").slice(0,10))}
+        <div style="font-size:11px;color:var(--txt3)">${dias(r.ts_solicitud)} días${
+          r.urgente?' · <b style="color:#F0BE6E">urgente</b>':""}</div></td>
+      <td><span class="tag">${esc(r.coord)}</span>
+        ${r.tkt?" TKT "+esc(r.tkt):""} · id ${esc(r.servicio_id)}</td>
+      <td>${esc(r.solicita||"")}</td>
+      <td style="font-size:12px">${esc(r.nota||"—")}</td>
+      <td>${esc((r.estado||"").toLowerCase())}</td>
+      <td style="white-space:nowrap">
+        ${r.estado==="SOLICITADO"
+          ? `<button class="mini" onclick="tomarPedido('${esc(r.coord)}',${r.servicio_id})">Lo estoy haciendo</button>`
+          : ""}
+        <button class="mini" onclick="entregarPedido('${esc(r.coord)}',${r.servicio_id})">Marcar entregado</button>
+      </td></tr>`).join("")}
+    </tbody></table></div></div>`;
+}
+async function tomarPedido(coord,id){
+  try{
+    await api(`solicitudes_informe?coord=eq.${encodeURIComponent(coord)}&servicio_id=eq.${id}`,
+      {method:"PATCH", body:JSON.stringify({estado:"EN PROCESO",
+        atiende: ses.nombre||ses.usuario})});
+    pedidos();
+  }catch(e){ alert("No se pudo: "+String(e).slice(0,120)) }
+}
+async function entregarPedido(coord,id){
+  if(!confirm("¿Ya entregaste ese informe final?\n\nLa coordinación va a verlo como entregado.")) return;
+  try{
+    await api(`solicitudes_informe?coord=eq.${encodeURIComponent(coord)}&servicio_id=eq.${id}`,
+      {method:"PATCH", body:JSON.stringify({estado:"ENTREGADO",
+        atiende: ses.nombre||ses.usuario, ts_entrega:new Date().toISOString()})});
+    pedidos();
+  }catch(e){ alert("No se pudo: "+String(e).slice(0,120)) }
 }
 
 async function llenarClientes(){
