@@ -120,6 +120,26 @@
     letter-spacing:.02em}
   #salida .port .dir{font-size:12px;text-align:center;margin:46mm 0 0;line-height:1.5}
   #salida .port .elab{font-size:12px;text-align:center;margin:6px 0 0;font-weight:600}
+
+  /* ---- machote largo: protocolo, bitacora de trabajo, indice y conclusiones ---- */
+  #salida .hoja h3.sub2{font-size:12px;font-weight:700;margin:10px 0 5px}
+  #salida table.idx{width:100%;border-collapse:collapse;font-size:12px;margin-top:8mm}
+  #salida table.idx td{padding:5px 0;border-bottom:1px dotted #98a6bb}
+  #salida table.idx td.pt{text-align:right;width:16mm;font-weight:700}
+  #salida table.bit{width:100%;border-collapse:collapse;font-size:11px;margin:0 0 6mm}
+  #salida table.bit th{background:#1F3864;color:#fff;padding:4px 7px;text-align:left;
+    border:1px solid #7d8fa8;font-size:10.5px;letter-spacing:.03em}
+  #salida table.bit td{border:1px solid #9aa7b8;padding:4px 7px;vertical-align:top}
+  #salida table.bit td.c{text-align:center}
+  #salida table.ev td.act{font-size:10.5px;line-height:1.45;text-align:justify}
+  #salida table.ev td.ph{text-align:center;padding:3px}
+  #salida table.ev td.ph img{max-width:74mm;max-height:52mm;object-fit:contain;
+    border:1px solid #bbb}
+  #salida .comp{font-weight:800;font-size:13px;margin:0 0 5px}
+  #salida .firmas{display:flex;gap:14mm;justify-content:center;margin-top:26mm;
+    text-align:center;font-size:11px}
+  #salida .firmas .linea{border-top:1px solid #333;width:62mm;margin:0 auto 4px}
+  #salida .firmas .pto{font-weight:700}
   #salida .hoja h2.sec{font-size:14px;font-weight:700;margin:0 0 12px}
   #salida .hoja ul.act{font-size:11.5px;line-height:1.55;padding-left:18px;margin:0}
   #salida .hoja ul.act li{margin-bottom:5px}
@@ -774,87 +794,242 @@ function hojaLog(x, ident){
   return detalle + hoja(`<table class="log"><tr><th colspan="2">REGISTRO DE EVENTOS</th></tr>${filas}</table>`);
 }
 
+/* ---------- el machote largo, el de Banjercito ----------
+   Las actividades y su redaccion salen del informe que la empresa ya entrega;
+   no se inventa texto. Lo que cambia por servicio son las cantidades, las
+   fechas, el personal y las fotos. */
+const PROTOCOLO = [
+ {t:"", p:[`Las actividades que se describen a continuación explican el protocolo de actuación
+   durante nuestro servicio de mantenimiento, cuya finalidad es prevenir y minimizar la
+   probabilidad de fallas, mediante el reemplazo o ajuste de aquellos elementos de mayor
+   desgaste o uso en los equipos, mediante la revisión del estado actual de todos los
+   componentes del sistema receptor de alertamiento sísmico SARMEX ®.`]},
+ {t:"1- Revisión física de los componentes del sistema receptor de alertamiento sísmico SARMEX ®.",
+  p:[`Se inspecciona el estado que guardan el equipo receptor, los altavoces, la antena aérea
+    dipolo, la luz estrobo, los conectores y el cableado.`,
+   `<b>Receptor SARMEX ®.</b> Se revisa que el equipo se encuentre libre de objetos ajenos al
+    sistema, sin fracturas, algún daño o suciedad, que esté fijado de forma correcta sin poder
+    moverlo, que sus conectores estén limpios y libres de suciedad, el estado de la conexión de
+    antena al receptor y el estado de la tapa; el display, el cual debe mostrar texto y dígitos de
+    manera legible; la operación adecuada de los botones, que el sello de garantía se encuentre
+    en buenas condiciones, y el estado de las baterías y sus terminales.`,
+   `<b>Altavoces.</b> Se verifica la orientación correcta para una óptima sonorización y el estado
+    físico del altavoz, evitando que el material esté agrietado, amarillento, golpeado o con
+    quemaduras, que esté conectado al sistema receptor, así como la sujeción del altavoz.`,
+   `<b>Luz estrobo.</b> Se examina el estado del dispositivo en busca de fisuras en el material,
+    filtraciones o quemaduras, una sujeción firme, y se verifica su conexión al sistema receptor.`,
+   `<b>Antena aérea dipolo.</b> Se revisa que se encuentre libre de obstáculos, sin fracturas ni
+    corrosión, con la sujeción y la orientación adecuadas, y el estado del cable coaxial y sus
+    conectores.`]},
+ {t:"2- Revisión de parámetros a componentes del sistema receptor de alertamiento sísmico SARMEX ®.",
+  p:[`Se verifican y actualizan los parámetros de operación: fecha, hora, canal de recepción,
+    intensidad de la señal recibida, voltaje de la fuente de alimentación y voltaje de la batería
+    de respaldo, así como los valores de salida hacia los aditamentos de sonorización.`,
+   `Es importante mencionar que el voltaje medido es el suministrado mediante la línea principal
+    que conecta al equipo.`]},
+ {t:"3- Revisión del funcionamiento de los componentes del sistema receptor de alertamiento sísmico SARMEX ®.",
+  p:[`Se comprueba el funcionamiento de cada componente de manera individual y del sistema en
+    conjunto, mediante las pruebas de funcionalidad del equipo receptor, confirmando la emisión
+    de audio y la activación de la luz estrobo, y verificando el registro de eventos del receptor.`]}
+];
+
+/* Que se le hace a cada componente. El texto es el del machote; la foto sale de
+   lo que el tecnico etiqueto en la app (ANTES|TROMPETA|PLASTICO, etc.). */
+const COMPONENTES = [
+ {id:"EQUIPO", nom:"Equipo receptor SARMEX ®", act:[
+   ["Revisión física.", `Se revisa que el equipo quede libre de objetos ajenos al sistema; no se
+     encontraron fracturas ni daño, se remueve la suciedad por medio de aire comprimido y espuma,
+     se observa fijado de forma correcta, sus conectores quedan limpios y libres de suciedad, el
+     estado de la conexión de antena al receptor y la tapa son los adecuados; el display muestra
+     el texto y los dígitos de manera legible, la operación de los botones es la adecuada, el sello
+     de garantía se encuentra en buenas condiciones y el estado de las baterías y sus terminales
+     es bueno.`],
+   ["Revisión de parámetros.", `Se verificaron fecha, hora, canal de recepción e intensidad de la
+     señal, así como el voltaje de la fuente y el de la batería de respaldo.`],
+   ["Revisión de funcionamiento.", `Se ejecutan las pruebas de funcionalidad del equipo receptor,
+     confirmando la emisión de audio hacia los aditamentos y el registro del evento en su
+     bitácora.`]]},
+ {id:"TROMPETA", nom:"Altavoz trompeta", act:[
+   ["Revisión física.", `Se verificó que la orientación fuera la correcta para una óptima
+     sonorización; el estado físico del altavoz se encuentra en buenas condiciones, está conectado
+     al sistema receptor de alertamiento sísmico, así como la sujeción del altavoz, y se limpia con
+     aire comprimido y espuma para dejarlo libre de suciedad e impurezas.`],
+   ["Revisión de funcionamiento.", `Se comprueba el funcionamiento del altavoz emitiendo un
+     “click” que confirma su operación; posteriormente se procede con la emisión de sonido por
+     medio de las pruebas de funcionalidad del equipo receptor y se confirma la intensidad de
+     audio.`]]},
+ {id:"ESTROBO", nom:"Luz estrobo", act:[
+   ["Revisión física.", `Se examina el estado del dispositivo sin encontrar fisuras en el material,
+     filtraciones ni quemaduras; la sujeción es firme y su conexión al sistema receptor es la
+     adecuada. Se limpia para dejarlo libre de suciedad.`],
+   ["Revisión de funcionamiento.", `Se confirma el destello de la luz estrobo durante las pruebas
+     de funcionalidad del equipo receptor.`]]},
+ {id:"ANTENA", nom:"Antena aérea dipolo", act:[
+   ["Revisión física.", `Se revisa que la antena se encuentre libre de obstáculos, sin fracturas ni
+     corrosión, con la sujeción y orientación adecuadas, y se verifica el estado del cable coaxial
+     y sus conectores.`],
+   ["Revisión de parámetros.", `Se verifica la intensidad de la señal recibida, confirmando que se
+     encuentra dentro de los valores óptimos de operación.`]]},
+ {id:"AMPLIFICADOR", nom:"Amplificador", act:[
+   ["Revisión física.", `Se revisa el estado del amplificador, su fijación, conectores y cableado;
+     se limpia con aire comprimido para dejarlo libre de polvo.`],
+   ["Revisión de parámetros.", `Se miden los valores de entrada y salida, confirmando que el
+     equipo entrega la potencia adecuada hacia los aditamentos de sonorización.`]]},
+ {id:"UPS", nom:"Respaldo de energía (UPS)", act:[
+   ["Revisión física.", `Se revisa el estado del respaldo de energía, su conexión al sistema y el
+     estado de sus terminales.`],
+   ["Revisión de funcionamiento.", `Se comprueba que el respaldo sostenga la operación del equipo
+     receptor ante la falta de energía de la línea principal.`]]}
+];
+
+const CONCLUSIONES = [
+ `Dada la revisión física de los componentes del sistema receptor de alertamiento sísmico
+  SARMEX ®, el estado que guardan el equipo receptor, los altavoces, la antena aérea dipolo, la
+  luz estrobo, los conectores y el cableado son los adecuados para un funcionamiento correcto.`,
+ `Durante la revisión de los parámetros a los componentes del sistema receptor de alertamiento
+  sísmico SARMEX ® se verificaron y actualizaron los parámetros de operación, asegurando el
+  funcionamiento correcto e integral del sistema.`,
+ `A lo largo de la revisión del funcionamiento de los componentes del sistema receptor de
+  alertamiento sísmico SARMEX ® se verificó el correcto funcionamiento de todos los componentes,
+  tanto individualmente como en conjunto, garantizando la continuidad en la operatividad del
+  sistema.`
+];
+
+const FIRMAS = [["Director General","Mtro. Mario Álvaro Ruíz Velázquez"],
+                ["Gerente de Instalaciones","C. Antonio Álvarez Sánchez"]];
+
+/* el inventario que se atendió, tomado de lo que el técnico contó en el "Antes" */
+const CONCEPTOS = [["equipo","Equipo receptor SARMEX ®"],["plasticas","Trompeta de plástico"],
+  ["aluminio","Trompeta de aluminio"],["eliptica","Dual elíptica"],
+  ["bocina_plafon","Bocina de plafón"],["estrobo","Luz estrobo"],
+  ["antena","Antena aérea dipolo"],["amplificador","Amplificador"],["ups","Respaldo (UPS)"]];
+
+function numeroOrdinal(num){
+  return ({primer:"1er", segundo:"2do", tercer:"3er", cuarto:"4to"})[num] || num;
+}
+
 async function informeDe(x, num, ident, conLog){
   const arch=[];
   for(const e of (ev[llave(x)]||[])){
     const d=await bajar(e.ruta);
-    if(d) arch.push({clase:etapaDe(e.tipo), pieza:piezaDe(e.tipo), url:d.url, mime:d.tipo});
+    if(d) arch.push({clase:etapaDe(e.tipo), pieza:piezaDe(e.tipo),
+                     partida:(String(e.tipo).split("|")[1]||"").toUpperCase(),
+                     url:d.url, mime:d.tipo});
   }
-  let h="";
-  // portada: el logo del cliente va junto al de la empresa
+  const fotos = arch.filter(f=>!/pdf/.test(f.mime));
+  const rep   = fotos.filter(f=>f.clase==="REPORTE");
+  const secs  = [];                       // {titulo, hoja} para el índice
+  let cuerpo  = "";
+  const marca = t => secs.push({t:t, p:nPag+1});
   const logoCli = await logoDe(x.dependencia);
-  h+=hoja(`${logoCli?`<div class="logo-cli"><img src="${logoCli}"></div>`:""}
-    <h1>Reporte del ${esc(num)} mantenimiento<br>por póliza a equipo receptor de la<br>
-      señal del sistema de alerta sísmica.</h1>
+
+  /* 1 · portada */
+  nPag = 0;
+  cuerpo += hoja(`${logoCli?`<div class="logo-cli"><img src="${logoCli}"></div>`:""}
+    <h1>${esc(numeroOrdinal(num).toUpperCase())} SERVICIO DE MANTENIMIENTO<br>
+      RECEPTOR DE ALERTA SÍSMICA SARMEX ®${limpio(x.equipo)?" "+esc(limpio(x.equipo)):""}</h1>
     <div class="sitio">${esc((x.nombre||"").toUpperCase())}</div>
     <div class="dir">${esc(limpio(x.direccion))}</div>
     <div class="elab">Elaborado por: MDreieck S.A. de C.V.</div>`, "port");
-  // actividades
-  h+=hoja(`<h2 class="sec">Descripción de actividades:</h2>
-    <ul class="act">${ACTIVIDADES.map(a=>`<li>${a}</li>`).join("")}</ul>`);
-  // evidencia por etapa, de a 4 fotos por hoja
-  for(const [t,n] of etapasDe(x.coord)){
-    if(t==="REPORTE") continue;
-    const g=arch.filter(f=>f.clase===t && !/pdf/.test(f.mime));
-    if(!g.length) continue;
-    // El croquis es un plano: en un cuarto de hoja no se lee. Va uno por hoja.
-    if(t==="CROQUIS"){
-      g.forEach((f,k)=>{
-        h+=hoja(`<h2 class="sec" style="text-align:center">${esc(n)}</h2>
-          <div class="rej sola"><figure><img src="${f.url}">
-          ${g.length>1?`<figcaption>Croquis ${k+1} de ${g.length}</figcaption>`:""}
-          </figure></div>`);
-      });
-      continue;
-    }
-    for(let i=0;i<g.length;i+=4){
-      const trozo=g.slice(i,i+4);
-      h+=hoja(`<h2 class="sec" style="text-align:center">Evidencia fotográfica</h2>
-        <div class="etapa">${esc(n)}</div>
-        <div class="rej">${trozo.map((f,k)=>`<figure><img src="${f.url}">
-          <figcaption>Foto. ${i+k+1}${f.pieza?" · "+esc(f.pieza):""}</figcaption></figure>`).join("")}</div>`);
-    }
+
+  /* 2 · el índice se reserva y se arma al final, cuando ya se sabe qué página
+        le tocó a cada sección */
+  const HUECO = "<!--INDICE-->";
+  cuerpo += HUECO;
+  nPag++;                                  // la hoja del índice ocupa su número
+
+  /* 3 · protocolo de mantenimiento */
+  marca("PROTOCOLO DE MANTENIMIENTO");
+  const bloques = PROTOCOLO.map(b =>
+    (b.t?`<h3 class="sub2">${b.t}</h3>`:"") + b.p.map(t=>`<p class="txt">${t}</p>`).join(""));
+  for(let i=0;i<bloques.length;i+=2){
+    cuerpo += hoja(`${i===0?`<h2 class="sec">PROTOCOLO DE MANTENIMIENTO</h2>`:""}
+      ${bloques.slice(i,i+2).join("")}`);
   }
-  // reporte firmado
-  const rep=arch.filter(f=>f.clase==="REPORTE" && !/pdf/.test(f.mime));
+
+  /* 4 · bitácora de trabajo y evidencia fotográfica */
+  marca("BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA");
+  const cant = CONCEPTOS
+    .map(([k,et])=>[et, k==="equipo" ? (limpio(x.equipo)?"1":"") : limpio(x[k])])
+    .filter(([,v])=>v && v!=="0");
+  const fecha = x.fecha_atencion || x.fecha_servicio || "";
+  cuerpo += hoja(`<h2 class="sec">BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA</h2>
+    <p class="txt">El ${esc(numeroOrdinal(num))} servicio de mantenimiento contempla el servicio a:</p>
+    <table class="bit"><tr><th>CONCEPTO</th><th style="width:26mm">CANTIDAD</th></tr>
+      ${cant.map(([et,v])=>`<tr><td>${esc(et)}</td><td class="c">${esc(v)}</td></tr>`).join("")
+        || `<tr><td colspan="2">No se registró el inventario en esta visita.</td></tr>`}</table>
+    <table class="bit"><tr><th>FECHA INICIO</th><th>CONCEPTO</th><th>FECHA TÉRMINO</th></tr>
+      <tr><td class="c">${esc(fecha)}</td>
+          <td class="c">${esc(numeroOrdinal(num))} servicio de mantenimiento</td>
+          <td class="c">${esc(fecha)}</td></tr></table>
+    <table class="bit"><tr><th colspan="2">PERSONAL DE TRABAJO</th></tr>
+      <tr><td>Técnico encargado</td><td>${esc(limpio(x.tecnico)||"—")}</td></tr>
+      ${limpio(x.auxiliar)?`<tr><td>Técnico auxiliar</td><td>${esc(x.auxiliar)}</td></tr>`:""}
+      ${limpio(x.personal_atiende)?`<tr><td>Personal encargado del inmueble</td>
+        <td>${esc(x.personal_atiende)}</td></tr>`:""}</table>`);
+
+  /* una hoja por componente: la actividad a la izquierda, su foto a la derecha */
+  const usada = new Set();
+  for(const c of COMPONENTES){
+    const suyas = fotos.filter(f=>f.partida===c.id && f.clase!=="REPORTE");
+    if(!suyas.length) continue;
+    suyas.forEach(f=>usada.add(f));
+    const filas = c.act.map((a,i)=>`<tr>
+      <td class="act"><b>${esc(a[0])}</b> ${a[1]}</td>
+      <td class="ph">${suyas[i]?`<img src="${suyas[i].url}">`:""}</td></tr>`).join("");
+    const sobran = suyas.slice(c.act.length);
+    cuerpo += hoja(`<div class="comp">${esc(c.nom)}</div>
+      <table class="bit ev"><tr><th>ACTIVIDAD</th><th style="width:78mm">EVIDENCIA FOTOGRÁFICA</th></tr>
+      ${filas}</table>
+      ${sobran.length?`<div class="rej" style="margin-top:6mm">${sobran.map(f=>
+        `<figure><img src="${f.url}"><figcaption>${esc(f.pieza||c.nom)}</figcaption></figure>`
+        ).join("")}</div>`:""}`);
+  }
+  /* lo que no cayó en ningún componente —vistas del sitio, antes y después— va
+     en la cuadrícula de siempre, para no perder evidencia */
+  const resto = fotos.filter(f=>f.clase!=="REPORTE" && !usada.has(f));
+  for(let i=0;i<resto.length;i+=4){
+    const trozo=resto.slice(i,i+4);
+    cuerpo += hoja(`<h2 class="sec" style="text-align:center">Evidencia fotográfica</h2>
+      <div class="rej">${trozo.map((f,k)=>`<figure><img src="${f.url}">
+        <figcaption>Foto. ${i+k+1}${f.pieza?" · "+esc(f.pieza):""}</figcaption></figure>`).join("")}</div>`);
+  }
+
+  /* 5 · bitácora de eventos */
+  if(conLog){
+    marca("DETALLE DE BITÁCORA DE EVENTOS");
+    const antes=nPag;
+    const hl=hojaLog(x, ident);
+    if(nPag>antes+1) secs.push({t:"REGISTRO DE EVENTOS", p:antes+2});
+    cuerpo += hl;
+  }
+
+  /* 6 · el reporte que firmó el cliente */
   if(rep.length){
-    // el reporte firmado también va uno por hoja: es lo que el cliente revisa
+    marca("REPORTE DE MANTENIMIENTO");
     rep.forEach((f,k)=>{
-      h+=hoja(`<h2 class="sec" style="text-align:center">Reporte de servicio firmado</h2>
+      cuerpo += hoja(`<h2 class="sec" style="text-align:center">REPORTE DE MANTENIMIENTO</h2>
         <div class="rej sola"><figure><img src="${f.url}">
-        ${rep.length>1?`<figcaption>Hoja ${k+1} de ${rep.length}</figcaption>`:""}
-        </figure></div>`);
+        ${rep.length>1?`<figcaption>Hoja ${k+1} de ${rep.length}</figcaption>`:""}</figure></div>`);
     });
   }
-  if(conLog) h+=hojaLog(x, ident);
-  return h;
-}
 
-async function generarInformes(sel){
-  const btn=document.getElementById("btnGen");
-  /* primero los logos que falten: se pregunta una vez por cliente y antes de
-     ponerse a armar, para no interrumpir a media tanda */
-  const clientes=[...new Set(sel.map(x=>(x.dependencia||"").trim()).filter(Boolean))];
-  const preguntados=new Set();
-  for(const c of clientes){
-    const k=claveCliente(c);
-    if(await logoDe(c)) continue;          // ya lo tiene guardado
-    if(preguntados.has(k)) continue;       // ya se preguntó en esta tanda
-    preguntados.add(k);
-    await pedirLogo(c);
-  }
-  const num=document.getElementById("iNum").value;
-  const ident=(document.getElementById("iIdent").value||"CIV-RWT-000000+0300-0000000").trim();
-  const conLog=document.getElementById("iLog").value==="si";
-  nPag=0;
-  const partes=[];
-  let hecho=0;
-  for(const x of sel){
-    hecho++; btn.textContent=`Armando ${hecho}/${sel.length}…`;
-    nPag=0;                       // cada informe numera sus hojas desde 1
-    partes.push(await informeDe(x, num, ident, conLog));
-  }
-  return partes.join("");
+  /* 7 · conclusiones */
+  marca("CONCLUSIONES");
+  cuerpo += hoja(`<h2 class="sec">CONCLUSIONES</h2>
+    <p class="txt">De lo observado durante el ${esc(numeroOrdinal(num))} servicio de
+      mantenimiento se concluye:</p>
+    ${CONCLUSIONES.map(t=>`<p class="txt">${t}</p>`).join("")}
+    <div class="firmas">${FIRMAS.map(([c,n])=>`<div><div class="linea"></div>
+      <div class="pto">${esc(c)}</div><div class="nom">${esc(n)}</div></div>`).join("")}</div>`);
+
+  /* el índice, ya con los números de hoja */
+  const guarda=nPag; nPag=1;
+  const indice = hoja(`<h2 class="sec">ÍNDICE</h2>
+    <table class="idx">${secs.map(s=>`<tr><td>${esc(s.t)}</td>
+      <td class="pt">${s.p}</td></tr>`).join("")}</table>`);
+  nPag=guarda;
+  return cuerpo.replace(HUECO, indice);
 }
 
 function verFormato(){
