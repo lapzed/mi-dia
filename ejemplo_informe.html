@@ -979,7 +979,7 @@ window.addEventListener("load", async function(){
     {tipo:"DESPUES|TROMPETA|PLASTICO",ruta:"MANT/12788/_5_TROMPETA.jpg"},
     {tipo:"REPORTE",                 ruta:"MANT/12788/_6_REPORTE.jpg"}]};
   document.getElementById("salida").innerHTML =
-    await informeDe(x, "segundo", "CIV-RWT-000000+0300-0000000", true);
+    await informeDe(x, "segundo", "CIV-RWT-000000+0300-0000000", false);
   const st=document.createElement("style");
   st.textContent =
     "#salida{display:block!important}"+
@@ -993,6 +993,7 @@ window.addEventListener("load", async function(){
   document.head.appendChild(st);
   const av=document.createElement("div"); av.id="aviso";
   av.textContent="EJEMPLO · Informe final de mantenimiento, con las fotos sustituidas por muestras. "+
+                 "El registro de eventos va aparte, solo si el cliente lo pide. "+
                  "Ctrl+P para verlo como se imprime.";
   document.body.appendChild(av);
 });
