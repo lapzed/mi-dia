@@ -1205,12 +1205,17 @@ window.addEventListener("load", async function(){
     volt_bateria:"13.46", volt_linea:"11.54", amperaje:"1.76",
     obs_coord:"Equipo en tercer piso, detrás de plafón. Se ajustó volumen a 85 dB."};
   ev={"MANT|1":[
-    {tipo:"ANTES",                   ruta:"MANT/12788/_1_ANTES.jpg"},
-    {tipo:"ANTES|EQUIPO",            ruta:"MANT/12788/_2_EQUIPO.jpg"},
-    {tipo:"DURANTE",                 ruta:"MANT/12788/_3_DURANTE.jpg"},
-    {tipo:"DESPUES",                 ruta:"MANT/12788/_4_DESPUES.jpg"},
-    {tipo:"DESPUES|TROMPETA|PLASTICO",ruta:"MANT/12788/_5_TROMPETA.jpg"},
-    {tipo:"REPORTE",                 ruta:"MANT/12788/_6_REPORTE.jpg"}]};
+    {tipo:"ANTES",                    ruta:"MANT/12788/_1_ANTES.jpg"},
+    {tipo:"ANTES|EQUIPO",             ruta:"MANT/12788/_2_EQUIPO.jpg"},
+    {tipo:"DURANTE|EQUIPO",           ruta:"MANT/12788/_3_PARAMETROS.jpg"},
+    {tipo:"DESPUES|EQUIPO",           ruta:"MANT/12788/_4_PRUEBA.jpg"},
+    {tipo:"ANTES|TROMPETA|PLASTICO",  ruta:"MANT/12788/_5_TROMPETA.jpg"},
+    {tipo:"DURANTE|TROMPETA|PLASTICO",ruta:"MANT/12788/_6_MEDICION.jpg"},
+    {tipo:"DESPUES|TROMPETA|PLASTICO",ruta:"MANT/12788/_7_AUDIO.jpg"},
+    {tipo:"ANTES|ESTROBO",            ruta:"MANT/12788/_8_ESTROBO.jpg"},
+    {tipo:"ANTES|ANTENA",             ruta:"MANT/12788/_9_ANTENA.jpg"},
+    {tipo:"DESPUES",                  ruta:"MANT/12788/_10_SITIO.jpg"},
+    {tipo:"REPORTE",                  ruta:"MANT/12788/_11_REPORTE.jpg"}]};
   document.getElementById("salida").innerHTML =
     await informeDe(x, "segundo", "CIV-RWT-000000+0300-0000000", true);
   const st=document.createElement("style");
