@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;min-height:100vh;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    color:var(--txt);line-height:1.45;display:flex;align-items:center;
+    justify-content:center;padding:20px;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .caja{width:100%;max-width:410px}
+  .marca{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:20px}
+  .marca .t{font-size:22px;font-weight:800;letter-spacing:.01em}
+  .marca .s{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.09em}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px}
+  label{display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;
+    letter-spacing:.07em;margin:0 0 5px}
+  select,input{width:100%;padding:13px 12px;border-radius:12px;background:#0F2C4A;
+    color:var(--txt);border:1px solid var(--line);font:inherit;font-size:15px;
+    margin-bottom:13px}
+  button{width:100%;font:inherit;border:none;border-radius:12px;padding:14px;
+    font-size:15px;font-weight:700;cursor:pointer;background:var(--acc);color:#07203a}
+  button:disabled{opacity:.5;cursor:default}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:11px;padding:10px 12px;font-size:12.5px;margin-bottom:12px}
+  .pie{text-align:center;font-size:11.5px;color:var(--txt3);margin-top:16px;line-height:1.6}
+
+  /* el menú de quien tiene varias pantallas */
+  .menu{display:none}
+  .quien{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .quien .av{width:42px;height:42px;border-radius:50%;background:#17456E;color:var(--acc);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px}
+  .quien b{display:block;font-size:15px}
+  .quien span{font-size:12px;color:var(--txt2)}
+  .quien .salir{margin-left:auto;font-size:12px;color:var(--acc);cursor:pointer}
+  a.op{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--txt);
+    background:#0F2C4A;border:1px solid var(--line);border-radius:13px;
+    padding:13px 14px;margin-bottom:9px}
+  a.op:active{background:#17456E}
+  a.op .ic{font-size:19px;width:26px;text-align:center}
+  a.op b{display:block;font-size:14.5px}
+  a.op span{font-size:11.5px;color:var(--txt2)}
+</style>
+</head>
+<body>
+<div class="caja">
+  <div class="marca">
+    <svg width="34" height="34" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+    <div><div class="t">MD Control</div><div class="s">ÁREA DE SERVICIOS E INSTALACIONES</div></div>
+  </div>
+
+  <!-- 1 · quién eres -->
+  <div class="panel" id="pLogin">
+    <label>¿Quién eres?</label>
+    <select id="inUsr" onchange="recordar()">
+      <optgroup label="Campo">
+        <option value="TECNICO">Técnico de campo</option>
+      </optgroup>
+      <optgroup label="Coordinaciones">
+        <option value="est.jenifer">Jenifer · Captura</option>
+        <option value="est.ivan">Iván · Subgerencia</option>
+        <option value="est.patricia">Patricia · Coordinación</option>
+        <option value="est.jair">Jair · Levantamientos</option>
+        <option value="est.alin">Alin · Instalaciones</option>
+        <option value="est.proyectos">Proyectos especiales</option>
+        <option value="est.ariana">Ariana · CAT</option>
+      </optgroup>
+      <optgroup label="Administración">
+        <option value="jesus.acosta">Jesús Acosta · Entregables</option>
+        <option value="est.subgerencia">Subgerencia</option>
+        <option value="est.gerencia">Gerencia</option>
+      </optgroup>
+    </select>
+
+    <label>Tu clave</label>
+    <input id="inPwd" type="password" placeholder="••••••••"
+           onkeydown="if(event.key==='Enter')entrar()">
+
+    <div class="aviso" id="err" style="display:none"></div>
+    <button id="btn" onclick="entrar()">Entrar</button>
+    <div class="pie">Si eres técnico de campo, aquí te llevamos a tu día.</div>
+  </div>
+
+  <!-- 2 · a dónde va -->
+  <div class="panel menu" id="pMenu">
+    <div class="quien">
+      <div class="av" id="ini"></div>
+      <div><b id="nom"></b><span id="rol"></span></div>
+      <div class="salir" onclick="salir()">salir</div>
+    </div>
+    <div id="ops"></div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+
+/* Cada pantalla guarda su sesión en su propia llave. Al entrar aquí se escribe
+   en todas las que esa persona usa, para que no le vuelvan a pedir la clave
+   pantalla por pantalla. */
+const LLAVES={"captura.html":"md_capt", "programacion.html":"md_prog",
+  "coordinacion.html":"md_coord", "cierre.html":"md_cierre", "cat.html":"md_cat",
+  "supervision.html":"md_sup", "levantamientos.html":"md_lev",
+  "entregables.html":"md_ses", "index.html":"md_ses"};
+
+const PANTALLAS={
+  captura:      ["captura.html",      "📝", "Captura", "Dar de alta servicios nuevos"],
+  programacion: ["programacion.html", "📅", "Programación", "Asignar brigada y mandar el mensaje"],
+  coordinacion: ["coordinacion.html", "📞", "Coordinación", "Confirmar citas con el cliente"],
+  cierre:       ["cierre.html",       "✅", "Cierre", "Cerrar servicios y pedir el informe"],
+  levantamientos:["levantamientos.html","📐","Levantamientos", "Propuestas, croquis y fichas"],
+  cat:          ["cat.html",          "🎧", "CAT", "Atenciones y centro de monitoreo"],
+  entregables:  ["entregables.html",  "📄", "Entregables", "Informes y reportes al cliente"],
+  supervision:  ["supervision.html",  "🛰️", "Supervisión", "Brigadas, atorones y lo realizado"],
+  dia:          ["index.html",        "🔧", "Mi día", "Tus servicios de hoy"]
+};
+
+/* Qué pantallas le tocan a cada quien. Es lo mismo que ya podía abrir; aquí
+   solo se le presenta en orden, empezando por la que más usa. */
+const DESTINOS={
+  "est.jenifer":    ["captura","coordinacion","cierre","programacion"],
+  "est.ivan":       ["programacion","coordinacion","cierre","captura"],
+  "est.patricia":   ["programacion","coordinacion","cierre","captura"],
+  "est.jair":       ["levantamientos","cierre","programacion","coordinacion","captura"],
+  "est.alin":       ["cierre","programacion","coordinacion","captura"],
+  "est.proyectos":  ["cierre","programacion","coordinacion","captura"],
+  "est.ariana":     ["cat","cierre","programacion","coordinacion","captura"],
+  "jesus.acosta":   ["entregables"],
+  "est.gerencia":   ["supervision","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
+  "est.subgerencia":["supervision","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
+};
+
+const NOMBRES={"est.jenifer":["Jenifer","Captura"],"est.ivan":["Iván","Subgerencia"],
+ "est.patricia":["Patricia","Coordinación de mantenimientos"],
+ "est.jair":["Jair","Coordinación de levantamientos"],
+ "est.alin":["Alin","Coordinación de instalaciones"],
+ "est.proyectos":["Proyectos especiales","Coordinación"],
+ "est.ariana":["Ariana","CAT y centro de monitoreo"],
+ "jesus.acosta":["Jesús Acosta","Entregables al cliente"],
+ "est.gerencia":["Gerencia",""],"est.subgerencia":["Subgerencia",""]};
+
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function recordar(){
+  localStorage.setItem("md_quien", document.getElementById("inUsr").value);
+  const tec = document.getElementById("inUsr").value==="TECNICO";
+  document.getElementById("inPwd").style.display = tec ? "none" : "";
+  document.querySelector("#pLogin label:nth-of-type(2)").style.display = tec ? "none" : "";
+  document.getElementById("btn").textContent = tec ? "Ir a Mi día" : "Entrar";
+}
+
+async function entrar(){
+  const u=document.getElementById("inUsr").value;
+  const e=document.getElementById("err");
+  e.style.display="none";
+  /* El técnico entra en su propia app: ahí escribe su usuario, que es el suyo y
+     no uno de esta lista. */
+  if(u==="TECNICO"){ location.href="index.html"; return }
+
+  const p=document.getElementById("inPwd").value;
+  const b=document.getElementById("btn");
+  b.disabled=true; b.textContent="Entrando…";
+  try{
+    const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type=password",
+      {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},
+       body:JSON.stringify({email:u+"@"+DOMINIO, password:p})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+    const ses={token:j.access_token, refresh:j.refresh_token,
+               usuario:(j.user&&j.user.email||"").split("@")[0],
+               nombre:(NOMBRES[u]||[u])[0]};
+    // se deja la sesión lista en cada pantalla que esa persona usa
+    (DESTINOS[u]||[]).forEach(k=>{
+      const ll=LLAVES[PANTALLAS[k][0]];
+      if(ll) localStorage.setItem(ll, JSON.stringify(ses));
+    });
+    localStorage.setItem("md_quien", u);
+    menu(u);
+  }catch(x){
+    e.textContent="No se pudo entrar. Revisa tu clave.";
+    e.style.display="block";
+  }
+  b.disabled=false; b.textContent="Entrar";
+}
+
+function menu(u){
+  const [nom,rol]=NOMBRES[u]||[u,""];
+  document.getElementById("ini").textContent=(nom||"?").trim()[0].toUpperCase();
+  document.getElementById("nom").textContent=nom;
+  document.getElementById("rol").textContent=rol;
+  const lista=(DESTINOS[u]||[]);
+  document.getElementById("ops").innerHTML=lista.map(k=>{
+    const [url,ic,tit,q]=PANTALLAS[k];
+    return `<a class="op" href="${url}"><span class="ic">${ic}</span>
+      <span><b>${esc(tit)}</b><span>${esc(q)}</span></span></a>`;
+  }).join("");
+  document.getElementById("pLogin").style.display="none";
+  document.getElementById("pMenu").style.display="block";
+  /* Si solo tiene una pantalla, no tiene caso hacerle elegir. */
+  if(lista.length===1) location.href=PANTALLAS[lista[0]][0];
+}
+
+function salir(){
+  Object.values(LLAVES).forEach(ll=>localStorage.removeItem(ll));
+  localStorage.removeItem("md_quien");
+  location.reload();
+}
+
+(function(){
+  const u=localStorage.getItem("md_quien");
+  if(u){
+    const s=document.getElementById("inUsr");
+    if([...s.options].some(o=>o.value===u)) s.value=u;
+    // si ya hay sesión guardada, se le muestra su menú sin pedir la clave
+    const dest=(DESTINOS[u]||[])[0];
+    const ll=dest?LLAVES[PANTALLAS[dest][0]]:null;
+    if(ll && localStorage.getItem(ll)){ menu(u); return }
+  }
+  recordar();
+})();
+</script>
+</body>
+</html>

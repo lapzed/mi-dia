@@ -1,8 +1,8 @@
 /* MD Control - Mi dia
    El tecnico entra a sotanos y almacenes sin senal: la app debe abrir igual
    y mostrar lo ultimo que si alcanzo a bajar. */
-const CACHE = "mdcontrol-v56";
-const SHELL = ["./index.html", "./entregables.html", "./manifest.json",
+const CACHE = "mdcontrol-v57";
+const SHELL = ["./inicio.html", "./index.html", "./entregables.html", "./manifest.json",
                "./ayuda.html", "./levantamientos.html", "./supervision.html", "./programacion.html", "./coordinacion.html", "./captura.html", "./cierre.html", "./cat.html", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
