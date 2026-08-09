@@ -944,13 +944,20 @@ async function informeDe(x, num, ident, conLog){
 
   /* 3 · protocolo de mantenimiento */
   marca("PROTOCOLO DE MANTENIMIENTO");
-  /* Se reparte por lo que ocupa cada bloque, no de dos en dos: asi no queda una
-     hoja llena y la siguiente a media. El peso es el largo del texto, que para
-     este machote alcanza. */
-  const bloques = PROTOCOLO.map(b => ({
-    html:(b.t?`<h3 class="sub2">${b.t}</h3>`:"") + b.p.map(t=>`<p class="txt">${t}</p>`).join(""),
-    peso: b.p.join(" ").replace(/<[^>]+>/g,"").length + (b.t?140:0) }));
-  const CUPO = 2100;                       // caracteres que caben en una hoja
+  /* Se reparte parrafo por parrafo y con las hojas equilibradas: repartir por
+     bloques dejaba una hoja llena y la siguiente a un tercio, porque el primer
+     apartado es mucho mas largo que los otros dos. El titulo nunca se queda
+     solo al final de una hoja: viaja pegado a su primer parrafo. */
+  const piezas=[];
+  PROTOCOLO.forEach(b=>{
+    b.p.forEach((t,k)=>{
+      const html=(k===0&&b.t?`<h3 class="sub2">${b.t}</h3>`:"")+`<p class="txt">${t}</p>`;
+      piezas.push({html:html, peso:t.replace(/<[^>]+>/g,"").length + (k===0&&b.t?150:0)});
+    });
+  });
+  const total=piezas.reduce((a,x)=>a+x.peso,0);
+  const nHojas=Math.max(1, Math.ceil(total/2100));
+  const CUPO=Math.ceil(total/nHojas);
   let tanda=[], usado=0, primera=true;
   const cerrarTanda = () => {
     if(!tanda.length) return;
@@ -958,10 +965,10 @@ async function informeDe(x, num, ident, conLog){
       ${tanda.join("")}`);
     primera=false; tanda=[]; usado=0;
   };
-  for(const b of bloques){
-    if(usado && usado + b.peso > CUPO) cerrarTanda();
-    tanda.push(b.html); usado += b.peso;
-  }
+  piezas.forEach((z,k)=>{
+    if(usado && usado + z.peso > CUPO*1.08) cerrarTanda();
+    tanda.push(z.html); usado += z.peso;
+  });
   cerrarTanda();
 
   /* 4 · bitácora de trabajo y evidencia fotográfica */
@@ -985,8 +992,11 @@ async function informeDe(x, num, ident, conLog){
       ${limpio(x.personal_atiende)?`<tr><td>Personal encargado del inmueble</td>
         <td>${esc(x.personal_atiende)}</td></tr>`:""}</table>`);
 
-  /* una hoja por componente: la actividad a la izquierda, su foto a la derecha */
+  /* una hoja por componente: la actividad a la izquierda, su foto a la derecha.
+     El primero va pegado a las tablas, como en el machote, para no dejar media
+     hoja en blanco despues del personal de trabajo. */
   const usada = new Set();
+  let pegaAlAnterior = true;
   for(const c of COMPONENTES){
     const suyas = fotos.filter(f=>f.partida===c.id && f.clase!=="REPORTE");
     if(!suyas.length) continue;
@@ -995,12 +1005,21 @@ async function informeDe(x, num, ident, conLog){
       <td class="act"><b>${esc(a[0])}</b> ${a[1]}</td>
       <td class="ph">${suyas[i]?`<img src="${suyas[i].url}">`:""}</td></tr>`).join("");
     const sobran = suyas.slice(c.act.length);
-    cuerpo += hoja(`<div class="comp">${esc(c.nom)}</div>
+    const bloque=`<div class="comp">${esc(c.nom)}</div>
       <table class="bit ev"><tr><th>ACTIVIDAD</th><th style="width:78mm">EVIDENCIA FOTOGRÁFICA</th></tr>
       ${filas}</table>
       ${sobran.length?`<div class="rej" style="margin-top:6mm">${sobran.map(f=>
         `<figure><img src="${f.url}"><figcaption>${esc(f.pieza||c.nom)}</figcaption></figure>`
-        ).join("")}</div>`:""}`);
+        ).join("")}</div>`:""}`;
+    if(pegaAlAnterior && c.act.length<=2 && !sobran.length){
+      // cabe debajo de las tablas de la hoja anterior
+      cuerpo = cuerpo.replace(/(<div class="npag">\d+<\/div>)(?![\s\S]*<div class="npag">)/,
+                              bloque+"$1");
+      pegaAlAnterior=false;
+      continue;
+    }
+    pegaAlAnterior=false;
+    cuerpo += hoja(bloque);
   }
   /* lo que no cayó en ningún componente —vistas del sitio, antes y después— va
      en la cuadrícula de siempre, para no perder evidencia */
