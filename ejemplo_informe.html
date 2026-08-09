@@ -193,8 +193,8 @@
       <input id="iIdent" value="CIV-RWT-000000+0300-0000000" size="30"></div>
     <div class="f"><label>Registro de eventos</label>
       <select id="iLog">
-        <option value="si">Incluirlo</option>
-        <option value="no">Sin registro de eventos</option></select></div>
+        <option value="no">Sin registro de eventos</option>
+        <option value="si">Incluirlo</option></select></div>
   </div>
 
   <!-- lo que las coordinaciones están esperando; va arriba de todo a propósito -->
@@ -697,12 +697,12 @@ const ACTIVIDADES=[
  "Supervisión y configuración de parámetros, respaldo de batería.",
  "Verificar la intensidad de la señal.",
  "Medición de DC y actualización de Software en caso de ser necesario.",
- "Elaboración de reporte de actividades (hoja de trabajo – formato de reporte).",
+ "Elaboración de reporte de actividades (hoja de trabajo – formato de reporte)",
  "Sustitución de batería de respaldo en caso de ser necesario.",
  "Revisión de parámetros de la fuente de alimentación.",
- "Revisión del cableado de alimentación de los sistemas receptores hacia los aditamentos instalados en cada inmueble.",
- "Revisión y prueba de audio de los aditamentos de sonorización.",
- "Limpieza general del equipo receptor y sus aditamentos."];
+ "Revisión del cableado de alimentación de los sistemas receptores hacia los aditamentos instalados en cada uno de los inmuebles.",
+ "Revisión y limpieza de amplificador, reforzador y trompetas instaladas en caso de contar con estos.",
+ "Revisión de historial de incidencias almacenado en la bitácora electrónica del sistema del receptor (mínimo últimos 25 eventos)."];
 
 let nPag=0;
 function hoja(cuerpo, clase){
@@ -789,15 +789,7 @@ async function informeDe(x, num, ident, conLog){
     <div class="elab">Elaborado por: MDreieck S.A. de C.V.</div>`, "port");
   // actividades
   h+=hoja(`<h2 class="sec">Descripción de actividades:</h2>
-    <ul class="act">${ACTIVIDADES.map(a=>`<li>${a}</li>`).join("")}</ul>
-    <table class="datos" style="margin-top:16px;font-size:11.5px">
-      <tr><td>Sitio</td><td>${esc(x.nombre||"")}</td></tr>
-      <tr><td>Cliente</td><td>${esc(limpio(x.dependencia))}</td></tr>
-      <tr><td>Fecha de atención</td><td>${esc(x.fecha_atencion||x.fecha_servicio||"")}</td></tr>
-      <tr><td>Técnico</td><td>${esc(limpio(x.tecnico))}${limpio(x.auxiliar)?" / "+esc(limpio(x.auxiliar)):""}</td></tr>
-      ${limpio(x.equipo)?`<tr><td>Equipo</td><td>${esc(limpio(x.equipo))}${limpio(x.serie)?" · serie "+esc(limpio(x.serie)):""}</td></tr>`:""}
-      ${limpio(x.obs_coord)?`<tr><td>Observaciones</td><td>${esc(limpio(x.obs_coord))}</td></tr>`:""}
-    </table>`);
+    <ul class="act">${ACTIVIDADES.map(a=>`<li>${a}</li>`).join("")}</ul>`);
   // evidencia por etapa, de a 4 fotos por hoja
   for(const [t,n] of etapasDe(x.coord)){
     if(t==="REPORTE") continue;
