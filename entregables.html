@@ -993,10 +993,10 @@ async function informeDe(x, num, ident, conLog){
         <td>${esc(x.personal_atiende)}</td></tr>`:""}</table>`);
 
   /* una hoja por componente: la actividad a la izquierda, su foto a la derecha.
-     El primero va pegado a las tablas, como en el machote, para no dejar media
-     hoja en blanco despues del personal de trabajo. */
+     Se intento pegar el primero debajo de las tablas, como en el machote, pero
+     la hoja recorta lo que se sale y aqui no hay forma de medir antes de pintar:
+     mas vale una hoja corta que un informe al que le falte un pedazo. */
   const usada = new Set();
-  let pegaAlAnterior = true;
   for(const c of COMPONENTES){
     const suyas = fotos.filter(f=>f.partida===c.id && f.clase!=="REPORTE");
     if(!suyas.length) continue;
@@ -1011,14 +1011,6 @@ async function informeDe(x, num, ident, conLog){
       ${sobran.length?`<div class="rej" style="margin-top:6mm">${sobran.map(f=>
         `<figure><img src="${f.url}"><figcaption>${esc(f.pieza||c.nom)}</figcaption></figure>`
         ).join("")}</div>`:""}`;
-    if(pegaAlAnterior && c.act.length<=2 && !sobran.length){
-      // cabe debajo de las tablas de la hoja anterior
-      cuerpo = cuerpo.replace(/(<div class="npag">\d+<\/div>)(?![\s\S]*<div class="npag">)/,
-                              bloque+"$1");
-      pegaAlAnterior=false;
-      continue;
-    }
-    pegaAlAnterior=false;
     cuerpo += hoja(bloque);
   }
   /* lo que no cayó en ningún componente —vistas del sitio, antes y después— va
