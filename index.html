@@ -143,6 +143,11 @@
   .drop.ok{border-color:var(--ok);border-style:solid;background:rgba(30,142,90,.08)}
   .drop .big{font-size:26px;display:block;margin-bottom:4px}
   .dos{display:flex;gap:8px;margin-bottom:10px}
+  /* el inventario que el tecnico declara: etiqueta y numero, en dos columnas */
+  .inv{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px;margin-top:9px}
+  .inv label{font-size:12.5px;color:var(--txt2);display:flex;align-items:center;
+    justify-content:space-between;gap:8px}
+  .inv input{width:76px;text-align:right}
   .b-cam,.b-gal{flex:1;justify-content:center;padding:13px 8px;font-size:13px;
     border:1.5px dashed var(--line);background:#0F2C4A;color:var(--txt2)}
   .b-cam{border-style:solid;background:#17456E;color:var(--acc)}
@@ -930,6 +935,12 @@ const PARTIDAS = [
   {id:"ESTROBO", tit:"Estrobos", varias:true, cuenta:"estrobo", guia:55,
    pista:"El estrobo dentro de la guía y su entorno, para ubicarlo"}
 ];
+/* el inventario del sitio, tal como sale en la bitácora del informe final */
+const INVENTARIO = [["plasticas","Trompetas de plástico"],["aluminio","Trompetas de aluminio"],
+  ["eliptica","Dual elíptica"],["bocina_plafon","Bocinas de plafón"],
+  ["estrobo","Luz estrobo"],["antena","Antena dipolo"],
+  ["amplificador","Amplificador"],["ups","Respaldo (UPS)"]];
+
 const PART_COORD = ["MANT","INST","PRY_ESP"];   // donde se interviene el equipo
 const ETAPAS_PART = ["ANTES","DURANTE","DESPUES"];
 const NOMBRE_ETAPA = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después"};
@@ -982,6 +993,15 @@ function abrirCierre(coord, id, modo){
   /* el levantamiento termina en una propuesta: es su producto */
   cie.propuestas = ((coord||"").toUpperCase()==="LEV" &&
                     (modo==="ATENDIDO" || modo==="REGULARIZAR")) ? [propNueva(1)] : null;
+  /* Lo que hay instalado lo captura la coordinación, pero quien lo ve es el
+     técnico: si la coordinación no lo puso o lo puso mal, él lo agrega o lo
+     corrige desde aquí. Arranca con lo que ya trae el servicio. */
+  cie.inv = null;
+  if(PART_COORD.indexOf((coord||"").toUpperCase())>=0 &&
+     (modo==="ATENDIDO" || modo==="FIN_OBRA" || modo==="REGULARIZAR")){
+    cie.inv = {equipo: srv.equipo||"", serie: srv.serie||""};
+    INVENTARIO.forEach(([k])=>{ cie.inv[k] = (srv[k]==null?"":String(srv[k])) });
+  }
   cie.partidas = null;
   if(PART_COORD.indexOf((coord||"").toUpperCase())>=0){
     const etapas = cie._bloques.filter(b=>ETAPAS_PART.indexOf(b.tipo)>=0);
@@ -1183,6 +1203,7 @@ function logEstado(v){
   pintarCierre();
 }
 function logCampo(k, v){ cie.log[k]=v }
+function invCampo(k, v){ cie.inv[k]=v }
 
 /* textos de la hoja según cómo se está cerrando el día */
 const MODOS = {
@@ -1314,6 +1335,24 @@ function pintarCierre(){
 
   const pideMotivo = esRep;
 
+  function seccionInv(){
+    const I=cie.inv;
+    return `
+      <div class="lbl">Equipo instalado en el sitio</div>
+      <p class="pista">Viene de lo que capturó la coordinación. Si falta algo o
+         no coincide con lo que estás viendo, corrígelo aquí.</p>
+      <div class="dos">
+        <input id="invEq" placeholder="Equipo (ej. PA020 B)" value="${esc(I.equipo)}"
+               oninput="invCampo('equipo',this.value)">
+        <input id="invSer" placeholder="# de serie" value="${esc(I.serie)}"
+               oninput="invCampo('serie',this.value)">
+      </div>
+      <div class="inv">${INVENTARIO.map(([k,et])=>`
+        <label>${et}
+          <input type="number" min="0" inputmode="numeric" value="${esc(I[k])}"
+                 oninput="invCampo('${k}',this.value)"></label>`).join("")}</div>`;
+  }
+
   function seccionLog(){
     const L=cie.log, ok=!!L.estado;
     return `
@@ -1355,6 +1394,7 @@ function pintarCierre(){
     ${esRep?"":`
       ${listo?"":`<div class="aviso">Falta la evidencia de:
          <b>${faltan.map(b=>b.titulo.replace(/^\d+ · /,"")).join(", ")}</b>.</div>`}
+      ${cie.inv?seccionInv():""}
       ${cie.log?seccionLog():""}
       ${cie._bloques.map(bloque).join("")}
       ${seccionProp()}
@@ -1765,6 +1805,15 @@ async function guardarCierre(s, modo, com){
       }
     }
     Object.assign(body, conteoPartidas());
+    /* lo que el técnico declaró gana: él es quien tiene el sitio enfrente */
+    if(cie.inv){
+      if(limpio(cie.inv.equipo)) body.equipo = cie.inv.equipo.trim();
+      if(limpio(cie.inv.serie))  body.serie  = cie.inv.serie.trim();
+      INVENTARIO.forEach(([k])=>{
+        const v=String(cie.inv[k]==null?"":cie.inv[k]).trim();
+        if(v!=="") body[k]=v;
+      });
+    }
   }
   const listos={ATENDIDO:"Servicio cerrado ✓", FIN_OBRA:"Instalación concluida ✓",
                 CONTINUIDAD:"Avance guardado · la obra sigue abierta ✓",
