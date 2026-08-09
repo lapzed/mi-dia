@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Captura</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px 80px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1100px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  select,input,textarea{width:100%;padding:9px 10px;border-radius:9px;background:#0F2C4A;
+    color:var(--txt);border:1px solid var(--line);font:inherit;font-size:13px}
+  textarea{min-height:60px;resize:vertical}
+  button{font:inherit;border:none;border-radius:10px;padding:10px 15px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  button:disabled{opacity:.45;cursor:default}
+  .mini{padding:5px 10px;font-size:11.5px;width:auto}
+
+  .caja{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:16px;margin-bottom:14px}
+  .caja h2{margin:0 0 3px;font-size:15px}
+  .caja .q{font-size:12px;color:var(--txt2);margin-bottom:12px}
+  .rej{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:11px}
+  .campo label{display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:4px}
+  .campo.ancho{grid-column:1/-1}
+  .req label::after{content:" *";color:#F0BE6E}
+  .malo{border-color:#C6413B !important}
+
+  .buscar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+  .buscar input{flex:1;min-width:220px;width:auto}
+  .hallazgos{margin-top:10px;max-height:250px;overflow:auto;border:1px solid var(--line);
+    border-radius:10px}
+  .hallazgo{padding:8px 11px;border-bottom:1px solid rgba(29,66,103,.5);cursor:pointer;font-size:12.5px}
+  .hallazgo:last-child{border-bottom:none}
+  .hallazgo:hover{background:rgba(99,179,255,.09)}
+  .hallazgo b{display:block}
+  .hallazgo span{color:var(--txt3);font-size:11.5px}
+
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--txt2);padding:7px 9px;border-bottom:1px solid var(--line)}
+  td{padding:6px 9px;border-bottom:1px solid rgba(29,66,103,.45)}
+
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+  .bien{background:rgba(30,142,90,.16);border:1px solid rgba(30,142,90,.45);color:#9EE7C2;
+    border-radius:10px;padding:9px 11px;font-size:12.5px;margin-bottom:11px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:390px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 12px;font-size:12.5px;color:var(--txt2)}
+  .box input,.box select{margin-bottom:11px}
+  .load{text-align:center;color:var(--txt2);padding:30px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">CAPTURA</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div id="todo" style="display:none">
+    <div class="caja">
+      <h2>¿Ya habíamos ido a ese sitio?</h2>
+      <div class="q">Busca por nombre, cliente o dirección y se llena solo lo que ya sabemos
+        de ahí. Ahorra volver a teclear domicilio, contacto y equipo.</div>
+      <div class="buscar">
+        <input id="qSitio" placeholder="WALMART LOMAS VERDES, PROGELA, Av. Revolución…"
+               onkeydown="if(event.key==='Enter')buscarSitio()">
+        <button class="pri mini" onclick="buscarSitio()">Buscar</button>
+        <button class="mini" onclick="limpiarSitio()">Empezar en blanco</button>
+      </div>
+      <div id="hallazgos"></div>
+    </div>
+
+    <div class="caja">
+      <h2>Nuevo servicio</h2>
+      <div class="q" id="qSel">Elige la coordinación: cambia lo que hay que capturar.</div>
+      <div class="rej" style="margin-bottom:14px">
+        <div class="campo req"><label>Coordinación</label>
+          <select id="fCoord" onchange="pintarCampos()">
+            <option>MANT</option><option>LEV</option><option>INST</option>
+            <option>PRY_ESP</option><option>CAT</option>
+          </select></div>
+      </div>
+      <div id="campos"></div>
+      <div id="msg"></div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px">
+        <button class="pri" id="btnAlta" onclick="guardar()">Dar de alta el servicio</button>
+        <button onclick="limpiarSitio()">Limpiar</button>
+      </div>
+    </div>
+
+    <div class="caja">
+      <h2>Lo que llevas capturado</h2>
+      <div class="q">Los últimos servicios dados de alta, para confirmar que quedaron.</div>
+      <div id="ultimos"><div class="load">Cargando…</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Captura</h2>
+    <p>Alta de servicios del área técnica.</p>
+    <select id="inUsr">
+      <option value="est.jenifer">Jenifer · Captura</option>
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+    </select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+
+let ses=JSON.parse(localStorage.getItem("md_capt")||"null");
+let CAT={}, sitioSel=null;
+
+function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
+  Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+
+async function api(path,opts,reint){
+  const o=Object.assign({},opts||{});
+  o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,140));
+  return t?JSON.parse(t):null;
+}
+async function auth(c,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(c)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardarSes(j){
+  ses={token:j.access_token,refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_capt",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardarSes(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  try{
+    guardarSes(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("mLogin").style.display="none"; arrancar();
+  }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
+}
+function salir(){ localStorage.removeItem("md_capt"); location.reload() }
+function nombreDe(u){
+  return ({"est.jenifer":"Jenifer","est.gerencia":"Gerencia",
+           "est.subgerencia":"Subgerencia"})[u] || u;
+}
+
+/* ---------- qué se captura ----------
+   Mismo esquema que la estación. En levantamientos el equipo NO se captura
+   aquí: es el resultado de ir al sitio, así que se llena al cerrar. */
+const GENERAL = [
+  ["dia_creacion",    "Día de creación del TKT", "date",  1],
+  ["tkt",             "TKT",                     "text",  1],
+  ["nombre",          "Nombre / Referencia",     "text",  1],
+  ["dependencia",     "Dependencia / Cliente",   "text",  0],
+  ["tipo_servicio",   "Tipo de servicio",        "TIPO_SERVICIO", 1],
+  ["ejecutivo",       "Ejecutivo de cuenta",     "text",  0],
+  ["direccion",       "Dirección",               "ancho", 0],
+  ["cp",              "CP",                      "text",  0],
+  ["localidad",       "Localidad (colonia)",     "text",  0],
+  ["municipio",       "Municipio / alcaldía",    "text",  0],
+  ["estado",          "Estado",                  "text",  0],
+  ["lat",             "Latitud",                 "text",  0],
+  ["long",            "Longitud",                "text",  0],
+  ["personal_atiende","Personal que atiende",    "text",  0],
+  ["telefono",        "Teléfono",                "text",  1],
+  ["correo",          "Correo",                  "text",  0],
+  ["obs_captura",     "Comentarios",             "area",  0]
+];
+const EQUIPO = [
+  ["equipo","Equipo","text"], ["serie","# Serie","text"],
+  ["plasticas","Plásticas","text"], ["aluminio","Aluminio","text"],
+  ["eliptica","Elíptica","text"], ["bocina_plafon","Bocina plafón","text"],
+  ["estrobo","Estrobo","text"], ["ups","UPS","text"],
+  ["amplificador","Amplificador (cantidad)","text"],
+  ["amplificador_cap","Amplificador (capacidad)","text"],
+  ["antena","Antena","text"], ["coaxial","Cable coaxial (3m)","text"],
+  ["pot","Cable POT (3m)","text"], ["ur","Cable UR (3m)","text"],
+  ["p_gruesa","Tubería gruesa (3m)","text"], ["p_delgada","Tubería delgada (3m)","text"],
+  ["f_zapa","Fijación zapa","text"], ["eq_especializado","Eq. especializado","text"],
+  ["tipo","Tipo","text"], ["altura","Altura","text"],
+  ["materiales","Materiales","area"]
+];
+const CATF = [
+  ["fecha_atencion","Fecha de atención","date",1],
+  ["cat_tipo","Tipo de atención","CAT_TIPO",1],
+  ["cat_medio","Medio","MEDIO_CONTACTO",0],
+  ["cat_estatus","Estatus","CAT_ESTATUS",1],
+  ["cat_tkt_rel","TKT relacionado","text",0],
+  ["cat_descripcion","Descripción","area",1],
+  ["cat_resolucion","Resolución","area",0]
+];
+const CON_EQUIPO = ["MANT","INST","PRY_ESP"];
+
+function control(id, etq, tipo, oblig){
+  const ancho = (tipo==="ancho"||tipo==="area") ? " ancho" : "";
+  let ctrl;
+  if(tipo==="area") ctrl=`<textarea id="c_${id}"></textarea>`;
+  else if(tipo==="date") ctrl=`<input type="date" id="c_${id}">`;
+  else if(CAT[tipo]) ctrl=`<select id="c_${id}"><option value=""></option>`+
+    CAT[tipo].map(v=>`<option>${esc(v)}</option>`).join("")+`</select>`;
+  else ctrl=`<input id="c_${id}">`;
+  return `<div class="campo${ancho}${oblig?" req":""}"><label>${esc(etq)}</label>${ctrl}</div>`;
+}
+
+function pintarCampos(){
+  const co=document.getElementById("fCoord").value;
+  let h=`<div class="rej">`+GENERAL
+    .filter(([id])=> co!=="CAT" || ["cp","localidad","municipio","estado","personal_atiende"].indexOf(id)<0)
+    .map(([id,e,t,o])=>control(id,e,t,o)).join("")+`</div>`;
+  if(co==="CAT"){
+    h+=`<h2 style="font-size:13.5px;margin:16px 0 8px">Atención del CAT</h2>
+        <div class="rej">`+CATF.map(([id,e,t,o])=>control(id,e,t,o)).join("")+`</div>`;
+  }
+  if(CON_EQUIPO.indexOf(co)>=0){
+    h+=`<h2 style="font-size:13.5px;margin:16px 0 4px">Equipo instalado en el sitio</h2>
+        <div class="q">Lo que ya está puesto ahí. Si el sitio se buscó arriba, viene lleno.</div>
+        <div class="rej">`+EQUIPO.map(([id,e,t])=>control(id,e,t,0)).join("")+`</div>`;
+  }
+  document.getElementById("qSel").textContent = co==="LEV"
+    ? "En levantamientos el equipo no se captura aquí: es el resultado de la visita y se llena al cerrar."
+    : "Elige la coordinación: cambia lo que hay que capturar.";
+  document.getElementById("campos").innerHTML=h;
+  document.getElementById("c_dia_creacion").value=hoyISO();
+  if(sitioSel) volcarSitio(sitioSel);
+}
+
+/* ---------- sitios ---------- */
+async function buscarSitio(){
+  const q=document.getElementById("qSitio").value.trim();
+  const cont=document.getElementById("hallazgos");
+  if(q.length<3){ cont.innerHTML='<div class="q">Escribe al menos tres letras.</div>'; return }
+  cont.innerHTML='<div class="load">Buscando…</div>';
+  try{
+    const t=encodeURIComponent("*"+q+"*");
+    const f=await api("sitios?select=*&or=(nombre.ilike."+t+",dependencia.ilike."+t+
+                      ",direccion.ilike."+t+")&order=nombre&limit=25");
+    if(!f.length){ cont.innerHTML='<div class="q">Nada con eso. Captúralo en blanco.</div>'; return }
+    cont.innerHTML='<div class="hallazgos">'+f.map((s,i)=>`
+      <div class="hallazgo" onclick="tomarSitio(${i})">
+        <b>${esc(s.nombre||"")}</b>
+        <span>${esc(limpio(s.dependencia)||"")}${limpio(s.dependencia)&&limpio(s.direccion)?" · ":""}${esc((limpio(s.direccion)||"").slice(0,90))}</span>
+      </div>`).join("")+'</div>';
+    window._sitios=f;
+  }catch(e){ cont.innerHTML='<div class="aviso">No se pudo buscar: '+esc(String(e).slice(0,110))+'</div>' }
+}
+function tomarSitio(i){
+  sitioSel=window._sitios[i];
+  volcarSitio(sitioSel);
+  document.getElementById("hallazgos").innerHTML=
+    '<div class="bien">Tomado de <b>'+esc(sitioSel.nombre||"")+'</b>. Revisa y completa lo que falte.</div>';
+}
+function volcarSitio(s){
+  const pon=(id,v)=>{ const e=document.getElementById("c_"+id); if(e && limpio(v)) e.value=v };
+  ["nombre","dependencia","direccion","cp","localidad","municipio","estado","lat","long",
+   "ejecutivo","personal_atiende","telefono","correo"].forEach(k=>pon(k,s[k]));
+  EQUIPO.forEach(([k])=>pon(k,s[k]));
+}
+function limpiarSitio(){
+  sitioSel=null;
+  document.getElementById("hallazgos").innerHTML="";
+  document.getElementById("qSitio").value="";
+  pintarCampos();
+}
+
+/* ---------- alta ---------- */
+function leer(id){ const e=document.getElementById("c_"+id); return e ? e.value.trim() : "" }
+function obligatorios(){
+  const co=document.getElementById("fCoord").value;
+  let req=GENERAL.filter(([,,,o])=>o).map(([id,e])=>[id,e]);
+  if(co==="CAT") req=req.concat(CATF.filter(([,,,o])=>o).map(([id,e])=>[id,e]));
+  return req.filter(([id])=>document.getElementById("c_"+id));
+}
+async function siguienteId(){
+  const d=await api("servicios?select=id&order=id.desc&limit=1");
+  return (d && d.length ? Number(d[0].id) : 0) + 1;
+}
+async function guardar(){
+  const co=document.getElementById("fCoord").value;
+  const msg=document.getElementById("msg"), btn=document.getElementById("btnAlta");
+  msg.innerHTML="";
+  document.querySelectorAll(".malo").forEach(e=>e.classList.remove("malo"));
+  const faltan=obligatorios().filter(([id])=>!leer(id));
+  if(faltan.length){
+    faltan.forEach(([id])=>document.getElementById("c_"+id).classList.add("malo"));
+    msg.innerHTML='<div class="aviso">Falta '+faltan.map(([,e])=>esc(e)).join(", ")+'.</div>';
+    return;
+  }
+  const fila={coord:co, etapa_actual:1, jen_user:nombreDe(ses.usuario),
+              jen_ts:new Date().toISOString().slice(0,16).replace("T"," ")};
+  GENERAL.forEach(([id])=>{ if(document.getElementById("c_"+id)) fila[id]=leer(id) });
+  if(co==="CAT") CATF.forEach(([id])=>{ if(document.getElementById("c_"+id)) fila[id]=leer(id) });
+  if(CON_EQUIPO.indexOf(co)>=0) EQUIPO.forEach(([id])=>{ if(document.getElementById("c_"+id)) fila[id]=leer(id) });
+
+  btn.disabled=true; btn.textContent="Guardando…";
+  try{
+    /* El id es el mayor de la tabla más uno, como en la estación. Si dos altas
+       coinciden en el mismo segundo, la segunda choca con la llave y se
+       reintenta con el siguiente número en vez de perder la captura. */
+    let creado=null, intento=0;
+    while(!creado && intento<4){
+      intento++;
+      fila.id=await siguienteId();
+      try{
+        creado=await api("servicios",{method:"POST",
+          headers:{Prefer:"return=representation"}, body:JSON.stringify(fila)});
+      }catch(e){
+        if(intento>=4 || String(e).indexOf("409")<0 && String(e).indexOf("duplicate")<0) throw e;
+      }
+    }
+    msg.innerHTML='<div class="bien">Dado de alta como <b>'+esc(co)+' · id '+esc(fila.id)+
+      '</b>'+(limpio(fila.tkt)?' · TKT '+esc(fila.tkt):"")+
+      '. Ya lo ve programación.</div>';
+    limpiarSitio();
+    ultimos();
+  }catch(e){
+    msg.innerHTML='<div class="aviso">No se pudo dar de alta: '+esc(String(e).slice(0,160))+'</div>';
+  }
+  btn.disabled=false; btn.textContent="Dar de alta el servicio";
+}
+
+async function ultimos(){
+  const c=document.getElementById("ultimos");
+  try{
+    const f=await api("servicios?select=id,coord,tkt,nombre,fecha_servicio,status,"+
+                      "dia_creacion,jen_user,jen_ts&order=id.desc&limit=12");
+    c.innerHTML=`<table><thead><tr><th>Coord</th><th>Id</th><th>TKT</th><th>Sitio</th>
+      <th>Creado</th><th>Capturó</th></tr></thead><tbody>
+      ${f.map(x=>`<tr><td><span class="tag">${esc(x.coord)}</span></td>
+        <td>${esc(x.id)}</td><td>${esc(limpio(x.tkt)||"—")}</td>
+        <td>${esc((x.nombre||"").slice(0,44))}</td>
+        <td>${esc(x.dia_creacion||"")}</td>
+        <td>${esc(limpio(x.jen_user)||"—")}</td></tr>`).join("")}
+      </tbody></table>`;
+  }catch(e){ c.innerHTML='<div class="q">No se pudo leer.</div>' }
+}
+
+async function arrancar(){
+  document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
+  document.getElementById("todo").style.display="block";
+  try{
+    const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
+    CAT={}; c.forEach(x=>(CAT[x.catalogo]=CAT[x.catalogo]||[]).push(x.valor));
+  }catch(e){ CAT={} }
+  pintarCampos();
+  ultimos();
+}
+
+(async function(){
+  if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
+})();
+</script>
+</body>
+</html>
