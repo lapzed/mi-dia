@@ -78,6 +78,9 @@
   /* ---------- la ficha que se imprime ---------- */
   #salida{display:none}
   @media print{
+    /* que el PDF salga igual a lo que se ve: sin esto el navegador
+       imprime en blanco los encabezados azules y los recuadros */
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
     body{background:#fff;color:#000}
     header,.filtros,.resumen,#lista,.modal{display:none !important}
     #salida{display:block !important}
