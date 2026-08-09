@@ -95,12 +95,14 @@
   /* ---------- informe final (el machote que se entrega al cliente) ----------
      Cada hoja lleva el domicilio al pie y su numero, como los informes que
      firma la empresa. */
-  /* La hoja mide EXACTAMENTE una carta. Antes era min-height 247mm más 52mm de
-     margen: 299mm sobre un papel de 297, así que cada hoja se derramaba dos
-     milímetros en la siguiente y ahí es donde las fotos salían cortadas. */
-  @page{size:A4;margin:0}
-  #salida .hoja{position:relative;page-break-after:always;padding:26mm 20mm 26mm;
-    height:297mm;box-sizing:border-box;overflow:hidden;
+  /* CARTA, que es en lo que están hechos los machotes: 216 x 279 mm. Estaba en
+     A4 (210 x 297), 18 mm más largo, así que todo caía corrido respecto del
+     formato que la empresa entrega. Y la hoja mide exactamente eso: antes eran
+     247mm de contenido más 52mm de margen —299 sobre 297— y cada hoja se
+     derramaba dos milímetros en la siguiente, que es donde se partían las fotos. */
+  @page{size:letter portrait;margin:0}
+  #salida .hoja{position:relative;page-break-after:always;padding:24mm 20mm 24mm;
+    width:216mm;height:279mm;box-sizing:border-box;overflow:hidden;
     font-family:Calibri,Carlito,"Segoe UI",sans-serif;color:#111}
   #salida .hoja:last-child{page-break-after:auto}
   #salida .hoja .marca{height:52px;margin-bottom:8px}
@@ -112,11 +114,11 @@
   #salida .hoja .pie{position:absolute;left:20mm;right:20mm;bottom:8mm;text-align:center;
     font-size:9.5px;color:#3b3b3b;border-top:2px solid #1F3864;padding-top:5px}
   #salida .hoja .pie a{color:#1F3864}
-  #salida .port h1{font-size:19px;font-weight:700;line-height:1.35;margin:34mm 0 0;
+  #salida .port h1{font-size:19px;font-weight:700;line-height:1.35;margin:30mm 0 0;
     text-align:center;color:#111}
   #salida .port .sitio{font-size:22px;font-weight:800;text-align:center;margin:14mm 0 0;
     letter-spacing:.02em}
-  #salida .port .dir{font-size:12px;text-align:center;margin:52mm 0 0;line-height:1.5}
+  #salida .port .dir{font-size:12px;text-align:center;margin:46mm 0 0;line-height:1.5}
   #salida .port .elab{font-size:12px;text-align:center;margin:6px 0 0;font-weight:600}
   #salida .hoja h2.sec{font-size:14px;font-weight:700;margin:0 0 12px}
   #salida .hoja ul.act{font-size:11.5px;line-height:1.55;padding-left:18px;margin:0}
@@ -127,14 +129,14 @@
      mismo y ninguna empuja a la de abajo fuera de la hoja. */
   #salida .rej{display:grid;grid-template-columns:1fr 1fr;gap:5mm 6mm;
     justify-items:center;align-content:start}
-  #salida .rej figure{margin:0;width:76mm;height:96mm;text-align:center;
+  #salida .rej figure{margin:0;width:76mm;height:88mm;text-align:center;
     display:flex;flex-direction:column;break-inside:avoid;page-break-inside:avoid}
   #salida .rej img{width:100%;flex:1;min-height:0;object-fit:contain;
     border:1px solid #bbb;background:#fafafa}
   #salida .rej figcaption{font-size:10.5px;margin-top:3px;flex:none}
   /* una sola foto —el reporte firmado o un croquis— se lleva la hoja entera */
   #salida .rej.sola{grid-template-columns:1fr}
-  #salida .rej.sola figure{width:100%;height:198mm}
+  #salida .rej.sola figure{width:100%;height:180mm}
   #salida .hoja p.txt{font-size:11.5px;line-height:1.6;text-align:justify;margin:0 0 12px}
   #salida table.log{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:6px}
   #salida table.log th{background:#4A6489;color:#fff;text-align:center;font-size:11px;
@@ -193,8 +195,8 @@
       <input id="iIdent" value="CIV-RWT-000000+0300-0000000" size="30"></div>
     <div class="f"><label>Registro de eventos</label>
       <select id="iLog">
-        <option value="no">Sin registro de eventos</option>
-        <option value="si">Incluirlo</option></select></div>
+        <option value="si">Incluirlo</option>
+        <option value="no">Sin registro de eventos</option></select></div>
   </div>
 
   <!-- lo que las coordinaciones están esperando; va arriba de todo a propósito -->

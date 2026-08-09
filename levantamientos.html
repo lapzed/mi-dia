@@ -83,8 +83,11 @@
     #salida{display:block !important}
     .wrap{padding:0;max-width:none}
   }
+  /* carta vertical, como los informes que firma la empresa */
+  @page{size:letter portrait;margin:0}
   #salida .hoja{position:relative;page-break-after:always;padding:24mm 18mm;
-    min-height:247mm;font-family:Calibri,Carlito,"Segoe UI",sans-serif;color:#111}
+    width:216mm;height:279mm;box-sizing:border-box;overflow:hidden;
+    font-family:Calibri,Carlito,"Segoe UI",sans-serif;color:#111}
   #salida .hoja:last-child{page-break-after:auto}
   #salida .marca img{height:46px}
   #salida h1{font-size:17px;margin:14mm 0 2mm;text-align:center}
