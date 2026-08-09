@@ -101,7 +101,7 @@
      247mm de contenido más 52mm de margen —299 sobre 297— y cada hoja se
      derramaba dos milímetros en la siguiente, que es donde se partían las fotos. */
   @page{size:letter portrait;margin:0}
-  #salida .hoja{position:relative;page-break-after:always;padding:24mm 20mm 24mm;
+  #salida .hoja{position:relative;page-break-after:always;padding:20mm 20mm 22mm;
     width:216mm;height:279mm;box-sizing:border-box;overflow:hidden;
     font-family:Calibri,Carlito,"Segoe UI",sans-serif;color:#111}
   #salida .hoja:last-child{page-break-after:auto}
@@ -114,7 +114,7 @@
   #salida .hoja .pie{position:absolute;left:20mm;right:20mm;bottom:8mm;text-align:center;
     font-size:9.5px;color:#3b3b3b;border-top:2px solid #1F3864;padding-top:5px}
   #salida .hoja .pie a{color:#1F3864}
-  #salida .port h1{font-size:19px;font-weight:700;line-height:1.35;margin:30mm 0 0;
+  #salida .port h1{font-size:19px;font-weight:700;line-height:1.35;margin:26mm 0 0;
     text-align:center;color:#111}
   #salida .port .sitio{font-size:22px;font-weight:800;text-align:center;margin:14mm 0 0;
     letter-spacing:.02em}
@@ -122,29 +122,29 @@
   #salida .port .elab{font-size:12px;text-align:center;margin:6px 0 0;font-weight:600}
 
   /* ---- machote largo: protocolo, bitacora de trabajo, indice y conclusiones ---- */
-  #salida .hoja h3.sub2{font-size:12px;font-weight:700;margin:10px 0 5px}
-  #salida table.idx{width:100%;border-collapse:collapse;font-size:12px;margin-top:8mm}
-  #salida table.idx td{padding:5px 0;border-bottom:1px dotted #98a6bb}
+  #salida .hoja h3.sub2{font-size:12px;font-weight:700;margin:9px 0 3px}
+  #salida table.idx{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:5mm}
+  #salida table.idx td{padding:7px 0;border-bottom:1px dotted #98a6bb}
   #salida table.idx td.pt{text-align:right;width:16mm;font-weight:700}
-  #salida table.bit{width:100%;border-collapse:collapse;font-size:11px;margin:0 0 6mm}
+  #salida table.bit{width:100%;border-collapse:collapse;font-size:11.5px;margin:0 0 4mm}
   #salida table.bit th{background:#1F3864;color:#fff;padding:4px 7px;text-align:left;
     border:1px solid #7d8fa8;font-size:10.5px;letter-spacing:.03em}
   #salida table.bit td{border:1px solid #9aa7b8;padding:4px 7px;vertical-align:top}
   #salida table.bit td.c{text-align:center}
-  #salida table.ev td.act{font-size:10.5px;line-height:1.45;text-align:justify}
+  #salida table.ev td.act{font-size:11px;line-height:1.5;text-align:justify}
   #salida table.ev td.ph{text-align:center;padding:3px}
-  #salida table.ev td.ph img{max-width:74mm;max-height:52mm;object-fit:contain;
+  #salida table.ev td.ph img{max-width:76mm;max-height:70mm;object-fit:contain;
     border:1px solid #bbb}
-  #salida .comp{font-weight:800;font-size:13px;margin:0 0 5px}
-  #salida .firmas{display:flex;justify-content:center;margin-top:32mm;
+  #salida .comp{font-weight:800;font-size:13.5px;margin:0 0 6px}
+  #salida .firmas{display:flex;justify-content:center;margin-top:20mm;
     text-align:center;font-size:11.5px}
   /* el espacio de arriba es para firmar de puño y letra */
   #salida .firmas .linea{margin-top:24mm}
   #salida .firmas .linea{border-top:1px solid #333;width:80mm;margin:24mm auto 4px}
   #salida .firmas .pto{font-weight:700}
-  #salida .hoja h2.sec{font-size:14px;font-weight:700;margin:0 0 12px}
-  #salida .hoja ul.act{font-size:11.5px;line-height:1.55;padding-left:18px;margin:0}
-  #salida .hoja ul.act li{margin-bottom:5px}
+  #salida .hoja h2.sec{font-size:14.5px;font-weight:700;margin:0 0 7px}
+  #salida .hoja ul.act{font-size:12px;line-height:1.6;padding-left:18px;margin:0}
+  #salida .hoja ul.act li{margin-bottom:7px}
   #salida .hoja .etapa{text-align:center;font-size:13px;font-weight:700;margin:0 0 10px}
   /* Cuatro fotos por hoja, en dos filas parejas. La celda tiene alto fijo y la
      foto se acomoda dentro: así una foto vertical y una horizontal ocupan lo
@@ -159,7 +159,7 @@
   /* una sola foto —el reporte firmado o un croquis— se lleva la hoja entera */
   #salida .rej.sola{grid-template-columns:1fr}
   #salida .rej.sola figure{width:100%;height:180mm}
-  #salida .hoja p.txt{font-size:11.5px;line-height:1.6;text-align:justify;margin:0 0 12px}
+  #salida .hoja p.txt{font-size:12px;line-height:1.55;text-align:justify;margin:0 0 7px}
   #salida table.log{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:6px}
   #salida table.log th{background:#4A6489;color:#fff;text-align:center;font-size:11px;
     padding:4px;border:1px solid #7d8fa8;letter-spacing:.04em}
@@ -944,12 +944,25 @@ async function informeDe(x, num, ident, conLog){
 
   /* 3 · protocolo de mantenimiento */
   marca("PROTOCOLO DE MANTENIMIENTO");
-  const bloques = PROTOCOLO.map(b =>
-    (b.t?`<h3 class="sub2">${b.t}</h3>`:"") + b.p.map(t=>`<p class="txt">${t}</p>`).join(""));
-  for(let i=0;i<bloques.length;i+=2){
-    cuerpo += hoja(`${i===0?`<h2 class="sec">PROTOCOLO DE MANTENIMIENTO</h2>`:""}
-      ${bloques.slice(i,i+2).join("")}`);
+  /* Se reparte por lo que ocupa cada bloque, no de dos en dos: asi no queda una
+     hoja llena y la siguiente a media. El peso es el largo del texto, que para
+     este machote alcanza. */
+  const bloques = PROTOCOLO.map(b => ({
+    html:(b.t?`<h3 class="sub2">${b.t}</h3>`:"") + b.p.map(t=>`<p class="txt">${t}</p>`).join(""),
+    peso: b.p.join(" ").replace(/<[^>]+>/g,"").length + (b.t?140:0) }));
+  const CUPO = 2100;                       // caracteres que caben en una hoja
+  let tanda=[], usado=0, primera=true;
+  const cerrarTanda = () => {
+    if(!tanda.length) return;
+    cuerpo += hoja(`${primera?`<h2 class="sec">PROTOCOLO DE MANTENIMIENTO</h2>`:""}
+      ${tanda.join("")}`);
+    primera=false; tanda=[]; usado=0;
+  };
+  for(const b of bloques){
+    if(usado && usado + b.peso > CUPO) cerrarTanda();
+    tanda.push(b.html); usado += b.peso;
   }
+  cerrarTanda();
 
   /* 4 · bitácora de trabajo y evidencia fotográfica */
   marca("BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA");
