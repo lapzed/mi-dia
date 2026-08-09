@@ -71,6 +71,19 @@
   .nota{margin:8px 0 0 6px;font-size:12px;background:rgba(232,163,61,.12);
     border-left:3px solid var(--warn);padding:7px 9px;border-radius:0 8px 8px 0;color:#F2D9AC}
   .cont{margin:8px 0 0 6px;font-size:12px;color:var(--txt2)}
+  .eje{margin:6px 0 0 6px;font-size:12px;color:#9FD0FF}
+  .eje a{color:#9FD0FF;text-decoration:none;border-bottom:1px dotted #4C7BA8}
+  /* la ficha completa: todo lo capturado del servicio, cerrada hasta que se pide */
+  .ficha{margin:9px 0 0 6px}
+  .ficha>summary{cursor:pointer;font-size:12px;color:var(--acc);list-style:none;
+    padding:4px 0;user-select:none}
+  .ficha>summary::-webkit-details-marker{display:none}
+  .ficha>summary::before{content:"▸ ";font-size:10px}
+  .ficha[open]>summary::before{content:"▾ "}
+  .ficha dl{margin:4px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;
+    font-size:12px}
+  .ficha dt{color:var(--txt3);white-space:nowrap}
+  .ficha dd{margin:0;color:var(--txt);word-break:break-word}
   .etapas{display:flex;flex-wrap:wrap;gap:5px;margin:9px 0 0 6px}
   .etapas span{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px}
   .etapas .ok{background:rgba(30,142,90,.2);color:#5BD79B}
@@ -592,14 +605,17 @@ async function cargar(){
     semana=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,"+
       "fecha_servicio,horario_atencion,status,personal_atiende,telefono,obs_prog,obs_coord,"+
       "requerimientos,tipo_servicio,obra,dias_est,dia_n,"+
+      "ejecutivo,correo,cita_confirmada,dia_creacion,tecnico,auxiliar,vehiculo,"+
+      "cp,localidad,municipio,estado,equipo,serie,materiales,obs_captura,"+
       "log_estado,log_saltos,log_ultimo,canal,senal_barras"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
     guardarSemanaLocal();
     document.getElementById("sinRed").innerHTML="";
-    // estos dos son adorno: si fallan, la lista se ve igual
+    // estos son adorno: si fallan, la lista se ve igual
     try{ await marcarEquipo() }catch(e){}
     try{ await marcarEvidencias() }catch(e){}
+    try{ await cargarEjecutivos() }catch(e){}
     pintarDias(); pintar();
   }catch(e){
     const g = leerSemanaLocal();
@@ -683,6 +699,66 @@ function claseEstatus(s){
   if(s.indexOf("REPROG")>=0) return "re";
   return "pe";
 }
+/* El ejecutivo de cuenta es a quien le llama el técnico cuando el cliente no lo
+   deja entrar o pide algo que no estaba en el ticket. El nombre viene en el
+   servicio; el teléfono vive en un catálogo aparte, porque es del ejecutivo y
+   no del servicio: se captura una vez y sirve para todos sus tickets. */
+let EJECUTIVOS = JSON.parse(localStorage.getItem("md_ejecutivos")||"{}");
+async function cargarEjecutivos(){
+  const f = await api("ejecutivos?select=alias,nombre,telefono");
+  const d = {};
+  f.forEach(e=>{ d[(e.alias||"").toUpperCase().trim()] = e });
+  EJECUTIVOS = d;
+  localStorage.setItem("md_ejecutivos", JSON.stringify(d));   // sirve sin señal
+}
+function ejecutivoDe(x){
+  const crudo = limpio(x.ejecutivo);
+  if(!crudo) return null;
+  const e = EJECUTIVOS[crudo.toUpperCase()];
+  return {nombre: (e && e.nombre) || crudo, tel: (e && limpio(e.telefono)) || ""};
+}
+
+/* Todo lo capturado del servicio, en el orden en que le sirve al técnico.
+   Solo se dibuja lo que trae valor: una ficha con renglones vacíos no se lee. */
+const FICHA = [
+  ["tkt",              "TKT"],
+  ["dia_creacion",     "Ticket creado"],
+  ["tipo_servicio",    "Tipo de servicio"],
+  ["status",           "Estatus"],
+  ["cita_confirmada",  "Cita confirmada"],
+  ["tecnico",          "Técnico líder"],
+  ["auxiliar",         "Auxiliar"],
+  ["vehiculo",         "Vehículo"],
+  ["dependencia",      "Cliente"],
+  ["direccion",        "Dirección"],
+  ["localidad",        "Colonia"],
+  ["municipio",        "Alcaldía / municipio"],
+  ["estado",           "Estado"],
+  ["cp",               "CP"],
+  ["personal_atiende", "Quién atiende en sitio"],
+  ["telefono",         "Teléfono del sitio"],
+  ["correo",           "Correo"],
+  ["equipo",           "Equipo"],
+  ["serie",            "# Serie"],
+  ["materiales",       "Materiales"],
+  ["requerimientos",   "Requerimientos"],
+  ["obs_captura",      "Notas de captura"],
+  ["obs_prog",         "Notas de programación"],
+  ["obs_coord",        "Notas de coordinación"]
+];
+function ficha(x){
+  const eje = ejecutivoDe(x);
+  const filas = FICHA
+    .map(([k,lbl])=>[lbl, limpio(x[k])])
+    .filter(([,v])=>v!=="");
+  if(eje) filas.splice(4, 0, ["Ejecutivo de cuenta",
+                              eje.nombre + (eje.tel ? " · " + eje.tel : "")]);
+  if(!filas.length) return "";
+  return `<details class="ficha"><summary>Ficha completa del servicio</summary>
+    <dl>${filas.map(([l,v])=>`<dt>${esc(l)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+  </details>`;
+}
+
 function notas(x){
   const n=[x.requerimientos,x.obs_prog,x.obs_coord].map(v=>limpio(v))
     .filter(v=>v && !/carga historica|sync control|alta walmart|falta de actualizacion/i.test(v));
@@ -714,6 +790,7 @@ function pintar(){
     const buena = cla && clo && cla>=14 && cla<=33 && clo>=-118 && clo<=-86;
     const dest = buena ? `${cla},${clo}` : encodeURIComponent(dir||x.nombre||"");
     const tel=limpio(x.telefono).replace(/[^\d+]/g,"");
+    const eje=ejecutivoDe(x);
     const cerrado=cl==="ok";
     return `<div class="card ${cerrado?"done":""}">
       <div class="stripe ${cl}"></div>
@@ -728,6 +805,9 @@ function pintar(){
       ${(dep||tip)?`<div class="dep">${esc(dep)}${dep&&tip?" · ":""}${esc(tip)}</div>`:""}
       ${dir?`<div class="dir"><svg width="13" height="13" viewBox="0 0 24 24" fill="#6E8CAD"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6a2.5 2.5 0 010 5.5z"/></svg><span>${esc(dir)}</span></div>`:""}
       ${(pers||tel)?`<div class="cont">👤 ${esc(pers)}${pers&&tel?" · ":""}${esc(tel)}</div>`:""}
+      ${eje?`<div class="eje">💼 Ejecutivo: ${esc(eje.nombre)}${eje.tel
+         ? ` · <a href="tel:${esc(eje.tel.replace(/[^\d+]/g,""))}">${esc(eje.tel)}</a>`
+         : ""}</div>`:""}
       ${x.log_estado?`<div class="logev ${x.log_estado==="SALTEADO"?"mal":"bien"}">${
          x.log_estado==="SALTEADO"?"⚠ Log con saltos":"✓ Log continuo"}${
          x.log_saltos?": "+esc(x.log_saltos):""}${
@@ -740,6 +820,7 @@ function pintar(){
             .map(p=>esc(p.persona)+(p.rol==="LIDER"?"":" (aux)")).join(", ")
         ).join(" · ")}</div>`:""}
       ${nt?`<div class="nota">⚠️ ${esc(nt)}</div>`:""}
+      ${ficha(x)}
       ${(cerrado||Object.keys(x._ev||{}).length)?`<div class="etapas">${
         (esObra(x)
           ? Object.keys(x._ev||{}).map(t=>`<span class="ok">✓ ${esc(NOMBRE_TIPO[t]||t)}</span>`)
