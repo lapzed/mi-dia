@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Coordinación</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 16px 70px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1320px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  .barra{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+  .f{display:flex;flex-direction:column;gap:4px}
+  .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+  select,input,textarea{padding:8px 9px;border-radius:9px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:9px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  .mini{padding:4px 9px;font-size:11.5px}
+
+  .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:7px 13px;font-size:12px}
+  .pill b{font-size:17px;display:block}
+
+  .tabla{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1080px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--card)}
+  td{padding:6px 9px;border-bottom:1px solid rgba(29,66,103,.45);vertical-align:top}
+  td select{padding:5px 7px;font-size:12px;max-width:150px}
+  .sitio{font-weight:600}
+  .sub{font-size:11px;color:var(--txt3)}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  .dia{font-weight:700;white-space:nowrap}
+  .hoy{color:#F0BE6E}
+  .nota{width:100%;min-height:34px;font-size:12px;resize:vertical}
+  .tel{color:var(--acc);text-decoration:none;border-bottom:1px dotted #4C7BA8}
+  .guardado{color:#5BD79B;font-size:11px}
+  .fallo{color:#F0A9A5;font-size:11px}
+  tr.sin td{background:rgba(232,163,61,.07)}
+
+  .vacio{text-align:center;color:var(--txt2);padding:46px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:390px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 12px;font-size:12.5px;color:var(--txt2)}
+  .box input,.box select{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">COORDINACIÓN</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="barra" id="barra" style="display:none">
+    <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
+    <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargar()"></div>
+    <div class="f"><label>Coordinación</label>
+      <select id="fCoord" onchange="cargar()">
+        <option value="">Todas</option>
+        <option>MANT</option><option>INST</option><option>LEV</option>
+        <option>PRY_ESP</option><option>CAT</option>
+      </select></div>
+    <div class="f"><label>Ver</label>
+      <select id="fVer" onchange="pintar()">
+        <option value="pend">Por confirmar</option>
+        <option value="">Todos</option>
+        <option value="si">Cita confirmada</option>
+        <option value="no">Cita no confirmada</option>
+      </select></div>
+    <button onclick="semana()">Próximos 7 días</button>
+  </div>
+
+  <div class="resumen" id="resumen"></div>
+  <div id="lista"><div class="load">Entra para coordinar.</div></div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Coordinación</h2>
+    <p>Confirmación de citas con el cliente.</p>
+    <select id="inUsr">
+      <option value="est.ivan">Iván · Subgerencia</option>
+      <option value="est.patricia">Patricia · Coordinación</option>
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+    </select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+
+/* Iván y Patricia, en espejo: mismos permisos y misma pantalla. */
+let ses=JSON.parse(localStorage.getItem("md_coord")||"null");
+let filas=[], CAT={}, EJEC={};
+
+function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
+  Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function isoDe(n){const d=new Date();d.setDate(d.getDate()+n);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function hhmm(h){const m=String(h||"").match(/^(\d{1,2}):(\d{2})/);return m?String(m[1]).padStart(2,"0")+":"+m[2]:""}
+
+async function api(path,opts,reint){
+  const o=Object.assign({},opts||{});
+  o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+  return t?JSON.parse(t):null;
+}
+async function auth(c,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(c)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardar(j){
+  ses={token:j.access_token,refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_coord",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardar(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  try{
+    guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("mLogin").style.display="none"; arrancar();
+  }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
+}
+function salir(){ localStorage.removeItem("md_coord"); location.reload() }
+function nombreDe(u){
+  return ({"est.ivan":"Iván","est.patricia":"Patricia",
+           "est.gerencia":"Gerencia","est.subgerencia":"Subgerencia"})[u] || u;
+}
+
+async function cargarCatalogos(){
+  try{
+    const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
+    CAT={}; c.forEach(x=>(CAT[x.catalogo]=CAT[x.catalogo]||[]).push(x.valor));
+  }catch(e){ CAT={} }
+  if(!CAT.STATUS) CAT.STATUS=["PROGRAMADO","REPROGRAMADO","ATENDIDO","CANCELADO","CONTINUIDAD"];
+  if(!CAT.MEDIO_CONTACTO) CAT.MEDIO_CONTACTO=["Llamada","WhatsApp","Correo","Presencial"];
+}
+async function cargarEjecutivos(){
+  try{
+    const f=await api("ejecutivos?select=alias,nombre,telefono");
+    EJEC={}; f.forEach(e=>{ EJEC[(e.alias||"").toUpperCase().trim()]=e });
+  }catch(e){ EJEC={} }
+}
+
+async function arrancar(){
+  document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
+  document.getElementById("barra").style.display="flex";
+  if(!document.getElementById("fDe").value){ semanaCampos() }
+  document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
+  await cargarCatalogos(); await cargarEjecutivos();
+  cargar();
+}
+function semanaCampos(){
+  document.getElementById("fDe").value=hoyISO();
+  document.getElementById("fA").value=isoDe(7);
+}
+function semana(){ semanaCampos(); cargar() }
+
+async function cargar(){
+  const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
+  const co=document.getElementById("fCoord").value;
+  if(!de||!a) return;
+  document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
+  try{
+    filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
+      "fecha_servicio,horario_atencion,status,tecnico,auxiliar,cita_confirmada,"+
+      "fecha_confirmacion,medio_contacto,segurista,obs_coord,obs_prog,requerimientos,"+
+      "personal_atiende,telefono,correo,ejecutivo,tipo_servicio"+
+      "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+(co?"&coord=eq."+co:"")+
+      "&order=fecha_servicio,horario_atencion&limit=600");
+    pintar();
+  }catch(e){
+    document.getElementById("lista").innerHTML=
+      '<div class="vacio">No se pudo consultar.<br><span class="sub">'+esc(String(e).slice(0,120))+'</span></div>';
+  }
+}
+
+function cita(x){ return (x.cita_confirmada||"").trim().toUpperCase() }
+/* Coordinar es confirmar con el cliente lo que ya está programado. Lo cerrado o
+   cancelado ya no se coordina: sale de la lista de pendientes. */
+function porConfirmar(x){
+  const st=(x.status||"").toUpperCase().trim();
+  return cita(x)!=="SI" && ["ATENDIDO","CANCELADO","CONTINUIDAD"].indexOf(st)<0;
+}
+function opciones(lista, valor, vacio){
+  const v=limpio(valor), hay=(CAT[lista]||[]);
+  const todos = v && hay.indexOf(v)<0 ? [v].concat(hay) : hay;
+  return `<option value="">${vacio||""}</option>`+
+    todos.map(x=>`<option${x===v?" selected":""}>${esc(x)}</option>`).join("");
+}
+function ejecutivoDe(x){
+  const c=limpio(x.ejecutivo); if(!c) return null;
+  const e=EJEC[c.toUpperCase()];
+  return {nombre:(e&&e.nombre)||c, tel:(e&&limpio(e.telefono))||""};
+}
+
+function vistas(){
+  const v=document.getElementById("fVer").value;
+  if(v==="pend") return filas.filter(porConfirmar);
+  if(v==="si")   return filas.filter(x=>cita(x)==="SI");
+  if(v==="no")   return filas.filter(x=>cita(x)==="NO");
+  return filas;
+}
+
+function pintar(){
+  const v=vistas(), cont=document.getElementById("lista");
+  const pend=filas.filter(porConfirmar).length;
+  const conf=filas.filter(x=>cita(x)==="SI").length;
+  document.getElementById("resumen").innerHTML=`
+    <div class="pill"><b>${filas.length}</b>servicios en el rango</div>
+    <div class="pill"><b style="color:#5BD79B">${conf}</b>con cita confirmada</div>
+    <div class="pill"><b style="color:${pend?"#F0BE6E":"#5BD79B"}">${pend}</b>por confirmar</div>`;
+  if(!v.length){
+    cont.innerHTML='<div class="vacio">Nada que coordinar aquí.</div>';
+    return;
+  }
+  const hoy=hoyISO();
+  cont.innerHTML=`<div class="tabla"><table><thead><tr>
+    <th>Día</th><th>Servicio</th><th>Contacto</th><th>Cita</th><th>Medio</th>
+    <th>Segurista</th><th>Estatus</th><th>Nota de coordinación</th><th></th>
+    </tr></thead><tbody>
+    ${v.map(x=>{
+      const i=filas.indexOf(x), eje=ejecutivoDe(x);
+      const tel=limpio(x.telefono).replace(/[^\d+]/g,"");
+      return `<tr class="${porConfirmar(x)?"sin":""}">
+      <td><span class="dia ${x.fecha_servicio===hoy?"hoy":""}">${esc(x.fecha_servicio||"")}</span>
+          <div class="sub">${esc(hhmm(x.horario_atencion)||"sin hora")}</div></td>
+      <td><div class="sitio">${esc(x.nombre||"")}</div>
+          <div class="sub"><span class="tag">${esc(x.coord)}</span>
+            ${x.tkt?" TKT "+esc(x.tkt):""}
+            ${limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):""}</div>
+          <div class="sub">${esc(limpio(x.tecnico)||"sin brigada")}</div></td>
+      <td>${esc(limpio(x.personal_atiende)||"—")}
+          ${tel?`<div class="sub"><a class="tel" href="tel:${esc(tel)}">${esc(limpio(x.telefono))}</a></div>`:""}
+          ${eje?`<div class="sub">Ej: ${esc(eje.nombre)}${eje.tel?" · "+esc(eje.tel):""}</div>`:""}</td>
+      <td><select onchange="editar(${i},'cita_confirmada',this.value)">
+            <option value=""></option>
+            <option${cita(x)==="SI"?" selected":""}>SI</option>
+            <option${cita(x)==="NO"?" selected":""}>NO</option></select>
+          ${limpio(x.fecha_confirmacion)?`<div class="sub">${esc(x.fecha_confirmacion)}</div>`:""}</td>
+      <td><select onchange="editar(${i},'medio_contacto',this.value)">
+            ${opciones("MEDIO_CONTACTO", x.medio_contacto)}</select></td>
+      <td><select onchange="editar(${i},'segurista',this.value)">
+            <option value=""></option>
+            <option${(x.segurista||"")==="SI"?" selected":""}>SI</option>
+            <option${(x.segurista||"")==="NO"?" selected":""}>NO</option></select></td>
+      <td><select onchange="editar(${i},'status',this.value)">
+            ${opciones("STATUS", x.status)}</select></td>
+      <td><textarea class="nota" onchange="editar(${i},'obs_coord',this.value)"
+            placeholder="qué dijo el cliente">${esc(x.obs_coord||"")}</textarea>
+          ${limpio(x.obs_prog)||limpio(x.requerimientos)?`<div class="sub">
+            ${esc([x.requerimientos,x.obs_prog].map(limpio).filter(Boolean).join(" · "))}</div>`:""}</td>
+      <td id="est${i}"></td></tr>`}).join("")}
+  </tbody></table></div>`;
+}
+
+/* Se guarda campo por campo, en cuanto se cambia. */
+async function editar(i, campo, valor){
+  const x=filas[i], celda=document.getElementById("est"+i);
+  const antes=x[campo];
+  const cuerpo={};
+  cuerpo[campo]=valor;
+  /* Confirmar una cita es un hecho con fecha. Se sella sola: preguntarla aparte
+     es un campo más que nadie llena y luego no se sabe cuándo se confirmó. */
+  if(campo==="cita_confirmada" && valor==="SI" && !limpio(x.fecha_confirmacion))
+    cuerpo.fecha_confirmacion=hoyISO();
+  x[campo]=valor;
+  if(celda) celda.innerHTML='<span class="sub">guardando…</span>';
+  try{
+    const d=await api(`servicios?coord=eq.${encodeURIComponent(x.coord)}&id=eq.${x.id}`,
+      {method:"PATCH", headers:{Prefer:"return=representation"}, body:JSON.stringify(cuerpo)});
+    if(!d || !d.length) throw new Error("no encontró el servicio");
+    Object.assign(x, cuerpo);
+    if(celda){ celda.innerHTML='<span class="guardado">✓</span>';
+      setTimeout(()=>{ if(celda) celda.innerHTML="" }, 2500) }
+    // el renglón puede haber dejado de ser pendiente: se repinta el conteo
+    const pend=filas.filter(porConfirmar).length, conf=filas.filter(y=>cita(y)==="SI").length;
+    document.getElementById("resumen").innerHTML=`
+      <div class="pill"><b>${filas.length}</b>servicios en el rango</div>
+      <div class="pill"><b style="color:#5BD79B">${conf}</b>con cita confirmada</div>
+      <div class="pill"><b style="color:${pend?"#F0BE6E":"#5BD79B"}">${pend}</b>por confirmar</div>`;
+  }catch(e){
+    x[campo]=antes;
+    if(celda) celda.innerHTML='<span class="fallo">no se guardó</span>';
+  }
+}
+
+(async function(){
+  if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
+})();
+</script>
+</body>
+</html>
