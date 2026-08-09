@@ -69,6 +69,9 @@
   .box h2{margin:0 0 3px;font-size:17px}
   .box p{margin:0 0 14px;font-size:12.5px;color:var(--txt2)}
   .box input{width:100%;margin-bottom:11px}
+  .q{font-size:12px;color:var(--txt2)}
+  /* la tabla de edicion: campos angostos, que quepan varias areas de frente */
+  #edCuerpo input{padding:5px 7px;font-size:12.5px}
   .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
     border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
 
@@ -125,6 +128,24 @@
 </div>
 
 <div id="salida"></div>
+
+<!-- corregir y completar lo que capturó el técnico -->
+<div class="modal" id="mEdit" style="display:none">
+  <div class="box" style="max-width:1000px;max-height:92vh;overflow:auto">
+    <h2 id="edSitio"></h2>
+    <p id="edSub"></p>
+    <p>Corrige cantidades o el nombre del área, y agrega la que falte. Es lo que
+       va a ver el cliente en la ficha.</p>
+    <div id="edCuerpo"></div>
+    <div id="edAviso" style="margin-top:11px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:13px">
+      <button onclick="agregarArea()">+ Agregar área</button>
+      <button class="pri" id="edBtn" onclick="guardarEdicion()">Guardar cambios</button>
+      <button style="margin-left:auto"
+              onclick="document.getElementById('mEdit').style.display='none'">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <!-- cargar fotos de un levantamiento ya hecho, sin tocar el servicio -->
 <div class="modal" id="mSubir" style="display:none">
@@ -333,12 +354,91 @@ function pintar(){
           ${ps.length?`<span class="tag">${ps.length} equipo${ps.length>1?"s":""}</span>`
                      :`<span class="tag no">sin capturar</span>`}
           <button class="mini" onclick="abrirSubir('${x.coord}',${x.id})">+ fotos</button>
+          <button class="mini" onclick="editar('${x.coord}',${x.id})">✎ Editar</button>
           ${ps.length?`<button class="mini" onclick="ficha('${x.coord}',${x.id})">Ficha</button>`:""}
         </div>
       </div>
       ${comparativa(ps)}
     </div>`;
   }).join("");
+}
+
+/* ---------- editar lo levantado ----------
+   El técnico captura en campo, con el celular en una mano y la cinta en la
+   otra: se le va una cantidad o pone el área como "1" en vez del nombre del
+   edificio. Jair es quien arma la propuesta que ve el cliente, así que tiene
+   que poder corregirla y completarla sin pedirle al técnico que regrese.
+
+   Se puede además agregar un área que faltó: un predio grande se alerta por
+   zonas y a veces se descubre en gabinete que falta una. */
+let edit=null;
+function editar(coord,id){
+  edit={x:filas.find(s=>s.coord===coord&&s.id===id),
+        ps:JSON.parse(JSON.stringify(props[coord+"|"+id]||[]))};
+  pintarEditor();
+  document.getElementById("mEdit").style.display="flex";
+}
+function pintarEditor(){
+  const x=edit.x, ps=edit.ps;
+  document.getElementById("edSitio").textContent=x.nombre||"";
+  document.getElementById("edSub").textContent=
+    (limpio(x.dependencia)||"")+(x.tkt?" · TKT "+x.tkt:"")+" · "+(x.fecha_atencion||x.fecha_servicio||"");
+  document.getElementById("edCuerpo").innerHTML=`
+    <div class="comp"><table><tr><th></th>
+      ${ps.map((p,j)=>`<th class="p">
+        <input value="${esc(p.nombre||"")}" placeholder="Área ${p.n}"
+               oninput="edit.ps[${j}].nombre=this.value" style="width:100%">
+        <button class="mini" style="margin-top:5px"
+                onclick="quitarArea(${j})">quitar</button></th>`).join("")}
+      </tr>
+      ${RENGLONES.map(([k,et])=>`<tr><td class="et">${et}</td>
+        ${ps.map((p,j)=>`<td><input value="${esc(p[k]==null?"":p[k])}"
+           oninput="edit.ps[${j}]['${k}']=this.value" style="width:100%"></td>`).join("")}
+      </tr>`).join("")}
+    </table></div>
+    ${ps.length?"":'<div class="q" style="margin-top:10px">Todavía no hay áreas capturadas. Agrega la primera.</div>'}`;
+}
+function agregarArea(){
+  const n=(edit.ps.reduce((a,p)=>Math.max(a,Number(p.n)||0),0))+1;
+  edit.ps.push({coord:edit.x.coord, servicio_id:edit.x.id, n:n, nombre:"", notas:""});
+  pintarEditor();
+}
+function quitarArea(j){
+  if(!confirm("¿Quitar esa área de la propuesta?")) return;
+  edit.ps.splice(j,1);
+  pintarEditor();
+}
+async function guardarEdicion(){
+  const b=document.getElementById("edBtn"), av=document.getElementById("edAviso");
+  const x=edit.x, antes=props[x.coord+"|"+x.id]||[];
+  b.disabled=true; b.textContent="Guardando…"; av.innerHTML="";
+  try{
+    // lo que se quitó en pantalla se quita en la base
+    const quedan=edit.ps.map(p=>Number(p.n));
+    for(const p of antes){
+      if(quedan.indexOf(Number(p.n))<0)
+        await api(`propuestas?coord=eq.${encodeURIComponent(x.coord)}`+
+                  `&servicio_id=eq.${x.id}&n=eq.${p.n}`,{method:"DELETE"});
+    }
+    for(const p of edit.ps){
+      const fila=Object.assign({}, p, {coord:x.coord, servicio_id:x.id,
+                                       capturo:nombreDe(ses.usuario)});
+      delete fila.id;
+      await api("propuestas?on_conflict=coord,servicio_id,n",
+        {method:"POST", headers:{Prefer:"resolution=merge-duplicates"},
+         body:JSON.stringify(fila)});
+    }
+    props[x.coord+"|"+x.id]=edit.ps;
+    document.getElementById("mEdit").style.display="none";
+    pintar();
+  }catch(e){
+    av.innerHTML='<div class="aviso">No se pudo guardar: '+esc(String(e).slice(0,140))+'</div>';
+  }
+  b.disabled=false; b.textContent="Guardar cambios";
+}
+function nombreDe(u){
+  return ({"est.jair":"Jair","est.gerencia":"Gerencia",
+           "est.subgerencia":"Subgerencia"})[u] || u;
 }
 
 /* ---------- subir fotos de levantamientos pasados ----------

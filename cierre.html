@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Cierre</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 16px 70px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1320px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  .barra{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+  .f{display:flex;flex-direction:column;gap:4px}
+  .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+  select,input,textarea{padding:8px 9px;border-radius:9px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:9px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  .mini{padding:4px 9px;font-size:11.5px}
+
+  .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:7px 13px;font-size:12px}
+  .pill b{font-size:17px;display:block}
+
+  .tabla{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1060px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--card)}
+  td{padding:6px 9px;border-bottom:1px solid rgba(29,66,103,.45);vertical-align:top}
+  td select,td input{padding:5px 7px;font-size:12px}
+  .sitio{font-weight:600}
+  .sub{font-size:11px;color:var(--txt3)}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  .ev{font-size:11px;white-space:nowrap}
+  .ev .si{color:#5BD79B} .ev .no{color:#F0BE6E}
+  .nota{width:100%;min-height:32px;font-size:12px;resize:vertical}
+  .guardado{color:#5BD79B;font-size:11px}
+  .fallo{color:#F0A9A5;font-size:11px}
+  tr.viejo td{background:rgba(198,65,59,.07)}
+  .dias{font-weight:700}
+
+  .vacio{text-align:center;color:var(--txt2);padding:46px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:390px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 12px;font-size:12.5px;color:var(--txt2)}
+  .box input,.box select{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">CIERRE DE SERVICIOS</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="barra" id="barra" style="display:none">
+    <div class="f"><label>Coordinación</label>
+      <select id="fCoord" onchange="cargar()">
+        <option value="">Todas</option>
+        <option>MANT</option><option>INST</option><option>LEV</option>
+        <option>PRY_ESP</option><option>CAT</option>
+      </select></div>
+    <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
+    <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargar()"></div>
+    <div class="f"><label>Ver</label>
+      <select id="fVer" onchange="pintar()">
+        <option value="abierto">Sin cerrar</option>
+        <option value="sinev">Cerrados sin evidencia</option>
+        <option value="">Todos</option>
+      </select></div>
+    <button onclick="rango(30)">Último mes</button>
+    <button onclick="rango(120)">Últimos 4 meses</button>
+  </div>
+
+  <div class="resumen" id="resumen"></div>
+  <div id="lista"><div class="load">Entra para cerrar tus servicios.</div></div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Cierre de servicios</h2>
+    <p>Cada coordinación cierra lo suyo.</p>
+    <select id="inUsr">
+      <option value="est.jair">Jair · Levantamientos</option>
+      <option value="est.alin">Alin · Instalaciones</option>
+      <option value="est.ivan">Iván · Subgerencia</option>
+      <option value="est.patricia">Patricia · Coordinación</option>
+      <option value="est.ariana">Ariana · CAT</option>
+      <option value="est.proyectos">Proyectos especiales</option>
+      <option value="est.jenifer">Jenifer · Captura</option>
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+    </select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+
+/* Cada coordinador abre en la suya; gerencia y subgerencia ven todas. Es lo
+   mismo que su rol en la estación: INTEGRAL sobre su coordinación. */
+const SUYA={"est.jair":"LEV","est.alin":"INST","est.ariana":"CAT",
+            "est.proyectos":"PRY_ESP","est.ivan":"MANT","est.patricia":"MANT",
+            "est.jenifer":"MANT"};
+
+let ses=JSON.parse(localStorage.getItem("md_cierre")||"null");
+let filas=[], EV={}, CAT={};
+
+function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
+  Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function isoDe(n){const d=new Date();d.setDate(d.getDate()+n);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function dias(f){ return Math.round((new Date(hoyISO())-new Date(f))/86400000) }
+
+async function api(path,opts,reint){
+  const o=Object.assign({},opts||{});
+  o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+  return t?JSON.parse(t):null;
+}
+async function auth(c,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(c)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardarSes(j){
+  ses={token:j.access_token,refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_cierre",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardarSes(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  try{
+    guardarSes(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("mLogin").style.display="none"; arrancar();
+  }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
+}
+function salir(){ localStorage.removeItem("md_cierre"); location.reload() }
+function nombreDe(u){
+  return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
+           "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Proyectos especiales",
+           "est.ariana":"Ariana","est.gerencia":"Gerencia",
+           "est.subgerencia":"Subgerencia"})[u] || u;
+}
+
+/* Qué evidencia pide cada coordinación para dar por bueno un cierre. */
+const PIDE={LEV:["LEVANTAMIENTO","CROQUIS","REPORTE"],
+            CAT:["ATENCION","REPORTE"],
+            _:["ANTES","DESPUES","REPORTE"]};
+function pideDe(co){ return PIDE[co]||PIDE._ }
+function cerrado(x){ return (x.status||"").toUpperCase().trim()==="ATENDIDO" }
+function abierto(x){
+  return ["ATENDIDO","CANCELADO"].indexOf((x.status||"").toUpperCase().trim())<0;
+}
+
+async function arrancar(){
+  document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
+  document.getElementById("barra").style.display="flex";
+  if(!document.getElementById("fDe").value){
+    document.getElementById("fDe").value=isoDe(-30);
+    document.getElementById("fA").value=hoyISO();
+    const mia=SUYA[ses.usuario];
+    if(mia) document.getElementById("fCoord").value=mia;
+  }
+  try{
+    const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
+    CAT={}; c.forEach(x=>(CAT[x.catalogo]=CAT[x.catalogo]||[]).push(x.valor));
+  }catch(e){ CAT={} }
+  if(!CAT.STATUS) CAT.STATUS=["PROGRAMADO","REPROGRAMADO","ATENDIDO","CANCELADO","CONTINUIDAD"];
+  cargar();
+}
+function rango(n){
+  document.getElementById("fDe").value=isoDe(-n);
+  document.getElementById("fA").value=hoyISO();
+  cargar();
+}
+
+async function cargar(){
+  const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
+  const co=document.getElementById("fCoord").value;
+  if(!de||!a) return;
+  document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
+  try{
+    filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,fecha_servicio,"+
+      "fecha_atencion,status,tecnico,auxiliar,obs_coord,obs_prog,tipo_servicio,obra,dias_est,dia_n"+
+      "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+(co?"&coord=eq."+co:"")+
+      "&order=fecha_servicio&limit=800");
+    await cargarEvidencias();
+    pintar();
+  }catch(e){
+    document.getElementById("lista").innerHTML=
+      '<div class="vacio">No se pudo consultar.<br><span class="sub">'+esc(String(e).slice(0,120))+'</span></div>';
+  }
+}
+/* La evidencia se pide en bloque por coordinación, no una consulta por servicio:
+   con 800 renglones eso serían 800 viajes. */
+async function cargarEvidencias(){
+  EV={};
+  const coords=[...new Set(filas.map(x=>x.coord))];
+  for(const co of coords){
+    const ids=filas.filter(x=>x.coord===co).map(x=>x.id);
+    for(let i=0;i<ids.length;i+=200){
+      const t=ids.slice(i,i+200).join(",");
+      try{
+        const e=await api("evidencias?select=servicio_id,tipo&coord=eq."+co+"&servicio_id=in.("+t+")");
+        e.forEach(r=>{
+          const k=co+"|"+r.servicio_id;
+          (EV[k]=EV[k]||new Set()).add(String(r.tipo||"").split("|")[0].toUpperCase());
+        });
+      }catch(x){}
+    }
+  }
+}
+function evidencia(x){
+  const tiene=EV[x.coord+"|"+x.id]||new Set();
+  return pideDe(x.coord).map(t=>({t:t, ok:tiene.has(t)}));
+}
+function completo(x){ return evidencia(x).every(e=>e.ok) }
+
+function vistas(){
+  const v=document.getElementById("fVer").value;
+  if(v==="abierto") return filas.filter(abierto);
+  if(v==="sinev")   return filas.filter(x=>cerrado(x)&&!completo(x));
+  return filas;
+}
+
+function pintar(){
+  const v=vistas(), cont=document.getElementById("lista");
+  const ab=filas.filter(abierto).length;
+  const sinEv=filas.filter(x=>cerrado(x)&&!completo(x)).length;
+  document.getElementById("resumen").innerHTML=`
+    <div class="pill"><b>${filas.length}</b>en el rango</div>
+    <div class="pill"><b style="color:${ab?"#F0BE6E":"#5BD79B"}">${ab}</b>sin cerrar</div>
+    <div class="pill"><b style="color:${sinEv?"#F0BE6E":"#5BD79B"}">${sinEv}</b>cerrados sin evidencia</div>`;
+  if(!v.length){ cont.innerHTML='<div class="vacio">Nada pendiente aquí.</div>'; return }
+  cont.innerHTML=`<div class="tabla"><table><thead><tr>
+    <th>Fecha</th><th>Servicio</th><th>Brigada</th><th>Estatus</th>
+    <th>Atendido el</th><th>Evidencia</th><th>Nota de cierre</th><th></th>
+    </tr></thead><tbody>
+    ${v.map(x=>{
+      const i=filas.indexOf(x), d=dias(x.fecha_servicio), viejo=abierto(x)&&d>30;
+      return `<tr class="${viejo?"viejo":""}">
+      <td><span class="dias">${esc(x.fecha_servicio||"")}</span>
+        ${abierto(x)&&d>0?`<div class="sub">${d} días</div>`:""}</td>
+      <td><div class="sitio">${esc(x.nombre||"")}</div>
+        <div class="sub"><span class="tag">${esc(x.coord)}</span>
+          ${x.tkt?" TKT "+esc(x.tkt):""}
+          ${limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):""}</div>
+        ${x.obra?`<div class="sub">obra ${esc(x.obra)} · día ${esc(x.dia_n)} de ${esc(x.dias_est)}</div>`:""}</td>
+      <td>${esc(limpio(x.tecnico)||"—")}
+        ${limpio(x.auxiliar)?`<div class="sub">${esc(x.auxiliar)}</div>`:""}</td>
+      <td><select onchange="editar(${i},'status',this.value)">
+        ${(CAT.STATUS||[]).map(s=>`<option${(x.status||"")===s?" selected":""}>${esc(s)}</option>`).join("")}
+      </select></td>
+      <td><input type="date" value="${esc(x.fecha_atencion||"")}"
+            onchange="editar(${i},'fecha_atencion',this.value)"></td>
+      <td class="ev">${evidencia(x).map(e=>
+        `<div class="${e.ok?"si":"no"}">${e.ok?"✓":"○"} ${esc(e.t.toLowerCase())}</div>`).join("")}</td>
+      <td><textarea class="nota" onchange="editar(${i},'obs_coord',this.value)"
+            placeholder="por qué se cierra así">${esc(x.obs_coord||"")}</textarea>
+        ${limpio(x.obs_prog)?`<div class="sub">${esc(x.obs_prog)}</div>`:""}</td>
+      <td id="est${i}"></td></tr>`}).join("")}
+  </tbody></table></div>`;
+}
+
+async function editar(i, campo, valor){
+  const x=filas[i], celda=document.getElementById("est"+i);
+  const antes=x[campo], cuerpo={};
+  cuerpo[campo]=valor;
+  /* Dar por atendido sin decir cuándo deja el servicio sin fecha real, y de ahí
+     salen los conteos que no cuadran. Se sella con la fecha del servicio. */
+  if(campo==="status" && valor==="ATENDIDO" && !limpio(x.fecha_atencion))
+    cuerpo.fecha_atencion=x.fecha_servicio||hoyISO();
+  x[campo]=valor;
+  if(celda) celda.innerHTML='<span class="sub">guardando…</span>';
+  try{
+    const d=await api(`servicios?coord=eq.${encodeURIComponent(x.coord)}&id=eq.${x.id}`,
+      {method:"PATCH", headers:{Prefer:"return=representation"}, body:JSON.stringify(cuerpo)});
+    if(!d||!d.length) throw new Error("no encontró el servicio");
+    Object.assign(x, cuerpo);
+    if(celda){ celda.innerHTML='<span class="guardado">✓</span>';
+      setTimeout(()=>{ if(celda) celda.innerHTML="" },2500) }
+    const ab=filas.filter(abierto).length, se=filas.filter(y=>cerrado(y)&&!completo(y)).length;
+    document.getElementById("resumen").innerHTML=`
+      <div class="pill"><b>${filas.length}</b>en el rango</div>
+      <div class="pill"><b style="color:${ab?"#F0BE6E":"#5BD79B"}">${ab}</b>sin cerrar</div>
+      <div class="pill"><b style="color:${se?"#F0BE6E":"#5BD79B"}">${se}</b>cerrados sin evidencia</div>`;
+  }catch(e){
+    x[campo]=antes;
+    if(celda) celda.innerHTML='<span class="fallo">no se guardó</span>';
+  }
+}
+
+(async function(){
+  if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
+})();
+</script>
+</body>
+</html>
