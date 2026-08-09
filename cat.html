@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · CAT</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 16px 70px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1280px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  .tabs{display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap}
+  .tabs button{background:transparent;border:1px solid var(--line);color:var(--txt2)}
+  .tabs button.on{background:var(--acc);color:#07203a;border-color:var(--acc)}
+
+  .barra{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+  .f{display:flex;flex-direction:column;gap:4px}
+  .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+  select,input,textarea{padding:8px 9px;border-radius:9px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:9px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  button:disabled{opacity:.45;cursor:default}
+  .mini{padding:4px 9px;font-size:11.5px}
+
+  .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:7px 13px;font-size:12px}
+  .pill b{font-size:17px;display:block}
+
+  .tabla{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1000px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--card)}
+  td{padding:6px 9px;border-bottom:1px solid rgba(29,66,103,.45);vertical-align:top}
+  td select,td input{padding:5px 7px;font-size:12px}
+  .sitio{font-weight:600}
+  .sub{font-size:11px;color:var(--txt3)}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  .nota{width:100%;min-height:34px;font-size:12px;resize:vertical}
+  .guardado{color:#5BD79B;font-size:11px}
+  .fallo{color:#F0A9A5;font-size:11px}
+
+  /* monitoreo */
+  .zonas{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:13px}
+  .zona{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px}
+  .zona h3{margin:0 0 2px;font-size:15px}
+  .zona .pctg{font-size:26px;font-weight:800;line-height:1.1}
+  .zona .q{font-size:11.5px;color:var(--txt2);margin-bottom:10px}
+  .zf{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;
+    font-size:12.5px;margin-bottom:4px}
+  .zf input{width:88px;text-align:right}
+  .zmapa{margin-top:10px;font-size:11.5px;color:var(--txt2)}
+  .zmapa img{width:100%;border-radius:9px;border:1px solid var(--line);margin-top:6px}
+
+  .vacio{text-align:center;color:var(--txt2);padding:46px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:390px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 12px;font-size:12.5px;color:var(--txt2)}
+  .box input,.box select{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+  .bien{background:rgba(30,142,90,.16);border:1px solid rgba(30,142,90,.45);color:#9EE7C2;
+    border-radius:10px;padding:9px 11px;font-size:12.5px;margin-bottom:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">CAT · ATENCIÓN A CLIENTES</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="on" onclick="ver('atenciones')">Atenciones</button>
+    <button onclick="ver('monitoreo')">Centro de monitoreo</button>
+  </div>
+
+  <div id="cuerpo"><div class="load">Entra para trabajar el CAT.</div></div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>CAT</h2>
+    <p>Atención a clientes corporativos y centro de monitoreo.</p>
+    <select id="inUsr">
+      <option value="est.ariana">Ariana · CAT</option>
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+    </select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+const BUCKET="evidencias";
+
+let ses=JSON.parse(localStorage.getItem("md_cat")||"null");
+let vista="atenciones", filas=[], CAT={}, EJEC={}, MON={};
+
+function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
+  Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function isoDe(n){const d=new Date();d.setDate(d.getDate()+n);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+
+async function api(path,opts,reint){
+  const o=Object.assign({},opts||{});
+  o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+  return t?JSON.parse(t):null;
+}
+async function auth(c,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(c)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardarSes(j){
+  ses={token:j.access_token,refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_cat",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardarSes(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  try{
+    guardarSes(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("mLogin").style.display="none"; arrancar();
+  }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
+}
+function salir(){ localStorage.removeItem("md_cat"); location.reload() }
+function nombreDe(u){
+  return ({"est.ariana":"Ariana","est.gerencia":"Gerencia",
+           "est.subgerencia":"Subgerencia"})[u] || u;
+}
+
+async function arrancar(){
+  document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
+  document.getElementById("tabs").style.display="flex";
+  try{
+    const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
+    CAT={}; c.forEach(x=>(CAT[x.catalogo]=CAT[x.catalogo]||[]).push(x.valor));
+  }catch(e){ CAT={} }
+  if(!CAT.CAT_TIPO) CAT.CAT_TIPO=["Seguimiento","Queja","Incidencia","Llamada de cliente"];
+  if(!CAT.CAT_ESTATUS) CAT.CAT_ESTATUS=["Abierto","En proceso","Resuelto"];
+  if(!CAT.MEDIO_CONTACTO) CAT.MEDIO_CONTACTO=["Correo","Llamada","WhatsApp","Presencial"];
+  try{
+    const f=await api("ejecutivos?select=alias,nombre,telefono");
+    EJEC={}; f.forEach(e=>{ EJEC[(e.alias||"").toUpperCase().trim()]=e });
+  }catch(e){ EJEC={} }
+  ver(vista);
+}
+function ver(v){
+  vista=v;
+  [...document.querySelectorAll(".tabs button")].forEach((b,i)=>
+    b.classList.toggle("on",["atenciones","monitoreo"][i]===v));
+  if(v==="atenciones") pantallaAtenciones();
+  else pantallaMonitoreo();
+}
+
+/* ================== 1. atenciones ==================
+   El CAT no es una bitácora de llamadas: es una coordinación de campo con
+   clientes de cuenta —Google, GNP, Scotiabank—, cada servicio ligado a su
+   ejecutivo. Aquí se le da seguimiento a la atención: en qué va y cómo se
+   resolvió. Programarla y confirmarla se hace en las pantallas de siempre. */
+function pantallaAtenciones(){
+  document.getElementById("cuerpo").innerHTML=`
+    <div class="barra">
+      <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargarAt()"></div>
+      <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargarAt()"></div>
+      <div class="f"><label>Ver</label>
+        <select id="fVer" onchange="pintarAt()">
+          <option value="abierto">Sin resolver</option>
+          <option value="">Todas</option>
+        </select></div>
+    </div>
+    <div class="resumen" id="resumen"></div>
+    <div id="lista"><div class="load">Cargando…</div></div>`;
+  document.getElementById("fDe").value=isoDe(-60);
+  document.getElementById("fA").value=hoyISO();
+  cargarAt();
+}
+async function cargarAt(){
+  const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
+  try{
+    filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,fecha_servicio,"+
+      "fecha_atencion,status,tecnico,ejecutivo,tipo_servicio,cat_tipo,cat_medio,"+
+      "cat_estatus,cat_descripcion,cat_resolucion,personal_atiende,telefono"+
+      "&coord=eq.CAT&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+
+      "&order=fecha_servicio.desc&limit=400");
+    pintarAt();
+  }catch(e){
+    document.getElementById("lista").innerHTML=
+      '<div class="vacio">No se pudo consultar.<br><span class="sub">'+esc(String(e).slice(0,110))+'</span></div>';
+  }
+}
+function resuelta(x){ return (x.cat_estatus||"").toUpperCase().trim()==="RESUELTO" }
+function ejecutivoDe(x){
+  const c=limpio(x.ejecutivo); if(!c) return null;
+  const e=EJEC[c.toUpperCase()];
+  return {nombre:(e&&e.nombre)||c, tel:(e&&limpio(e.telefono))||""};
+}
+function pintarAt(){
+  const solo=document.getElementById("fVer").value;
+  const v = solo==="abierto" ? filas.filter(x=>!resuelta(x)) : filas;
+  const sinRes=filas.filter(x=>!resuelta(x)).length;
+  document.getElementById("resumen").innerHTML=`
+    <div class="pill"><b>${filas.length}</b>atenciones</div>
+    <div class="pill"><b style="color:${sinRes?"#F0BE6E":"#5BD79B"}">${sinRes}</b>sin resolver</div>
+    <div class="pill"><b>${new Set(filas.map(x=>limpio(x.ejecutivo)).filter(Boolean)).size}</b>ejecutivos</div>`;
+  const cont=document.getElementById("lista");
+  if(!v.length){ cont.innerHTML='<div class="vacio">Nada aquí.</div>'; return }
+  cont.innerHTML=`<div class="tabla"><table><thead><tr>
+    <th>Fecha</th><th>Cliente</th><th>Ejecutivo</th><th>Tipo</th><th>Medio</th>
+    <th>Estatus</th><th>Qué pasó</th><th>Cómo se resolvió</th><th></th>
+    </tr></thead><tbody>
+    ${v.map(x=>{ const i=filas.indexOf(x), ej=ejecutivoDe(x); return `<tr>
+      <td>${esc(x.fecha_servicio||"")}
+        ${limpio(x.fecha_atencion)?`<div class="sub">at. ${esc(x.fecha_atencion)}</div>`:""}</td>
+      <td><div class="sitio">${esc(x.nombre||"")}</div>
+        <div class="sub">${esc(limpio(x.dependencia)||"")}${x.tkt?" · TKT "+esc(x.tkt):""}</div>
+        <div class="sub">${esc(limpio(x.tecnico)||"sin técnico")}</div></td>
+      <td>${ej?esc(ej.nombre):"—"}${ej&&ej.tel?`<div class="sub">${esc(ej.tel)}</div>`:""}</td>
+      <td><select onchange="editarAt(${i},'cat_tipo',this.value)">
+        <option value=""></option>
+        ${(CAT.CAT_TIPO||[]).map(s=>`<option${(x.cat_tipo||"")===s?" selected":""}>${esc(s)}</option>`).join("")}
+      </select></td>
+      <td><select onchange="editarAt(${i},'cat_medio',this.value)">
+        <option value=""></option>
+        ${(CAT.MEDIO_CONTACTO||[]).map(s=>`<option${(x.cat_medio||"")===s?" selected":""}>${esc(s)}</option>`).join("")}
+      </select></td>
+      <td><select onchange="editarAt(${i},'cat_estatus',this.value)">
+        <option value=""></option>
+        ${(CAT.CAT_ESTATUS||[]).map(s=>`<option${(x.cat_estatus||"")===s?" selected":""}>${esc(s)}</option>`).join("")}
+      </select></td>
+      <td><textarea class="nota" onchange="editarAt(${i},'cat_descripcion',this.value)"
+            placeholder="lo que pidió el cliente">${esc(x.cat_descripcion||"")}</textarea></td>
+      <td><textarea class="nota" onchange="editarAt(${i},'cat_resolucion',this.value)"
+            placeholder="qué se hizo">${esc(x.cat_resolucion||"")}</textarea></td>
+      <td id="est${i}"></td></tr>`}).join("")}
+  </tbody></table></div>`;
+}
+async function editarAt(i, campo, valor){
+  const x=filas[i], celda=document.getElementById("est"+i), antes=x[campo];
+  const cuerpo={}; cuerpo[campo]=valor;
+  /* Dar por resuelta una atención sin fecha deja al cliente sin poder decir
+     cuándo se le respondió. Se sella con el día de hoy. */
+  if(campo==="cat_estatus" && valor==="Resuelto" && !limpio(x.fecha_atencion))
+    cuerpo.fecha_atencion=hoyISO();
+  x[campo]=valor;
+  if(celda) celda.innerHTML='<span class="sub">guardando…</span>';
+  try{
+    const d=await api(`servicios?coord=eq.CAT&id=eq.${x.id}`,
+      {method:"PATCH", headers:{Prefer:"return=representation"}, body:JSON.stringify(cuerpo)});
+    if(!d||!d.length) throw new Error("no encontró");
+    Object.assign(x,cuerpo);
+    if(celda){ celda.innerHTML='<span class="guardado">✓</span>';
+      setTimeout(()=>{ if(celda) celda.innerHTML="" },2500) }
+  }catch(e){
+    x[campo]=antes;
+    if(celda) celda.innerHTML='<span class="fallo">no se guardó</span>';
+  }
+}
+
+/* ================== 2. centro de monitoreo ==================
+   Lo único de Ariana que seguía viviendo solo en Excel: el corte semanal de
+   equipos en línea por zona, que alimenta el tablero de dirección. */
+const ZONAS=["ECATEPEC","HUIXQUILUCAN","C5","PUEBLA"];
+const CAMPOS=[["instalados","Equipos instalados"],["en_linea","Equipos en línea"],
+  ["sin_aviso_3h","Sin aviso de 3 horas"],["desconectado","Desconectado"],
+  ["mas_2_fallas","Más de 2 fallas"],["falla_dc","Falla DC"],
+  ["sin_internet","Sin internet"],["multi_alerta","Multi alerta"]];
+
+function lunesDe(iso){
+  const d=new Date(iso+"T12:00:00");
+  d.setDate(d.getDate()-((d.getDay()+6)%7));
+  return d.toISOString().slice(0,10);
+}
+function pantallaMonitoreo(){
+  document.getElementById("cuerpo").innerHTML=`
+    <div class="barra">
+      <div class="f"><label>Semana que inicia</label>
+        <input type="date" id="mSem" onchange="cargarMon()"></div>
+      <button onclick="semanaMon(-7)">◀ Semana anterior</button>
+      <button onclick="semanaMon(7)">Semana siguiente ▶</button>
+    </div>
+    <div id="monAviso"></div>
+    <div id="zonas"><div class="load">Cargando…</div></div>`;
+  document.getElementById("mSem").value=lunesDe(hoyISO());
+  cargarMon();
+}
+function semanaMon(n){
+  const i=document.getElementById("mSem");
+  const d=new Date(i.value+"T12:00:00"); d.setDate(d.getDate()+n);
+  i.value=d.toISOString().slice(0,10);
+  cargarMon();
+}
+async function cargarMon(){
+  const ini=document.getElementById("mSem").value;
+  try{
+    const f=await api("monitoreo?select=*&semana_ini=eq."+ini);
+    MON={}; f.forEach(z=>{ MON[(z.zona||"").toUpperCase()]=z });
+    pintarMon();
+  }catch(e){
+    document.getElementById("zonas").innerHTML=
+      '<div class="vacio">No se pudo consultar.<br><span class="sub">'+esc(String(e).slice(0,110))+'</span></div>';
+  }
+}
+function pct(z){
+  if(!z || !Number(z.instalados)) return null;
+  return Math.round(100*Number(z.en_linea||0)/Number(z.instalados));
+}
+function colorPct(p){ return p==null?"#6E8CAD":(p>=80?"#5BD79B":(p>=50?"#F0BE6E":"#F0A9A5")) }
+function pintarMon(){
+  const ini=document.getElementById("mSem").value;
+  const fin=new Date(new Date(ini+"T12:00:00").getTime()+6*86400000).toISOString().slice(0,10);
+  document.getElementById("zonas").innerHTML=`<div class="zonas">${ZONAS.map(z=>{
+    const d=MON[z]||{}, p=pct(d);
+    return `<div class="zona">
+      <h3>${esc(z)}</h3>
+      <div class="pctg" style="color:${colorPct(p)}">${p==null?"sin captura":p+"%"}</div>
+      <div class="q">en línea, del ${esc(ini)} al ${esc(fin)}</div>
+      ${CAMPOS.map(([k,et])=>`<div class="zf"><span>${et}</span>
+        <input type="number" min="0" id="m_${z}_${k}" value="${d[k]==null?"":d[k]}"></div>`).join("")}
+      <div class="zmapa">
+        <label style="display:block;margin-bottom:5px">Mapa de Nuntius (captura de pantalla)</label>
+        <input type="file" accept="image/*" id="f_${z}" style="width:100%">
+        ${d.mapa?`<div style="margin-top:6px">✓ ya tiene mapa cargado</div>`:""}
+      </div>
+      <button class="pri" style="width:100%;margin-top:11px" id="b_${z}"
+              onclick="guardarZona('${z}')">Guardar ${esc(z)}</button>
+      <div id="e_${z}" class="q" style="margin-top:7px"></div>
+    </div>`}).join("")}</div>`;
+}
+async function guardarZona(z){
+  const ini=document.getElementById("mSem").value;
+  const fin=new Date(new Date(ini+"T12:00:00").getTime()+6*86400000).toISOString().slice(0,10);
+  const b=document.getElementById("b_"+z), e=document.getElementById("e_"+z);
+  const fila={semana_ini:ini, semana_fin:fin, zona:z, capturo:nombreDe(ses.usuario)};
+  CAMPOS.forEach(([k])=>{
+    const v=document.getElementById("m_"+z+"_"+k).value.trim();
+    fila[k]= v==="" ? 0 : Number(v);
+  });
+  if(fila.en_linea>fila.instalados){
+    e.innerHTML='<span style="color:#F0A9A5">En línea no puede ser mayor que instalados.</span>';
+    return;
+  }
+  b.disabled=true; b.textContent="Guardando…"; e.textContent="";
+  try{
+    const f=document.getElementById("f_"+z).files[0];
+    if(f){
+      const ruta="monitoreo/"+ini+"/"+z+".png";
+      const r=await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,
+        {method:"POST", headers:hdr({"Content-Type":f.type||"image/png","x-upsert":"true"}),
+         body:f});
+      if(!r.ok) throw new Error("no se pudo subir el mapa ("+r.status+")");
+      fila.mapa=ruta;
+    }
+    await api("monitoreo?on_conflict=semana_ini,zona",
+      {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=representation"},
+       body:JSON.stringify([fila])});
+    MON[z]=fila;
+    e.innerHTML='<span style="color:#5BD79B">Guardado. Ya lo toma el reporte semanal.</span>';
+    const p=pct(fila);
+    const caja=b.closest(".zona").querySelector(".pctg");
+    caja.textContent=p==null?"sin captura":p+"%"; caja.style.color=colorPct(p);
+  }catch(x){
+    e.innerHTML='<span style="color:#F0A9A5">'+esc(String(x).slice(0,130))+'</span>';
+  }
+  b.disabled=false; b.textContent="Guardar "+z;
+}
+
+(async function(){
+  if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
+})();
+</script>
+</body>
+</html>
