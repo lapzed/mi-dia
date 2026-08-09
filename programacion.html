@@ -103,8 +103,13 @@
     <h2>Programación</h2>
     <p>Programación y coordinación del área técnica.</p>
     <select id="inUsr">
+      <option value="est.jenifer">Jenifer · Captura</option>
       <option value="est.ivan">Iván · Subgerencia</option>
       <option value="est.patricia">Patricia · Coordinación</option>
+      <option value="est.jair">Jair · Levantamientos</option>
+      <option value="est.alin">Alin · Instalaciones</option>
+      <option value="est.proyectos">Proyectos especiales</option>
+      <option value="est.ariana">Ariana · CAT</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
     </select>
@@ -184,8 +189,10 @@ async function entrar(){
 function salir(){ localStorage.removeItem("md_prog"); location.reload() }
 
 function nombreDe(u){
-  return ({"est.ivan":"Iván","est.patricia":"Patricia",
-           "est.gerencia":"Gerencia","est.subgerencia":"Subgerencia"})[u] || u;
+  return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
+           "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Proyectos especiales",
+           "est.ariana":"Ariana","est.gerencia":"Gerencia",
+           "est.subgerencia":"Subgerencia"})[u] || u;
 }
 
 /* ---------- catálogos ----------
