@@ -442,15 +442,22 @@ async function guardar(){
     /* El id es el mayor de la tabla más uno, como en la estación. Si dos altas
        coinciden en el mismo segundo, la segunda choca con la llave y se
        reintenta con el siguiente número en vez de perder la captura. */
-    let creado=null, intento=0;
+    /* Se pide `return=minimal` a propósito. Con `representation` la base tiene
+       que devolver el renglón recién creado, y para eso pide además permiso de
+       LECTURA sobre él: la captura da de alta en todas las coordinaciones pero
+       solo lee la suya, así que el alta se hacía bien y aun así contestaba 403.
+       El id no hace falta que lo devuelvan: lo trae este mismo código. */
+    let creado=false, intento=0;
     while(!creado && intento<4){
       intento++;
       fila.id=await siguienteId();
       try{
-        creado=await api("servicios",{method:"POST",
-          headers:{Prefer:"return=representation"}, body:JSON.stringify(fila)});
+        await api("servicios",{method:"POST",
+          headers:{Prefer:"return=minimal"}, body:JSON.stringify(fila)});
+        creado=true;
       }catch(e){
-        if(intento>=4 || String(e).indexOf("409")<0 && String(e).indexOf("duplicate")<0) throw e;
+        const choque = String(e).indexOf("409")>=0 || /duplicate|llave|key/i.test(String(e));
+        if(intento>=4 || !choque) throw e;
       }
     }
     msg.innerHTML='<div class="bien">Dado de alta como <b>'+esc(co)+' · id '+esc(fila.id)+
