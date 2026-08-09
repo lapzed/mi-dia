@@ -271,7 +271,95 @@ function pintarCampos(){
     : "Elige la coordinación: cambia lo que hay que capturar.";
   document.getElementById("campos").innerHTML=h;
   document.getElementById("c_dia_creacion").value=hoyISO();
+  ayudasDeDireccion();
   if(sitioSel) volcarSitio(sitioSel);
+}
+
+/* El CP y las coordenadas no son un campo más: son los dos que, mal puestos,
+   mandan a la brigada a otra dirección. Se les cuelga su ayuda. */
+function ayudasDeDireccion(){
+  const cp=document.getElementById("c_cp");
+  if(cp){
+    cp.setAttribute("inputmode","numeric");
+    cp.setAttribute("maxlength","5");
+    cp.addEventListener("change", resolverCP);
+    cp.addEventListener("blur", resolverCP);
+    cp.insertAdjacentHTML("afterend",
+      '<div id="avisoCP" class="q" style="margin:4px 0 0"></div>');
+  }
+  const lon=document.getElementById("c_long");
+  if(lon){
+    lon.parentElement.insertAdjacentHTML("beforeend",
+      '<button class="mini" style="margin-top:7px" onclick="buscarCoords()">📍 Buscar coordenadas</button>');
+    lon.parentElement.insertAdjacentHTML("afterend",
+      '<div class="campo ancho"><div id="avisoGeo" class="q" style="margin:0"></div></div>');
+  }
+}
+
+/* ---------- código postal ----------
+   El catálogo son 31,865 códigos. Va como archivo junto a la app y no como
+   tabla: se baja una vez, el navegador lo guarda, y de ahí en adelante resolver
+   un CP es instantáneo y funciona aunque se caiga la red. */
+let CP=null, cargandoCP=null;
+async function catalogoCP(){
+  if(CP) return CP;
+  if(!cargandoCP) cargandoCP=fetch("cp.json").then(r=>r.json()).then(j=>(CP=j));
+  return cargandoCP;
+}
+async function resolverCP(){
+  const e=document.getElementById("c_cp"), av=document.getElementById("avisoCP");
+  if(!e) return;
+  const cp=e.value.trim().padStart(5,"0");
+  if(!/^\d{5}$/.test(cp)){ if(av) av.textContent=""; return }
+  if(av) av.textContent="buscando…";
+  let d;
+  try{ d=(await catalogoCP())[cp] }catch(x){ if(av) av.textContent="no se pudo leer el catálogo"; return }
+  if(!d){ if(av) av.textContent="ese código postal no está en el catálogo"; return }
+  e.value=cp;
+  const [mun,est,cols]=d;
+  const pon=(id,v)=>{ const c=document.getElementById("c_"+id); if(c && v) c.value=v };
+  pon("municipio",mun); pon("estado",est);
+  const col=document.getElementById("c_localidad");
+  if(col){
+    if(cols.length===1 && !col.value.trim()) col.value=cols[0];
+    else if(cols.length>1 && av){
+      av.innerHTML="colonias de ese CP: "+cols.map((c,i)=>
+        `<a href="#" onclick="document.getElementById('c_localidad').value=${JSON.stringify(c).replace(/"/g,'&quot;')};return false" style="color:var(--acc)">${esc(c)}</a>`).join(" · ");
+      return;
+    }
+  }
+  if(av) av.textContent=mun+", "+est;
+}
+
+/* ---------- coordenadas ----------
+   Sin coordenada el técnico no puede abrir el mapa y termina buscando por
+   dirección, que en zonas industriales manda a otro lado. Se piden a
+   OpenStreetMap, que es gratis y no necesita llave. */
+async function buscarCoords(){
+  const av=document.getElementById("avisoGeo");
+  const partes=["direccion","localidad","municipio","estado"]
+    .map(id=>{const e=document.getElementById("c_"+id); return e?e.value.trim():""})
+    .filter(Boolean);
+  if(!partes.length){ av.textContent="Escribe primero la dirección."; return }
+  av.textContent="buscando en el mapa…";
+  try{
+    const q=encodeURIComponent(partes.join(", ")+", México");
+    const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&q="+q,
+                        {headers:{"Accept":"application/json"}});
+    const j=await r.json();
+    if(!j.length){ av.textContent="No lo encontró. Revisa la dirección o pon la coordenada a mano."; return }
+    const la=parseFloat(j[0].lat), lo=parseFloat(j[0].lon);
+    if(!(la>=14&&la<=33&&lo>=-118&&lo<=-86)){
+      av.textContent="Lo que encontró cae fuera de México; mejor a mano."; return;
+    }
+    document.getElementById("c_lat").value=la.toFixed(6);
+    document.getElementById("c_long").value=lo.toFixed(6);
+    av.innerHTML=`Encontrado: ${esc((j[0].display_name||"").slice(0,80))} —
+      <a href="https://www.google.com/maps?q=${la},${lo}" target="_blank"
+         style="color:var(--acc)">verlo en el mapa</a> antes de guardar.`;
+  }catch(e){
+    av.textContent="No se pudo consultar el mapa: "+String(e).slice(0,80);
+  }
 }
 
 /* ---------- sitios ---------- */
