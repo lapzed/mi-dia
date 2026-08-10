@@ -76,6 +76,9 @@
         <option value="est.proyectos">Proyectos especiales</option>
         <option value="est.ariana">Ariana · CAT</option>
       </optgroup>
+      <optgroup label="Ventas">
+        <option value="est.ventas">Ventas · ejecutivos de cuenta</option>
+      </optgroup>
       <optgroup label="Administración">
         <option value="jesus.acosta">Jesús Acosta · Entregables</option>
         <option value="est.subgerencia">Subgerencia</option>
@@ -140,6 +143,7 @@ const DESTINOS={
   "est.proyectos":  ["cierre","programacion","coordinacion","captura"],
   "est.ariana":     ["cat","cierre","programacion","coordinacion","captura"],
   "jesus.acosta":   ["entregables"],
+  "est.ventas":     ["ventas"],
   "est.gerencia":   ["supervision","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
   "est.subgerencia":["supervision","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
 };
@@ -151,6 +155,7 @@ const NOMBRES={"est.jenifer":["Jenifer","Captura"],"est.ivan":["Iván","Subgeren
  "est.proyectos":["Proyectos especiales","Coordinación"],
  "est.ariana":["Ariana","CAT y centro de monitoreo"],
  "jesus.acosta":["Jesús Acosta","Entregables al cliente"],
+ "est.ventas":["Ventas","Cómo van las cuentas"],
  "est.gerencia":["Gerencia",""],"est.subgerencia":["Subgerencia",""]};
 
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
