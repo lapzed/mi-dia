@@ -211,11 +211,13 @@ async function arrancar(){
     /* Bajar los 5,700 servicios de golpe tumbaba Safari en el celular con
        "WebKit encontró un error interno", que es como avisa que se quedó sin
        memoria. Supervisión no necesita el historial completo: lo de los últimos
-       seis meses, más lo que siga abierto de cualquier fecha —que es justo lo
-       que hay que perseguir—. Son 1,618 en vez de 5,722. */
+       tres meses, más lo que siga abierto de cualquier fecha —que es justo lo
+       que hay que perseguir—. Y la pestaña de "lo realizado" consulta su propio
+       periodo al servidor, así que puede mirar tan atrás como quiera sin que el
+       teléfono cargue con el historial completo. */
     const CAMPOS="id,coord,tkt,nombre,dependencia,direccion,lat,long,fecha_servicio,"+
       "horario_atencion,status,tecnico,auxiliar,duracion_est,cita_confirmada,obs_coord";
-    const desde=isoDe(-180);
+    const desde=isoDe(-90);
     const paginar = async filtro => {
       let out=[];
       for(let off=0;off<6000;off+=1000){
@@ -416,16 +418,38 @@ function semanaOperativa(){
   return [iso(jue), iso(mie)];
 }
 let periodo=null, coordF="";
-function pintarHecho(){
+let cachePeriodo={clave:null, filas:null};
+async function traerPeriodo(de,a){
+  const clave=de+"|"+a;
+  if(cachePeriodo.clave===clave) return cachePeriodo.filas;
+  const CAMPOS="id,coord,tkt,nombre,dependencia,fecha_servicio,horario_atencion,"+
+    "status,tecnico,auxiliar";
+  let out=[];
+  for(let off=0;off<6000;off+=1000){
+    const t=await api("servicios?select="+CAMPOS+"&fecha_servicio=gte."+de+
+      "&fecha_servicio=lte."+a+"&order=fecha_servicio&limit=1000&offset="+off);
+    out=out.concat(t);
+    if(t.length<1000) break;
+  }
+  cachePeriodo={clave:clave, filas:out};
+  return out;
+}
+async function pintarHecho(){
   if(!periodo) periodo=semanaOperativa();
   const [de,a]=periodo;
-  const enRango=x=>x.fecha_servicio&&x.fecha_servicio>=de&&x.fecha_servicio<=a;
+  document.getElementById("cuerpo").innerHTML='<div class="load">Cargando el periodo…</div>';
+  let delPeriodo;
+  try{ delPeriodo=await traerPeriodo(de,a); }
+  catch(e){
+    document.getElementById("cuerpo").innerHTML=
+      '<div class="vacio">No se pudo consultar el periodo.</div>'; return;
+  }
   /* Prospecto y atención a ventas no se reportan: todavía no se le destinó un
      recurso al servicio. Cancelado tampoco. Lo que no trae estatus sí cuenta:
      es un servicio, nada más que nadie cerró el registro. */
   const FUERA=["CANCELADO","PROSPECTO","ATENCION VENTAS"];
   const cuenta=x=>FUERA.indexOf((x.status||"").toUpperCase().trim())<0;
-  const v=todos.filter(x=>enRango(x)&&cuenta(x));
+  const v=delPeriodo.filter(cuenta);
   const cerrado=x=>(x.status||"").toUpperCase()==="ATENDIDO";
   const hechos=v.filter(cerrado);
 
