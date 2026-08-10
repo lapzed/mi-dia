@@ -58,6 +58,12 @@
   table.eje td.st{width:64px;text-align:right;font-size:10.5px;color:var(--txt3)}
   table.eje .si{font-weight:600}
   table.eje .te{font-size:11px;color:var(--txt3)}
+  /* el bloque de cada coordinacion dentro de la tarjeta del ejecutivo */
+  .brig .co{display:flex;align-items:baseline;gap:8px;margin:11px 0 0;
+    font-size:11.5px;font-weight:700;color:var(--acc);text-transform:uppercase;
+    letter-spacing:.05em;border-top:1px solid var(--line);padding-top:8px}
+  .brig .co span{margin-left:auto;font-weight:400;text-transform:none;
+    letter-spacing:0;color:var(--txt3)}
   .brig .n{margin-bottom:2px}
 
   .alerta{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--warn);
@@ -238,6 +244,7 @@ async function arrancar(){
     const abiertos =await paginar("&status=not.in.(ATENDIDO,CANCELADO)&fecha_servicio=lt."+desde);
     const vistos=new Set(recientes.map(x=>x.coord+"|"+x.id));
     todos=recientes.concat(abiertos.filter(x=>!vistos.has(x.coord+"|"+x.id)));
+    await cargarEjecutivos();
     ver(vista);
   }catch(e){
     document.getElementById("cuerpo").innerHTML='<div class="vacio">No se pudo consultar.</div>';
@@ -270,7 +277,31 @@ function colorDe(i){ return COLORES[i%COLORES.length] }
    donde, sino que esta pasando con SUS cuentas. Los colores del mapa siguen
    siendo por brigada —es lo que se ve en la calle— y las tarjetas de abajo se
    agrupan por ejecutivo. */
-function ejecutivoDe(x){ return limpio(x.ejecutivo) || "Sin ejecutivo asignado" }
+let EJEC={};
+async function cargarEjecutivos(){
+  try{
+    const f=await api("ejecutivos?select=alias,nombre");
+    EJEC={}; f.forEach(e=>{ EJEC[(e.alias||"").toUpperCase().trim()]=e.nombre });
+  }catch(e){ EJEC={} }
+}
+/* El ejecutivo se captura a mano y la misma persona aparece escrita de varias
+   formas —ROBERTO y ROBERTO ACOSTA—. El catálogo las unifica; si no está, se
+   respeta lo capturado. */
+function ejecutivoDe(x){
+  const c=limpio(x.ejecutivo);
+  if(!c) return "Sin ejecutivo asignado";
+  return EJEC[c.toUpperCase()] || c;
+}
+
+/* Dentro de cada ejecutivo, sus cuentas se separan por coordinación: no es lo
+   mismo un levantamiento por cerrar que un mantenimiento de póliza. */
+const COORDS=[["LEV","Levantamientos"],["MANT","Mantenimientos"],
+              ["INST","Instalaciones"],["PRY_ESP","Proyectos especiales"],
+              ["CAT","CAT"]];
+function nombreCoord(c){
+  const f=COORDS.find(([k])=>k===(c||"").toUpperCase());
+  return f?f[1]:(c||"Sin coordinación");
+}
 
 function pintarHoy(){
   const hoy=hoyISO();
@@ -336,16 +367,32 @@ function tarjetasEjecutivo(ejes, porEje, modo){
       <div class="barra"><i style="width:${pct}%;background:${col}"></i></div>
       <div class="d">${ss.length} servicio${ss.length===1?"":"s"} ·
         <b style="color:${col}">${hechos} atendido${hechos===1?"":"s"}</b></div>
-      <table class="eje">${ss.slice(0,14).map(s=>`<tr>
-        <td class="hh">${esc(hhmm(s.horario_atencion)||"--:--")}</td>
-        <td><div class="si">${esc((s.nombre||"").slice(0,40))}</div>
-          <div class="te">${esc(limpio(s.tecnico)||"sin brigada")}${
-            limpio(s.auxiliar)?" / "+esc(limpio(s.auxiliar)):""}</div></td>
-        <td class="st">${esc((s.status||"").toLowerCase()||"pendiente")}</td></tr>`).join("")}
-        ${ss.length>14?`<tr><td colspan="3" class="te">…y ${ss.length-14} más</td></tr>`:""}
-      </table>
+      ${porCoordinacion(ss)}
     </div>`;
   }).join("")}</div>`;
+}
+
+/* los servicios de un ejecutivo, en bloques por coordinación */
+function porCoordinacion(ss){
+  const g={};
+  ss.forEach(x=>{ const c=(x.coord||"").toUpperCase(); (g[c]=g[c]||[]).push(x) });
+  const orden=COORDS.map(([k])=>k).filter(k=>g[k]).concat(
+    Object.keys(g).filter(k=>!COORDS.some(([c])=>c===k)));
+  return orden.map(k=>{
+    const l=g[k].slice().sort((a,b)=>
+      (hhmm(a.horario_atencion)||"~").localeCompare(hhmm(b.horario_atencion)||"~"));
+    const hechos=l.filter(x=>(x.status||"").toUpperCase().trim()==="ATENDIDO").length;
+    return `<div class="co">${esc(nombreCoord(k))}
+        <span>${l.length} · ${hechos} atendido${hechos===1?"":"s"}</span></div>
+      <table class="eje">${l.slice(0,10).map(x=>`<tr>
+        <td class="hh">${esc(hhmm(x.horario_atencion)||"--:--")}</td>
+        <td><div class="si">${esc((x.nombre||"").slice(0,38))}</div>
+          <div class="te">${esc(limpio(x.tecnico)||"sin brigada")}${
+            limpio(x.auxiliar)?" / "+esc(limpio(x.auxiliar)):""}</div></td>
+        <td class="st">${esc((x.status||"").toLowerCase()||"pendiente")}</td></tr>`).join("")}
+        ${l.length>10?`<tr><td colspan="3" class="te">…y ${l.length-10} más</td></tr>`:""}
+      </table>`;
+  }).join("");
 }
 
 function hhmm(h){const m=String(h||"").match(/^(\d{1,2}):(\d{2})/);
