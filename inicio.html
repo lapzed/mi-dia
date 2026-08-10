@@ -113,7 +113,7 @@ const DOMINIO="mdcontrol.local";
    pantalla por pantalla. */
 const LLAVES={"captura.html":"md_capt", "programacion.html":"md_prog",
   "coordinacion.html":"md_coord", "cierre.html":"md_cierre", "cat.html":"md_cat",
-  "supervision.html":"md_sup", "levantamientos.html":"md_lev",
+  "supervision.html":"md_sup", "ventas.html":"md_ventas", "levantamientos.html":"md_lev",
   "entregables.html":"md_ses", "index.html":"md_ses"};
 
 const PANTALLAS={
@@ -125,6 +125,7 @@ const PANTALLAS={
   cat:          ["cat.html",          "🎧", "CAT", "Atenciones y centro de monitoreo"],
   entregables:  ["entregables.html",  "📄", "Entregables", "Informes y reportes al cliente"],
   supervision:  ["supervision.html",  "🛰️", "Supervisión", "Brigadas, atorones y lo realizado"],
+  ventas:       ["ventas.html",       "💼", "Ventas", "Los servicios por ejecutivo de cuenta"],
   dia:          ["index.html",        "🔧", "Mi día", "Tus servicios de hoy"]
 };
 
@@ -139,8 +140,8 @@ const DESTINOS={
   "est.proyectos":  ["cierre","programacion","coordinacion","captura"],
   "est.ariana":     ["cat","cierre","programacion","coordinacion","captura"],
   "jesus.acosta":   ["entregables"],
-  "est.gerencia":   ["supervision","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
-  "est.subgerencia":["supervision","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
+  "est.gerencia":   ["supervision","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
+  "est.subgerencia":["supervision","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
 };
 
 const NOMBRES={"est.jenifer":["Jenifer","Captura"],"est.ivan":["Iván","Subgerencia"],

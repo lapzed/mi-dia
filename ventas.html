@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Ventas</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 16px 60px}
+  header{position:sticky;top:0;z-index:400;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1240px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  select,input{padding:9px 10px;border-radius:10px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:10px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .tabs button{flex:1;min-width:150px}
+  .tabs button.on{background:var(--acc);color:#07203a}
+
+  h2{font-size:16px;margin:22px 0 10px}
+  .sub{font-size:12.5px;color:var(--txt2);margin:-6px 0 12px}
+
+  #mapa{height:420px;border-radius:14px;border:1px solid var(--line);overflow:hidden;z-index:1}
+  .leaflet-popup-content-wrapper{background:#12314F;color:#EAF2FB;border-radius:11px}
+  .leaflet-popup-tip{background:#12314F}
+  .leaflet-popup-content{margin:11px 13px;font-size:13px;line-height:1.45}
+  .pin{border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.5)}
+
+  .brigadas{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-top:14px}
+  .brig{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px 14px}
+  .brig .n{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px}
+  .punto{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+  .barra{height:9px;border-radius:6px;background:#0F2C4A;margin:9px 0 6px;overflow:hidden}
+  .barra i{display:block;height:100%;border-radius:6px}
+  .brig .d{font-size:12px;color:var(--txt2)}
+  .brig .h{font-size:11.5px;margin-top:5px;color:var(--txt3)}
+  /* los servicios dentro de la tarjeta del ejecutivo */
+  table.eje{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+  table.eje td{padding:4px 0;border-bottom:1px solid rgba(29,66,103,.45);vertical-align:top}
+  table.eje td.hh{width:44px;color:var(--txt2);font-variant-numeric:tabular-nums}
+  table.eje td.st{width:64px;text-align:right;font-size:10.5px;color:var(--txt3)}
+  table.eje .si{font-weight:600}
+  table.eje .te{font-size:11px;color:var(--txt3)}
+  .brig .n{margin-bottom:2px}
+
+  .alerta{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--warn);
+    border-radius:13px;padding:13px 15px;margin-bottom:11px}
+  .alerta.grave{border-left-color:var(--bad)}
+  .alerta h3{margin:0 0 3px;font-size:14.5px}
+  .alerta .q{font-size:12.5px;color:var(--txt2)}
+  .alerta .num{float:right;font-size:22px;font-weight:800;line-height:1}
+  .alerta.grave .num{color:#F0A9A5} .alerta .num{color:#F0BE6E}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line)}
+  td{padding:8px 9px;border-bottom:1px solid rgba(29,66,103,.5);vertical-align:top}
+  .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  .dias{font-weight:800;font-variant-numeric:tabular-nums}
+  .dias.rojo{color:#F0A9A5} .dias.ambar{color:#F0BE6E}
+
+  .vacio{text-align:center;color:var(--txt2);padding:44px}
+  .bot{display:inline-block;background:#17456E;color:var(--acc);text-decoration:none;
+    border-radius:10px;padding:8px 13px;font-size:12.5px;font-weight:700}
+  .bot:hover{background:#1D5688}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:900;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:20px;
+    max-width:390px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 14px;font-size:12.5px;color:var(--txt2)}
+  .box select,.box input{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">SUPERVISIÓN · VENTAS</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="on" onclick="ver('hoy')">📍 Dónde anda cada brigada</button>
+    <button onclick="ver('hecho')">✅ Lo realizado</button>
+  </div>
+
+  <!-- Supervisar es mirar; a veces hay que meter mano. En vez de duplicar aquí
+       las pantallas de trabajo, se entra a ellas con la misma sesión. -->
+  <div id="editar" style="display:none;margin:0 0 14px">
+    <details>
+      <summary style="cursor:pointer;font-size:12.5px;color:var(--acc);padding:5px 0">
+        ▸ Entrar a editar</summary>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px">
+        <a class="bot" href="captura.html" target="_blank">Captura</a>
+        <a class="bot" href="programacion.html" target="_blank">Programación</a>
+        <a class="bot" href="coordinacion.html" target="_blank">Coordinación</a>
+        <a class="bot" href="cierre.html" target="_blank">Cierre</a>
+        <a class="bot" href="levantamientos.html" target="_blank">Levantamientos</a>
+        <a class="bot" href="cat.html" target="_blank">CAT</a>
+        <a class="bot" href="entregables.html" target="_blank">Entregables</a>
+      </div>
+      <div class="sub" style="font-size:11.5px;color:var(--txt3);margin-top:8px">
+        Se abre en otra pestaña y pide tu clave la primera vez. Ahí escribes con
+        tu usuario, así que queda registrado que fuiste tú.</div>
+    </details>
+  </div>
+
+  <div id="cuerpo"><div class="load">Entra para supervisar.</div></div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Ventas</h2>
+    <p>Los servicios de la semana, por ejecutivo de cuenta.</p>
+    <select id="inUsr">
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+    </select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%;justify-content:center" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+const JORNADA=480;                       // 8 horas efectivas
+const BASE=[19.365222085075313,-99.14512374641009];   // oficinas: Ajusco 43, Portales Nte
+
+/* Hay registros con la longitud sin el signo negativo o sin punto decimal, y
+   basta uno para mandar el mapa a China. Se valida que caiga en México. */
+function coord(x){
+  const la=parseFloat(x.lat), lo=parseFloat(x.long);
+  if(!la||!lo) return null;
+  if(la<14||la>33||lo<-118||lo>-86) return null;
+  return [la,lo];
+}
+
+let ses=JSON.parse(localStorage.getItem("md_ventas")||"null");
+let todos=[], vista="hoy", mapa=null, capa=null;
+
+function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+function isoDe(n){const d=new Date();d.setDate(d.getDate()+n);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function dias(f){ return Math.round((new Date(hoyISO())-new Date(f))/86400000) }
+
+async function api(path,opts,reint){
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,Object.assign({},opts||{},{headers:hdr()}));
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return t?JSON.parse(t):null;
+}
+async function auth(c,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(c)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
+  return j;
+}
+function guardar(j){
+  ses={token:j.access_token,refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0]};
+  localStorage.setItem("md_ventas",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardar(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  try{
+    guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    document.getElementById("mLogin").style.display="none"; arrancar();
+  }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
+}
+function salir(){ localStorage.removeItem("md_ventas"); location.reload() }
+
+async function arrancar(){
+  document.getElementById("who").innerHTML="<b>"+esc(ses.usuario||"")+"</b>salir";
+  document.getElementById("tabs").style.display="flex";
+  document.getElementById("editar").style.display="block";
+  document.getElementById("cuerpo").innerHTML='<div class="load">Cargando…</div>';
+  try{
+    /* Bajar los 5,700 servicios de golpe tumbaba Safari en el celular con
+       "WebKit encontró un error interno", que es como avisa que se quedó sin
+       memoria. Supervisión no necesita el historial completo: lo de los últimos
+       tres meses, más lo que siga abierto de cualquier fecha —que es justo lo
+       que hay que perseguir—. Y la pestaña de "lo realizado" consulta su propio
+       periodo al servidor, así que puede mirar tan atrás como quiera sin que el
+       teléfono cargue con el historial completo. */
+    const CAMPOS="id,coord,tkt,nombre,dependencia,direccion,lat,long,fecha_servicio,"+
+      "horario_atencion,status,tecnico,auxiliar,duracion_est,cita_confirmada,ejecutivo";
+    const desde=isoDe(-90);
+    const paginar = async filtro => {
+      let out=[];
+      for(let off=0;off<6000;off+=1000){
+        const t=await api("servicios?select="+CAMPOS+filtro+
+                          "&order=fecha_servicio.desc&limit=1000&offset="+off);
+        out=out.concat(t);
+        if(t.length<1000) break;
+      }
+      return out;
+    };
+    const recientes=await paginar("&fecha_servicio=gte."+desde);
+    const abiertos =await paginar("&status=not.in.(ATENDIDO,CANCELADO)&fecha_servicio=lt."+desde);
+    const vistos=new Set(recientes.map(x=>x.coord+"|"+x.id));
+    todos=recientes.concat(abiertos.filter(x=>!vistos.has(x.coord+"|"+x.id)));
+    ver(vista);
+  }catch(e){
+    document.getElementById("cuerpo").innerHTML='<div class="vacio">No se pudo consultar.</div>';
+  }
+}
+
+/* CONTINUIDAD no es un servicio sin cerrar: es una obra que dura varios días y
+   ese día no se concluyó. Cuenta como trabajo en curso, no como pendiente. */
+function enProceso(x){ return (x.status||"").toUpperCase()==="CONTINUIDAD" }
+/* Un prospecto sin técnico no es una alerta: todavía no se le destina recurso,
+   así que no se reporta como servicio ni como pendiente. */
+function abierto(x){
+  return ["ATENDIDO","CANCELADO","CONTINUIDAD","PROSPECTO","ATENCION VENTAS"]
+         .indexOf((x.status||"").toUpperCase().trim())<0;
+}
+function ver(v){
+  vista=v;
+  [...document.querySelectorAll(".tabs button")].forEach((b,i)=>
+    b.classList.toggle("on", ["hoy","hecho"][i]===v));
+  if(v==="hoy") pintarHoy();
+  if(v==="hecho") pintarHecho();
+}
+
+/* ================= 1. dónde anda cada brigada ================= */
+const COLORES=["#63B3FF","#5BD79B","#F0BE6E","#F0A9A5","#C39BD3","#7FD1D8","#FFD79A",
+               "#9DB6D2","#B5E48C","#FFB4A2","#A0C4FF","#BDB2FF","#FFC6FF"];
+function colorDe(i){ return COLORES[i%COLORES.length] }
+
+/* Ventas mira lo mismo, pero desde su lado: no le importa que brigada anda
+   donde, sino que esta pasando con SUS cuentas. Los colores del mapa siguen
+   siendo por brigada —es lo que se ve en la calle— y las tarjetas de abajo se
+   agrupan por ejecutivo. */
+function ejecutivoDe(x){ return limpio(x.ejecutivo) || "Sin ejecutivo asignado" }
+
+function pintarHoy(){
+  const hoy=hoyISO();
+  const dia=todos.filter(x=>x.fecha_servicio===hoy);
+  const porBrig={};
+  dia.forEach(x=>{ const t=limpio(x.tecnico)||"Sin asignar";
+                   (porBrig[t]=porBrig[t]||[]).push(x) });
+  const brigs=Object.keys(porBrig).sort((a,b)=>porBrig[b].length-porBrig[a].length);
+
+  const porEje={};
+  dia.forEach(x=>{ const e=ejecutivoDe(x); (porEje[e]=porEje[e]||[]).push(x) });
+  const ejes=Object.keys(porEje).sort((a,b)=>porEje[b].length-porEje[a].length);
+
+  document.getElementById("cuerpo").innerHTML=`
+    <h2>Hoy · ${dia.length} servicios de ${ejes.length} ejecutivo${ejes.length===1?"":"s"}</h2>
+    <p class="sub">En el mapa, cada color es una brigada. El punto grande es la
+       oficina. Abajo, lo mismo pero por ejecutivo de cuenta.</p>
+    <div id="mapa"></div>
+    ${tarjetasEjecutivo(ejes, porEje, "hoy")}`;
+
+  if(mapa){ mapa.remove(); mapa=null }
+  mapa=L.map("mapa",{scrollWheelZoom:false}).setView(BASE,10);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {attribution:"OpenStreetMap", maxZoom:18}).addTo(mapa);
+  L.circleMarker(BASE,{radius:9,color:"#fff",weight:2,fillColor:"#0B2038",fillOpacity:1})
+    .addTo(mapa).bindPopup("<b>Oficinas MDreieck</b><br>Ajusco 43, Portales Nte,<br>Benito Juárez, 03300");
+  const pts=[BASE];
+  brigs.forEach((t,i)=>{
+    porBrig[t].forEach(s=>{
+      const c=coord(s);
+      if(!c) return;
+      pts.push(c);
+      L.circleMarker(c,{radius:7,color:"#fff",weight:1.5,
+        fillColor:colorDe(i),fillOpacity:.95, className:"pin"})
+        .addTo(mapa)
+        .bindPopup(`<b>${esc(s.nombre||"")}</b><br>${esc(limpio(s.dependencia))}<br>
+          ${limpio(s.horario_atencion)||"sin hora"} · ${esc(t)}<br>
+          <span style="color:#63B3FF">${esc(ejecutivoDe(s))}</span><br>
+          <span style="color:#9DB6D2">${esc(s.status||"pendiente")}</span>`);
+    });
+  });
+  setTimeout(()=>{
+    mapa.invalidateSize();
+    if(pts.length>1) mapa.fitBounds(pts,{padding:[30,30]});
+  }, 120);
+  const sinCoord=dia.filter(x=>!coord(x)).length;
+  if(sinCoord) document.getElementById("cuerpo").insertAdjacentHTML("beforeend",
+    `<p class="sub" style="margin-top:12px">⚠️ ${sinCoord} servicio(s) de hoy no salen en el mapa por no tener coordenadas.</p>`);
+}
+
+/* Una tarjeta por ejecutivo, y dentro sus servicios: hora, sitio y quién va.
+   Es lo que ventas necesita para contestarle al cliente sin preguntar. */
+function tarjetasEjecutivo(ejes, porEje, modo){
+  if(!ejes.length) return '<div class="vacio">Nada por aquí.</div>';
+  return `<div class="brigadas">${ejes.map(e=>{
+    const ss=porEje[e].slice().sort((a,b)=>
+      (hhmm(a.horario_atencion)||"~").localeCompare(hhmm(b.horario_atencion)||"~"));
+    const hechos=ss.filter(s=>(s.status||"").toUpperCase().trim()==="ATENDIDO").length;
+    const pct=Math.round(100*hechos/ss.length);
+    const col=pct===100?"#5BD79B":(pct>0?"#F0BE6E":"#7FA8CE");
+    return `<div class="brig">
+      <div class="n">${esc(e)}</div>
+      <div class="barra"><i style="width:${pct}%;background:${col}"></i></div>
+      <div class="d">${ss.length} servicio${ss.length===1?"":"s"} ·
+        <b style="color:${col}">${hechos} atendido${hechos===1?"":"s"}</b></div>
+      <table class="eje">${ss.slice(0,14).map(s=>`<tr>
+        <td class="hh">${esc(hhmm(s.horario_atencion)||"--:--")}</td>
+        <td><div class="si">${esc((s.nombre||"").slice(0,40))}</div>
+          <div class="te">${esc(limpio(s.tecnico)||"sin brigada")}${
+            limpio(s.auxiliar)?" / "+esc(limpio(s.auxiliar)):""}</div></td>
+        <td class="st">${esc((s.status||"").toLowerCase()||"pendiente")}</td></tr>`).join("")}
+        ${ss.length>14?`<tr><td colspan="3" class="te">…y ${ss.length-14} más</td></tr>`:""}
+      </table>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function hhmm(h){const m=String(h||"").match(/^(\d{1,2}):(\d{2})/);
+  return m?String(m[1]).padStart(2,"0")+":"+m[2]:""}
+
+
+/* ================= 2. lo que se está atorando ================= */
+const DIAS_OBRA_VIEJA=30;   // más de un mes "en proceso" ya no es una obra en curso
+
+function semanaOperativa(){
+  // la semana del área corre de jueves a miércoles
+  const h=new Date();
+  const jue=new Date(h); jue.setDate(h.getDate()-((h.getDay()-4+7)%7));
+  const mie=new Date(jue); mie.setDate(jue.getDate()+6);
+  const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  return [iso(jue), iso(mie)];
+}
+let periodo=null, coordF="";
+let cachePeriodo={clave:null, filas:null};
+async function traerPeriodo(de,a){
+  const clave=de+"|"+a;
+  if(cachePeriodo.clave===clave) return cachePeriodo.filas;
+  const CAMPOS="id,coord,tkt,nombre,dependencia,fecha_servicio,horario_atencion,"+
+    "status,tecnico,auxiliar,ejecutivo";
+  let out=[];
+  for(let off=0;off<6000;off+=1000){
+    const t=await api("servicios?select="+CAMPOS+"&fecha_servicio=gte."+de+
+      "&fecha_servicio=lte."+a+"&order=fecha_servicio&limit=1000&offset="+off);
+    out=out.concat(t);
+    if(t.length<1000) break;
+  }
+  cachePeriodo={clave:clave, filas:out};
+  return out;
+}
+async function pintarHecho(){
+  if(!periodo) periodo=semanaOperativa();
+  const [de,a]=periodo;
+  document.getElementById("cuerpo").innerHTML='<div class="load">Cargando el periodo…</div>';
+  let filas;
+  try{ filas=await traerPeriodo(de,a); }
+  catch(e){
+    document.getElementById("cuerpo").innerHTML='<div class="vacio">No se pudo consultar el periodo.</div>';
+    return;
+  }
+  /* Prospecto y atención a ventas no cuentan como servicio: todavía no se le
+     destinó un recurso. Cancelado tampoco. */
+  const FUERA=["CANCELADO","PROSPECTO","ATENCION VENTAS"];
+  const v=filas.filter(x=>FUERA.indexOf((x.status||"").toUpperCase().trim())<0);
+  const hechos=v.filter(x=>(x.status||"").toUpperCase().trim()==="ATENDIDO").length;
+
+  const porEje={};
+  v.forEach(x=>{ const e=ejecutivoDe(x); (porEje[e]=porEje[e]||[]).push(x) });
+  const ejes=Object.keys(porEje).sort((x,y)=>porEje[y].length-porEje[x].length);
+
+  document.getElementById("cuerpo").innerHTML=`
+    <h2>Lo realizado</h2>
+    <p class="sub">Del ${de} al ${a} · ${v.length} servicios,
+      <b style="color:#5BD79B">${hechos} atendidos</b>, de ${ejes.length}
+      ejecutivo${ejes.length===1?"":"s"} de cuenta.</p>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+      <div><label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Desde</label>
+        <input type="date" id="pDe" value="${de}"></div>
+      <div><label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Hasta</label>
+        <input type="date" id="pA" value="${a}"></div>
+      <button class="pri" onclick="periodo=[document.getElementById('pDe').value,
+        document.getElementById('pA').value];pintarHecho()">Ver ese periodo</button>
+      <button onclick="periodo=semanaOperativa();pintarHecho()">Semana en curso</button>
+    </div>
+    ${tarjetasEjecutivo(ejes, porEje, "hecho")}`;
+}
+
+(async function(){
+  if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
+})();
+</script>
+</body>
+</html>
