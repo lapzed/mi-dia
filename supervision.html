@@ -164,6 +164,8 @@ let todos=[], vista="hoy", mapa=null, capa=null;
 function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+function isoDe(n){const d=new Date();d.setDate(d.getDate()+n);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function dias(f){ return Math.round((new Date(hoyISO())-new Date(f))/86400000) }
 
@@ -206,15 +208,28 @@ async function arrancar(){
   document.getElementById("editar").style.display="block";
   document.getElementById("cuerpo").innerHTML='<div class="load">Cargando…</div>';
   try{
-    todos=[];
-    const q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,fecha_servicio,"+
-            "horario_atencion,status,tecnico,auxiliar,duracion_est,cita_confirmada,obs_coord"+
-            "&order=fecha_servicio.desc";
-    for(let off=0;off<9000;off+=1000){
-      const t=await api(q+"&limit=1000&offset="+off);
-      todos=todos.concat(t);
-      if(t.length<1000) break;
-    }
+    /* Bajar los 5,700 servicios de golpe tumbaba Safari en el celular con
+       "WebKit encontró un error interno", que es como avisa que se quedó sin
+       memoria. Supervisión no necesita el historial completo: lo de los últimos
+       seis meses, más lo que siga abierto de cualquier fecha —que es justo lo
+       que hay que perseguir—. Son 1,618 en vez de 5,722. */
+    const CAMPOS="id,coord,tkt,nombre,dependencia,direccion,lat,long,fecha_servicio,"+
+      "horario_atencion,status,tecnico,auxiliar,duracion_est,cita_confirmada,obs_coord";
+    const desde=isoDe(-180);
+    const paginar = async filtro => {
+      let out=[];
+      for(let off=0;off<6000;off+=1000){
+        const t=await api("servicios?select="+CAMPOS+filtro+
+                          "&order=fecha_servicio.desc&limit=1000&offset="+off);
+        out=out.concat(t);
+        if(t.length<1000) break;
+      }
+      return out;
+    };
+    const recientes=await paginar("&fecha_servicio=gte."+desde);
+    const abiertos =await paginar("&status=not.in.(ATENDIDO,CANCELADO)&fecha_servicio=lt."+desde);
+    const vistos=new Set(recientes.map(x=>x.coord+"|"+x.id));
+    todos=recientes.concat(abiertos.filter(x=>!vistos.has(x.coord+"|"+x.id)));
     ver(vista);
   }catch(e){
     document.getElementById("cuerpo").innerHTML='<div class="vacio">No se pudo consultar.</div>';
@@ -506,12 +521,14 @@ function pintarHecho(){
           ${lista.length} servicio${lista.length===1?"":"s"}</span></h3>
       <table><thead><tr><th>Fecha</th><th>Ticket</th><th>Sitio</th>
         <th>Técnico</th><th>Estatus</th></tr></thead><tbody>
-        ${lista.map(x=>`<tr>
+        ${lista.slice(0,120).map(x=>`<tr>
           <td>${esc(x.fecha_servicio)}</td>
           <td>${esc(limpio(x.tkt)||"—")}</td>
           <td>${esc(x.nombre||"")}</td>
           <td>${esc(limpio(x.tecnico)||"—")}</td>
           <td>${esc(x.status||"sin estatus")}</td></tr>`).join("")}
+        ${lista.length>120?`<tr><td colspan="5" class="q">…y ${lista.length-120} más.
+          Acota el periodo para verlos todos.</td></tr>`:""}
       </tbody></table>`).join("")
       ||'<p class="sub">No hay servicios en ese periodo.</p>'}`;
 }
