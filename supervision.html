@@ -131,6 +131,7 @@
     <h2>Supervisión</h2>
     <p>Solo gerencia y subgerencia.</p>
     <select id="inUsr">
+      <option value="est.gloria">Gloria Montserrat · Apoyo</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
     </select>
@@ -158,7 +159,8 @@ function coord(x){
   return [la,lo];
 }
 
-let ses=JSON.parse(localStorage.getItem("md_sup")||"null");
+let ses=JSON.parse(localStorage.getItem("md_sup")||
+  localStorage.getItem("md_web")||"null")   /* la sesion es una sola: ver md_web abajo */;
 let todos=[], vista="hoy", mapa=null, capa=null;
 
 function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
@@ -187,6 +189,13 @@ function guardar(j){
   ses={token:j.access_token,refresh:j.refresh_token,
        usuario:(j.user&&j.user.email||"").split("@")[0]};
   localStorage.setItem("md_sup",JSON.stringify(ses));
+  /* ---------- una sola sesion para todo ----------
+     Cada pantalla guardaba su sesion aparte, asi que al pasar de
+     supervision a captura la segunda no encontraba nada y volvia a
+     pedir la clave, mostrando ademas el primer nombre de la lista.
+     Ahora la sesion se escribe tambien en una llave comun y todas la
+     leen: se entra una vez y se anda por las etapas sin teclear otra vez. */
+  localStorage.setItem("md_web",JSON.stringify(ses));
 }
 async function renovar(){
   if(!ses||!ses.refresh) return false;
@@ -197,10 +206,12 @@ async function entrar(){
   const e=document.getElementById("err");
   try{
     guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    localStorage.setItem("md_quien", u);
     document.getElementById("mLogin").style.display="none"; arrancar();
   }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
 }
-function salir(){ localStorage.removeItem("md_sup"); location.reload() }
+function salir(){ localStorage.removeItem("md_sup");
+  localStorage.removeItem("md_web"); location.reload() }
 
 async function arrancar(){
   document.getElementById("who").innerHTML="<b>"+esc(ses.usuario||"")+"</b>salir";
@@ -560,6 +571,20 @@ async function pintarHecho(){
 (async function(){
   if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
 })();
+
+/* ---------- que no salga siempre el primero de la lista ----------
+   El menu se quedaba en la primera opcion, y esa es Jenifer: todos veian su
+   nombre al entrar. Ahora se preselecciona quien uso esta pantalla la ultima vez
+   en este equipo, o a quien se eligio en el inicio. Es solo comodidad: la clave
+   se sigue pidiendo igual. */
+function recordarQuien(){
+  const sel=document.getElementById("inUsr");
+  if(!sel) return;
+  const u=localStorage.getItem("md_quien");
+  if(u && sel.querySelector('option[value="'+u+'"]')) sel.value=u;
+}
+try{ recordarQuien(); }catch(e){}
+
 </script>
 </body>
 </html>

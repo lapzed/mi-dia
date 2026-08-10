@@ -285,7 +285,8 @@ const DOMINIO="mdcontrol.local";
 const BUCKET="evidencias";
 const LOGO="logo.png";          // va en la misma carpeta que esta pagina
 
-let ses=JSON.parse(localStorage.getItem("md_ses")||"null");
+let ses=JSON.parse(localStorage.getItem("md_ses")||
+  localStorage.getItem("md_web")||"null")   /* la sesion es una sola: ver md_web abajo */;
 let filas=[], ev={}, marcados=new Set();
 
 /* La evidencia se toma en tres momentos del servicio, mas el reporte firmado.
@@ -325,6 +326,13 @@ function guardar(j){
   ses={token:j.access_token,refresh:j.refresh_token,nombre:md.nombre||"",
        rol:md.rol||"",usuario:(j.user&&j.user.email||"").split("@")[0]};
   localStorage.setItem("md_ses",JSON.stringify(ses));
+  /* ---------- una sola sesion para todo ----------
+     Cada pantalla guardaba su sesion aparte, asi que al pasar de
+     supervision a captura la segunda no encontraba nada y volvia a
+     pedir la clave, mostrando ademas el primer nombre de la lista.
+     Ahora la sesion se escribe tambien en una llave comun y todas la
+     leen: se entra una vez y se anda por las etapas sin teclear otra vez. */
+  localStorage.setItem("md_web",JSON.stringify(ses));
 }
 async function renovar(){
   if(!ses||!ses.refresh) return false;
@@ -342,7 +350,8 @@ const ESTACIONES=[
   ["est.jenifer","Jenifer · Mantenimientos"], ["est.ivan","Iván · Mantenimientos"],
   ["est.patricia","Patricia · Mantenimientos"], ["est.ariana","Ariana · CAT"],
   ["est.jair","Jair · Levantamientos"], ["est.alin","Alin · Instalaciones"],
-  ["est.banorte","Proyectos especiales"]
+  ["est.proyectos","Proyectos especiales"],
+  ["est.gloria","Gloria Montserrat · Apoyo"]
 ];
 
 async function llenarUsuarios(){
@@ -377,10 +386,8 @@ async function entrar(){
     err.textContent=/invalid/i.test(String(e))?"Usuario o clave incorrectos.":String(e).slice(0,90);
   }
 }
-function salir(){
-  if(!confirm("¿Salir?")) return;
-  ses=null; localStorage.removeItem("md_ses"); location.reload();
-}
+function salir(){ localStorage.removeItem("md_ses");
+  localStorage.removeItem("md_web"); location.reload() }
 
 /* ---------- datos ---------- */
 async function arrancar(){

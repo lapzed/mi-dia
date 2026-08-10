@@ -75,6 +75,7 @@
         <option value="est.alin">Alin · Instalaciones</option>
         <option value="est.proyectos">Proyectos especiales</option>
         <option value="est.ariana">Ariana · CAT</option>
+        <option value="est.gloria">Gloria Montserrat · Apoyo</option>
       </optgroup>
       <optgroup label="Ventas">
         <option value="est.ventas">Ventas · ejecutivos de cuenta</option>
@@ -114,7 +115,7 @@ const DOMINIO="mdcontrol.local";
 /* Cada pantalla guarda su sesión en su propia llave. Al entrar aquí se escribe
    en todas las que esa persona usa, para que no le vuelvan a pedir la clave
    pantalla por pantalla. */
-const LLAVES={"captura.html":"md_capt", "programacion.html":"md_prog",
+const LLAVES={"demanda.html":"md_demanda", "captura.html":"md_capt", "programacion.html":"md_prog",
   "coordinacion.html":"md_coord", "cierre.html":"md_cierre", "cat.html":"md_cat",
   "supervision.html":"md_sup", "ventas.html":"md_ventas", "levantamientos.html":"md_lev",
   "entregables.html":"md_ses", "index.html":"md_ses"};
@@ -127,6 +128,7 @@ const PANTALLAS={
   levantamientos:["levantamientos.html","📐","Levantamientos", "Propuestas, croquis y fichas"],
   cat:          ["cat.html",          "🎧", "CAT", "Atenciones y centro de monitoreo"],
   entregables:  ["entregables.html",  "📄", "Entregables", "Informes y reportes al cliente"],
+  demanda:      ["demanda.html",      "📊", "Demanda de técnicos", "Cuánto trae cada brigada y qué falta asignar"],
   supervision:  ["supervision.html",  "🛰️", "Supervisión", "Brigadas, atorones y lo realizado"],
   ventas:       ["ventas.html",       "💼", "Ventas", "Los servicios por ejecutivo de cuenta"],
   dia:          ["index.html",        "🔧", "Mi día", "Tus servicios de hoy"]
@@ -136,16 +138,18 @@ const PANTALLAS={
    solo se le presenta en orden, empezando por la que más usa. */
 const DESTINOS={
   "est.jenifer":    ["captura","coordinacion","cierre","programacion"],
-  "est.ivan":       ["programacion","coordinacion","cierre","captura"],
-  "est.patricia":   ["programacion","coordinacion","cierre","captura"],
+  "est.ivan":       ["programacion","coordinacion","demanda","cierre","captura"],
+  "est.patricia":   ["programacion","coordinacion","demanda","cierre","captura"],
   "est.jair":       ["levantamientos","cierre","programacion","coordinacion","captura"],
   "est.alin":       ["cierre","programacion","coordinacion","captura"],
   "est.proyectos":  ["cierre","programacion","coordinacion","captura"],
   "est.ariana":     ["cat","cierre","programacion","coordinacion","captura"],
+  "est.gloria":     ["captura","programacion","coordinacion","cierre",
+                     "demanda","levantamientos","cat","entregables"],
   "jesus.acosta":   ["entregables"],
   "est.ventas":     ["ventas"],
-  "est.gerencia":   ["supervision","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
-  "est.subgerencia":["supervision","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
+  "est.gerencia":   ["supervision","demanda","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
+  "est.subgerencia":["supervision","demanda","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
 };
 
 const NOMBRES={"est.jenifer":["Jenifer","Captura"],"est.ivan":["Iván","Subgerencia"],
@@ -154,6 +158,7 @@ const NOMBRES={"est.jenifer":["Jenifer","Captura"],"est.ivan":["Iván","Subgeren
  "est.alin":["Alin","Coordinación de instalaciones"],
  "est.proyectos":["Proyectos especiales","Coordinación"],
  "est.ariana":["Ariana","CAT y centro de monitoreo"],
+ "est.gloria":["Gloria Montserrat","Apoyo a las coordinaciones"],
  "jesus.acosta":["Jesús Acosta","Entregables al cliente"],
  "est.ventas":["Ventas","Cómo van las cuentas"],
  "est.gerencia":["Gerencia",""],"est.subgerencia":["Subgerencia",""]};
@@ -193,6 +198,10 @@ async function entrar(){
       const ll=LLAVES[PANTALLAS[k][0]];
       if(ll) localStorage.setItem(ll, JSON.stringify(ses));
     });
+    /* además la llave común: con ella cualquier pantalla reconoce la sesión,
+       aunque no esté en la lista de destinos de esa persona. Así entrar a
+       editar desde supervisión ya no vuelve a pedir la clave. */
+    localStorage.setItem("md_web", JSON.stringify(ses));
     localStorage.setItem("md_quien", u);
     menu(u);
   }catch(x){
@@ -233,7 +242,7 @@ function salir(){
     // si ya hay sesión guardada, se le muestra su menú sin pedir la clave
     const dest=(DESTINOS[u]||[])[0];
     const ll=dest?LLAVES[PANTALLAS[dest][0]]:null;
-    if(ll && localStorage.getItem(ll)){ menu(u); return }
+    if((ll && localStorage.getItem(ll)) || localStorage.getItem("md_web")){ menu(u); return }
   }
   recordar();
 })();

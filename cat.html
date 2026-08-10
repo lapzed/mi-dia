@@ -39,6 +39,9 @@
   button:disabled{opacity:.45;cursor:default}
   .mini{padding:4px 9px;font-size:11.5px}
 
+  .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt2);
+    text-transform:none;letter-spacing:0;cursor:pointer;white-space:nowrap}
+  .chk input{width:auto;margin:0}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -110,6 +113,7 @@
     <p>Atención a clientes corporativos y centro de monitoreo.</p>
     <select id="inUsr">
       <option value="est.ariana">Ariana · CAT</option>
+      <option value="est.gloria">Gloria Montserrat · Apoyo</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
     </select>
@@ -126,7 +130,8 @@ const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
 const DOMINIO="mdcontrol.local";
 const BUCKET="evidencias";
 
-let ses=JSON.parse(localStorage.getItem("md_cat")||"null");
+let ses=JSON.parse(localStorage.getItem("md_cat")||
+  localStorage.getItem("md_web")||"null")   /* la sesion es una sola: ver md_web abajo */;
 let vista="atenciones", filas=[], CAT={}, EJEC={}, MON={};
 
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
@@ -155,8 +160,17 @@ async function auth(c,tipo){
 }
 function guardarSes(j){
   ses={token:j.access_token,refresh:j.refresh_token,
-       usuario:(j.user&&j.user.email||"").split("@")[0]};
+       usuario:(j.user&&j.user.email||"").split("@")[0],
+       rol:(j.user&&j.user.user_metadata&&j.user.user_metadata.rol)||"",
+       coord:(j.user&&j.user.user_metadata&&j.user.user_metadata.coord)||""};
   localStorage.setItem("md_cat",JSON.stringify(ses));
+  /* ---------- una sola sesion para todo ----------
+     Cada pantalla guardaba su sesion aparte, asi que al pasar de
+     supervision a captura la segunda no encontraba nada y volvia a
+     pedir la clave, mostrando ademas el primer nombre de la lista.
+     Ahora la sesion se escribe tambien en una llave comun y todas la
+     leen: se entra una vez y se anda por las etapas sin teclear otra vez. */
+  localStorage.setItem("md_web",JSON.stringify(ses));
 }
 async function renovar(){
   if(!ses||!ses.refresh) return false;
@@ -167,12 +181,14 @@ async function entrar(){
   const e=document.getElementById("err");
   try{
     guardarSes(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    localStorage.setItem("md_quien", u);
     document.getElementById("mLogin").style.display="none"; arrancar();
   }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
 }
-function salir(){ localStorage.removeItem("md_cat"); location.reload() }
+function salir(){ localStorage.removeItem("md_cat");
+  localStorage.removeItem("md_web"); location.reload() }
 function nombreDe(u){
-  return ({"est.ariana":"Ariana","est.gerencia":"Gerencia",
+  return ({"est.gloria":"Gloria Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
            "est.subgerencia":"Subgerencia"})[u] || u;
 }
 
@@ -215,6 +231,10 @@ function pantallaAtenciones(){
           <option value="abierto">Sin resolver</option>
           <option value="">Todas</option>
         </select></div>
+      <div class="f"><label>Buscar TKT o sitio</label>
+        <input id="fTkt" placeholder="11998, WALMART…" oninput="filtrarVista()"></div>
+      <label class="chk"><input type="checkbox" id="fTodos" onchange="verTodos()">
+        Ver todas</label>
     </div>
     <div class="resumen" id="resumen"></div>
     <div id="lista"><div class="load">Cargando…</div></div>`;
@@ -242,7 +262,48 @@ function ejecutivoDe(x){
   const e=EJEC[c.toUpperCase()];
   return {nombre:(e&&e.nombre)||c, tel:(e&&limpio(e.telefono))||""};
 }
-function pintarAt(){
+/* ---------- buscador de TKT y casilla de ver todos ----------
+   Los dos venian de la estacion de Excel: txtBuscarTkt filtraba la cola por TKT
+   o por nombre, y chkTodos decidia si se veia nada mas lo pendiente de esa etapa
+   o todo el historico de la coordinacion.
+
+   El buscador filtra sobre lo ya pintado (no vuelve a la base): es instantaneo
+   y no toca los indices de los renglones, que son los que usan los desplegables
+   para saber a que servicio le estan guardando. */
+function filtrarVista(){
+  const e=document.getElementById("fTkt");
+  const q=(e?e.value:"").trim().toUpperCase();
+  const trs=document.querySelectorAll("#lista tbody tr");
+  let vistos=0;
+  trs.forEach(function(tr){
+    const ok = !q || tr.textContent.toUpperCase().indexOf(q)>=0;
+    tr.style.display = ok ? "" : "none";
+    if(ok) vistos++;
+  });
+  const c=document.getElementById("cuentaTkt");
+  if(c) c.textContent = q ? (vistos+" de "+trs.length+" con «"+e.value.trim()+"»") : "";
+}
+/* Ver todos: deja de mostrar nada mas lo pendiente y abre el rango de fechas. */
+function verTodos(){
+  const on=document.getElementById("fTodos").checked;
+  const ver=document.getElementById("fVer");
+  if(ver){ ver.value = on ? "" : ver.options[0].value; }
+  const de=document.getElementById("fDe"), a=document.getElementById("fA");
+  if(on && de && a){
+    const h=new Date(), d=new Date(); d.setMonth(d.getMonth()-12);
+    const iso=x=>x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+
+                 String(x.getDate()).padStart(2,"0");
+    de.dataset.previo=de.value; a.dataset.previo=a.value;
+    de.value=iso(d); a.value=iso(h);
+  } else if(de && a && de.dataset.previo){
+    de.value=de.dataset.previo; a.value=a.dataset.previo;
+  }
+  if(typeof cargar==="function") cargar();
+  else if(typeof cargarAt==="function") cargarAt();
+  else if(typeof pintar==="function") pintar();
+}
+
+function pintarAt(){ setTimeout(filtrarVista,0);
   const solo=document.getElementById("fVer").value;
   const v = solo==="abierto" ? filas.filter(x=>!resuelta(x)) : filas;
   const sinRes=filas.filter(x=>!resuelta(x)).length;
@@ -282,6 +343,30 @@ function pintarAt(){
       <td id="est${i}"></td></tr>`}).join("")}
   </tbody></table></div>`;
 }
+const ETAPA_AQUI=5;
+
+/* ---------- bitacora: quien movio que ----------
+   Es el mismo LOG que llevaba la estacion de Excel (LogSupa). Al pasar a web se
+   habia quedado sin anotar, y con la gente migrando el rastro se perdia.
+
+   Se manda sin esperar y con el error tragado a proposito: si la bitacora
+   falla, el trabajo del usuario ya quedo guardado y no tiene por que enterarse.
+   Un log que estorba se acaba quitando. */
+function anotar(accion, detalle, x){
+  try{
+    const t=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    api("log",{method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({
+      timestamp:t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" "+
+                p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()),
+      usuario:nombreDe(ses&&ses.usuario), win_user:"web",
+      coord:(x&&x.coord)||(ses&&ses.coord)||"", rol:(ses&&ses.rol)||"",
+      etapa:String((x&&x.etapa_actual)||ETAPA_AQUI),
+      tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
+    })}).catch(function(){});
+  }catch(e){}
+}
+
 async function editarAt(i, campo, valor){
   const x=filas[i], celda=document.getElementById("est"+i), antes=x[campo];
   const cuerpo={}; cuerpo[campo]=valor;
@@ -296,6 +381,7 @@ async function editarAt(i, campo, valor){
       {method:"PATCH", headers:{Prefer:"return=representation"}, body:JSON.stringify(cuerpo)});
     if(!d||!d.length) throw new Error("no encontró");
     Object.assign(x,cuerpo);
+    anotar("GUARDAR", "ID="+x.id+" · "+campo+" = "+(valor||"(vacío)"), x);
     if(celda){ celda.innerHTML='<span class="guardado">✓</span>';
       setTimeout(()=>{ if(celda) celda.innerHTML="" },2500) }
   }catch(e){
@@ -307,7 +393,8 @@ async function editarAt(i, campo, valor){
 /* ================== 2. centro de monitoreo ==================
    Lo único de Ariana que seguía viviendo solo en Excel: el corte semanal de
    equipos en línea por zona, que alimenta el tablero de dirección. */
-const ZONAS=["ECATEPEC","HUIXQUILUCAN","C5","PUEBLA"];
+/* Ecatepec y C5 salieron de monitoreo en agosto 2026. */
+const ZONAS=["HUIXQUILUCAN","PUEBLA"];
 const CAMPOS=[["instalados","Equipos instalados"],["en_linea","Equipos en línea"],
   ["sin_aviso_3h","Sin aviso de 3 horas"],["desconectado","Desconectado"],
   ["mas_2_fallas","Más de 2 fallas"],["falla_dc","Falla DC"],
@@ -415,6 +502,20 @@ async function guardarZona(z){
 (async function(){
   if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
 })();
+
+/* ---------- que no salga siempre el primero de la lista ----------
+   El menu se quedaba en la primera opcion, y esa es Jenifer: todos veian su
+   nombre al entrar. Ahora se preselecciona quien uso esta pantalla la ultima vez
+   en este equipo, o a quien se eligio en el inicio. Es solo comodidad: la clave
+   se sigue pidiendo igual. */
+function recordarQuien(){
+  const sel=document.getElementById("inUsr");
+  if(!sel) return;
+  const u=localStorage.getItem("md_quien");
+  if(u && sel.querySelector('option[value="'+u+'"]')) sel.value=u;
+}
+try{ recordarQuien(); }catch(e){}
+
 </script>
 </body>
 </html>

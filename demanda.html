@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Demanda de técnicos</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 16px 70px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1320px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  .barra{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  select,input{padding:8px 9px;border-radius:9px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:9px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+  .sem{font-size:14px;font-weight:700;padding:0 6px}
+
+  .etapas{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 14px;font-size:12.5px}
+  .etapas a{text-decoration:none;color:var(--txt2);background:#0F2C4A;
+    border:1px solid var(--line);border-radius:10px;padding:7px 11px}
+  .etapas a:hover{color:var(--txt);background:#17456E}
+
+  .tabla{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:820px}
+  th{text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--txt2);padding:9px 8px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--card)}
+  th.nom{text-align:left;min-width:210px}
+  td{padding:0;border-bottom:1px solid rgba(29,66,103,.45);text-align:center}
+  td.nom{text-align:left;padding:7px 10px;font-weight:600}
+  .celda{display:block;padding:7px 4px;font-weight:700;font-size:12px;cursor:pointer;
+    border-radius:7px;margin:2px}
+  .celda small{display:block;font-weight:400;font-size:10.5px;opacity:.85}
+  .libre{color:var(--txt3);font-weight:400}
+  .cupo{background:rgba(30,142,90,.30);color:#9EE7C2}
+  .medio{background:rgba(232,163,61,.30);color:#F5CE93}
+  .lleno{background:rgba(198,65,59,.34);color:#F3B0AC}
+  .celda:hover{outline:1px solid var(--acc)}
+  tr.sinbrig td.nom{color:#F0BE6E}
+  tr.sinbrig{background:rgba(232,163,61,.07)}
+
+  .leyenda{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--txt2);
+    margin:10px 2px 0}
+  .leyenda i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;
+    vertical-align:-1px}
+
+  .det{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:15px;margin-top:14px}
+  .det h2{margin:0 0 3px;font-size:15px}
+  .det .q{font-size:12px;color:var(--txt2);margin-bottom:11px}
+  .det table{min-width:700px}
+  .det th{text-align:left;background:var(--card)}
+  .det td{text-align:left;padding:6px 9px;vertical-align:top}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  .sub{font-size:11px;color:var(--txt3)}
+
+  .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:7px 13px;font-size:12px}
+  .pill b{font-size:17px;display:block}
+
+  .vacio{text-align:center;color:var(--txt2);padding:40px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:390px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 12px;font-size:12.5px;color:var(--txt2)}
+  .box input,.box select{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">DEMANDA DE TÉCNICOS</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="etapas">
+    <a href="programacion.html">📅 Programación</a>
+    <a href="coordinacion.html">📞 Coordinación</a>
+    <a href="supervision.html">🛰️ Supervisión</a>
+    <a href="inicio.html" style="margin-left:auto">☰ Inicio</a>
+  </div>
+
+  <div class="barra" id="barra" style="display:none">
+    <button onclick="mover(-7)">◀ Semana anterior</button>
+    <span class="sem" id="lblSemana"></span>
+    <button onclick="mover(7)">Semana siguiente ▶</button>
+    <button onclick="mover(0)">Esta semana</button>
+    <select id="fCoord" onchange="pintar()">
+      <option value="">Todas las coordinaciones</option>
+      <option value="LEV">Levantamientos</option>
+      <option value="INST">Instalaciones</option>
+      <option value="MANT">Mantenimientos</option>
+      <option value="CAT">CAT</option>
+      <option value="PRY_ESP">Proyectos especiales</option>
+    </select>
+    <button onclick="cargar()">Refrescar</button>
+  </div>
+
+  <div class="resumen" id="resumen"></div>
+  <div id="rejilla"><div class="load">Entra para ver la carga de la semana.</div></div>
+  <div id="detalle"></div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Demanda de técnicos</h2>
+    <p>Cuánto trae cada brigada esta semana, y qué falta por asignar.</p>
+    <select id="inUsr">
+      <option value="est.ivan">Iván · Subgerencia</option>
+      <option value="est.patricia">Patricia · Coordinación</option>
+      <option value="est.jair">Jair · Levantamientos</option>
+      <option value="est.alin">Alin · Instalaciones</option>
+      <option value="est.proyectos">Proyectos especiales</option>
+      <option value="est.ariana">Ariana · CAT</option>
+      <option value="est.jenifer">Jenifer · Captura</option>
+      <option value="est.gloria">Gloria Montserrat · Apoyo</option>
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+    </select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+
+/* Es el btnDemanda de la estación de Excel (frmDemanda): la rejilla de técnico
+   por día con las horas que trae encima cada brigada. Se porta igual, incluidos
+   los cortes de color: más de 8 horas satura, de 4 a 8 va medio, menos hay cupo.
+
+   Lo que se le agregó: el renglón de "sin brigada asignada". Los servicios que
+   entran por cronograma traen fecha pero todavía no técnico, y ahí es donde se
+   perdían de vista. Ahora salen arriba y con su día. */
+
+let ses=JSON.parse(localStorage.getItem("md_demanda")||
+  localStorage.getItem("md_web")||"null");
+let lunes=null, filas=[], TIEMPOS=[], TECNICOS=[], sel=null;
+
+function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
+  Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d|por asignar)$/i.test(s)?"":s}
+function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+
+  String(d.getDate()).padStart(2,"0")}
+function lunesDe(d){const x=new Date(d); const w=(x.getDay()+6)%7; x.setDate(x.getDate()-w); return x}
+function masDias(d,n){const x=new Date(d); x.setDate(x.getDate()+n); return x}
+function ddmmm(d){return String(d.getDate()).padStart(2,"0")+"-"+
+  ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][d.getMonth()]}
+
+async function api(path,opts,reint){
+  const o=Object.assign({},opts||{});
+  o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,140));
+  return t?JSON.parse(t):null;
+}
+async function auth(cuerpo,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},
+     body:JSON.stringify(cuerpo)});
+  if(!r.ok) throw new Error("no entró");
+  return r.json();
+}
+function guardar(j){
+  ses={token:j.access_token, refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0],
+       rol:(j.user&&j.user.user_metadata&&j.user.user_metadata.rol)||"",
+       coord:(j.user&&j.user.user_metadata&&j.user.user_metadata.coord)||""};
+  localStorage.setItem("md_demanda",JSON.stringify(ses));
+  localStorage.setItem("md_web",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardar(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+function salir(){ localStorage.removeItem("md_demanda");
+  localStorage.removeItem("md_web"); location.reload() }
+function nombreDe(u){
+  return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
+           "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Proyectos especiales",
+           "est.gloria":"Gloria Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
+           "est.subgerencia":"Subgerencia"})[u] || u;
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  try{
+    guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    localStorage.setItem("md_quien", u);
+    document.getElementById("mLogin").style.display="none";
+    arrancar();
+  }catch(x){ e.textContent="No se pudo entrar. Revisa tu clave."; e.style.display="block" }
+}
+
+/* ---------- la duración estimada, con las mismas reglas de la tabla tiempos ----------
+   FIJO suma sus minutos siempre; PRESENCIA los suma si el campo trae algo;
+   CANTIDAD los multiplica por el número; CATEGORIA solo si el inmueble coincide.
+   Es el CalcularDuracionEst del VBA, tal cual. */
+function num(v){
+  const m=String(v==null?"":v).replace(",",".").match(/-?\d+(\.\d+)?/);
+  return m?parseFloat(m[0]):0;
+}
+function duracion(x){
+  let total=0;
+  const co=String(x.coord||"").toUpperCase();
+  TIEMPOS.forEach(function(t){
+    if(String(t.sumar||"").toUpperCase()!=="SI") return;
+    const tc=String(t.coord||"").toUpperCase();
+    if(tc!=="GEN" && tc!==co) return;
+    const campo=String(t.campo||"").toLowerCase();
+    const min=Number(t.minutos)||0;
+    switch(String(t.tipo_calc||"").toUpperCase()){
+      case "FIJO": total+=min; break;
+      case "PRESENCIA": {
+        const v=String(x[campo]==null?"":x[campo]).trim().toUpperCase();
+        if(v && v!=="NA" && v!=="N/A" && v!=="NO") total+=min;
+        break;
+      }
+      case "CANTIDAD": total+=num(x[campo])*min; break;
+      case "CATEGORIA":
+        if(String(x.tipo_inmueble||"").toUpperCase()===String(t.campo||"").toUpperCase())
+          total+=min;
+        break;
+    }
+  });
+  return Math.round(total);
+}
+
+async function cargar(){
+  document.getElementById("rejilla").innerHTML='<div class="load">Cargando la semana…</div>';
+  const de=iso(lunes), a=iso(masDias(lunes,5));
+  try{
+    if(!TIEMPOS.length) TIEMPOS=await api("tiempos?select=*");
+    if(!TECNICOS.length){
+      const c=await api("catalogos?select=valor,orden&catalogo=eq.TECNICOS&order=orden");
+      TECNICOS=(c||[]).map(x=>x.valor).filter(v=>limpio(v));
+    }
+    filas=await api("servicios?select=coord,id,tkt,nombre,dependencia,tipo_servicio,status,"+
+      "fecha_servicio,tecnico,auxiliar,equipo,plasticas,aluminio,eliptica,bocina_plafon,"+
+      "amplificador,ups,antena,estrobo,tipo_inmueble"+
+      "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+"&limit=2000");
+    pintar();
+  }catch(e){
+    document.getElementById("rejilla").innerHTML=
+      '<div class="vacio">No se pudo leer: '+esc(String(e).slice(0,140))+'</div>';
+  }
+}
+function mover(n){
+  lunes = n===0 ? lunesDe(new Date()) : masDias(lunes,n);
+  cargar();
+}
+
+function claseCarga(m){ return m>480 ? "lleno" : (m>=240 ? "medio" : "cupo") }
+
+function pintar(){
+  const co=document.getElementById("fCoord").value;
+  const ds=[0,1,2,3,4,5].map(i=>masDias(lunes,i));
+  document.getElementById("lblSemana").textContent=
+    "Semana "+ddmmm(ds[0])+" a "+ddmmm(ds[5])+" de "+ds[5].getFullYear();
+
+  const vis=filas.filter(x=>!co||x.coord===co);
+  /* Los que ya tienen brigada se acumulan por técnico; los que no, aparte:
+     ésos son los que hay que programar y los que se perdían de vista. */
+  const carga={}, sinBrig={};
+  const suma=(mapa,llave,dia,x)=>{
+    mapa[llave]=mapa[llave]||{min:[0,0,0,0,0,0], n:[0,0,0,0,0,0], ss:[[],[],[],[],[],[]]};
+    mapa[llave].min[dia]+=duracion(x);
+    mapa[llave].n[dia]++;
+    mapa[llave].ss[dia].push(x);
+  };
+  vis.forEach(function(x){
+    const d=Math.round((new Date(x.fecha_servicio+"T00:00:00")-
+                        new Date(iso(lunes)+"T00:00:00"))/86400000);
+    if(d<0||d>5) return;
+    const t=limpio(x.tecnico);
+    if(t) suma(carga,t,d,x); else suma(sinBrig,"__sin__",d,x);
+  });
+
+  const conBrig=vis.filter(x=>limpio(x.tecnico)).length;
+  const sin=vis.length-conBrig;
+  document.getElementById("resumen").innerHTML=
+    '<div class="pill"><b>'+vis.length+'</b>servicios con fecha</div>'+
+    '<div class="pill"><b style="color:'+(sin?"#F0BE6E":"#5BD79B")+'">'+sin+'</b>sin brigada asignada</div>'+
+    '<div class="pill"><b>'+Object.keys(carga).length+'</b>brigadas ocupadas</div>';
+
+  /* orden: primero los técnicos del catálogo, luego cualquiera que traiga
+     servicios y no esté en el catálogo (para no esconderlo) */
+  const nombres=TECNICOS.slice();
+  Object.keys(carga).forEach(function(t){ if(nombres.indexOf(t)<0) nombres.push(t) });
+
+  const dias=["Lun","Mar","Mié","Jue","Vie","Sáb"];
+  let h='<div class="tabla"><table><thead><tr><th class="nom">Técnico líder</th>'+
+    ds.map((d,i)=>'<th>'+dias[i]+' '+String(d.getDate()).padStart(2,"0")+'</th>').join("")+
+    '<th>Semana</th></tr></thead><tbody>';
+
+  const renglon=(etq,dat,clase)=>{
+    let tot=0;
+    let r='<tr class="'+(clase||"")+'"><td class="nom">'+esc(etq)+'</td>';
+    for(let i=0;i<6;i++){
+      const m=dat?dat.min[i]:0, n=dat?dat.n[i]:0;
+      tot+=m;
+      r+= n ? '<td><span class="celda '+claseCarga(m)+'" onclick="verDetalle(\''+
+              encodeURIComponent(etq)+'\','+i+')">'+(m/60).toFixed(1)+' h'+
+              '<small>'+n+' servicio'+(n>1?"s":"")+'</small></span></td>'
+            : '<td><span class="celda libre">·</span></td>';
+    }
+    r+='<td><span class="celda '+(tot?claseCarga(tot/6):"libre")+'">'+
+       (tot?(tot/60).toFixed(1)+' h':'·')+'</span></td></tr>';
+    return r;
+  };
+
+  if(sinBrig.__sin__) h+=renglon("⚠ Sin brigada asignada", sinBrig.__sin__, "sinbrig");
+  nombres.forEach(function(t){ h+=renglon(t, carga[t], "") });
+  h+='</tbody></table></div>'+
+     '<div class="leyenda">'+
+       '<span><i class="cupo" style="background:rgba(30,142,90,.6)"></i>menos de 4 h: hay cupo</span>'+
+       '<span><i class="medio" style="background:rgba(232,163,61,.7)"></i>de 4 a 8 h: va cargado</span>'+
+       '<span><i class="lleno" style="background:rgba(198,65,59,.7)"></i>más de 8 h: saturado</span>'+
+       '<span>Toca una celda para ver qué trae.</span>'+
+     '</div>';
+  document.getElementById("rejilla").innerHTML=h;
+  if(sel) verDetalle(sel[0], sel[1]);
+}
+
+function verDetalle(etqCod, dia){
+  sel=[etqCod,dia];
+  const etq=decodeURIComponent(etqCod);
+  const co=document.getElementById("fCoord").value;
+  const d=masDias(lunes,dia), diaISO=iso(d);
+  const ss=filas.filter(function(x){
+    if(co && x.coord!==co) return false;
+    if(x.fecha_servicio!==diaISO) return false;
+    const t=limpio(x.tecnico);
+    return etq.indexOf("Sin brigada")>=0 ? !t : t===etq;
+  });
+  const tot=ss.reduce((a,x)=>a+duracion(x),0);
+  document.getElementById("detalle").innerHTML=
+    '<div class="det"><h2>'+esc(etq)+' · '+["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"][dia]+
+    ' '+ddmmm(d)+'</h2>'+
+    '<div class="q">'+ss.length+' servicio'+(ss.length===1?"":"s")+' · '+(tot/60).toFixed(1)+
+    ' horas estimadas'+(etq.indexOf("Sin brigada")>=0?' · <b style="color:#F0BE6E">falta asignarles brigada</b>':"")+'</div>'+
+    (ss.length?'<div class="tabla"><table><thead><tr><th>TKT</th><th>Servicio</th>'+
+      '<th>Dependencia</th><th>Estatus</th><th>Estimado</th></tr></thead><tbody>'+
+      ss.map(function(x){
+        return '<tr><td>'+esc(x.tkt||"—")+'</td>'+
+          '<td><div>'+esc(x.nombre||"")+'</div><div class="sub"><span class="tag">'+
+            esc(x.coord)+'</span> '+esc(limpio(x.tipo_servicio)||"")+'</div></td>'+
+          '<td>'+esc(x.dependencia||"")+'</td>'+
+          '<td>'+esc(limpio(x.status)||"—")+'</td>'+
+          '<td>'+(duracion(x)/60).toFixed(1)+' h</td></tr>';
+      }).join("")+'</tbody></table></div>'
+     :'<div class="vacio">Nada ese día.</div>')+
+    '</div>';
+}
+
+function arrancar(){
+  document.getElementById("barra").style.display="flex";
+  document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
+  lunes=lunesDe(new Date());
+  cargar();
+}
+(function(){
+  const sel=document.getElementById("inUsr");
+  const u=localStorage.getItem("md_quien");
+  if(u && sel.querySelector('option[value="'+u+'"]')) sel.value=u;
+  if(ses && ses.token){ document.getElementById("mLogin").style.display="none"; arrancar(); }
+})();
+</script>
+</body>
+</html>

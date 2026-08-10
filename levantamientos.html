@@ -180,6 +180,7 @@
     <p>Entra con tu estación. Cada quien ve lo de su coordinación.</p>
     <select id="inUsr">
       <option value="est.jair">Jair · Levantamientos</option>
+      <option value="est.gloria">Gloria Montserrat · Apoyo</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
     </select>
@@ -196,7 +197,8 @@ const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
 const DOMINIO="mdcontrol.local";
 const LOGO="logo.png";
 
-let ses=JSON.parse(localStorage.getItem("md_lev")||"null");
+let ses=JSON.parse(localStorage.getItem("md_lev")||
+  localStorage.getItem("md_web")||"null")   /* la sesion es una sola: ver md_web abajo */;
 let filas=[], props={};
 
 function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
@@ -222,8 +224,17 @@ async function auth(cuerpo,tipo){
 }
 function guardar(j){
   ses={token:j.access_token, refresh:j.refresh_token,
-       usuario:(j.user&&j.user.email||"").split("@")[0]};
+       usuario:(j.user&&j.user.email||"").split("@")[0],
+       rol:(j.user&&j.user.user_metadata&&j.user.user_metadata.rol)||"",
+       coord:(j.user&&j.user.user_metadata&&j.user.user_metadata.coord)||""};
   localStorage.setItem("md_lev",JSON.stringify(ses));
+  /* ---------- una sola sesion para todo ----------
+     Cada pantalla guardaba su sesion aparte, asi que al pasar de
+     supervision a captura la segunda no encontraba nada y volvia a
+     pedir la clave, mostrando ademas el primer nombre de la lista.
+     Ahora la sesion se escribe tambien en una llave comun y todas la
+     leen: se entra una vez y se anda por las etapas sin teclear otra vez. */
+  localStorage.setItem("md_web",JSON.stringify(ses));
 }
 async function renovar(){
   if(!ses||!ses.refresh) return false;
@@ -236,11 +247,13 @@ async function entrar(){
   if(!u||!p){ e.textContent="Escribe usuario y clave"; e.style.display="block"; return }
   try{
     guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    localStorage.setItem("md_quien", u);
     document.getElementById("mLogin").style.display="none";
     arrancar();
   }catch(x){ e.textContent="No se pudo entrar: "+x.message; e.style.display="block" }
 }
-function salir(){ localStorage.removeItem("md_lev"); location.reload() }
+function salir(){ localStorage.removeItem("md_lev");
+  localStorage.removeItem("md_web"); location.reload() }
 
 const NOMBRE_EST={"est.jair":"Jair","est.gerencia":"Gerencia","est.subgerencia":"Subgerencia"};
 async function arrancar(){
@@ -414,6 +427,30 @@ function quitarArea(j){
   edit.ps.splice(j,1);
   pintarEditor();
 }
+const ETAPA_AQUI=4;
+
+/* ---------- bitacora: quien movio que ----------
+   Es el mismo LOG que llevaba la estacion de Excel (LogSupa). Al pasar a web se
+   habia quedado sin anotar, y con la gente migrando el rastro se perdia.
+
+   Se manda sin esperar y con el error tragado a proposito: si la bitacora
+   falla, el trabajo del usuario ya quedo guardado y no tiene por que enterarse.
+   Un log que estorba se acaba quitando. */
+function anotar(accion, detalle, x){
+  try{
+    const t=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    api("log",{method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({
+      timestamp:t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" "+
+                p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()),
+      usuario:nombreDe(ses&&ses.usuario), win_user:"web",
+      coord:(x&&x.coord)||(ses&&ses.coord)||"", rol:(ses&&ses.rol)||"",
+      etapa:String((x&&x.etapa_actual)||ETAPA_AQUI),
+      tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
+    })}).catch(function(){});
+  }catch(e){}
+}
+
 async function guardarEdicion(){
   const b=document.getElementById("edBtn"), av=document.getElementById("edAviso");
   const x=edit.x, antes=props[x.coord+"|"+x.id]||[];
@@ -434,6 +471,7 @@ async function guardarEdicion(){
         {method:"POST", headers:{Prefer:"resolution=merge-duplicates"},
          body:JSON.stringify(fila)});
     }
+    anotar("PROPUESTAS", "ID="+x.id+" · "+edit.ps.length+" áreas", x);
     props[x.coord+"|"+x.id]=edit.ps;
     document.getElementById("mEdit").style.display="none";
     pintar();
@@ -443,7 +481,7 @@ async function guardarEdicion(){
   b.disabled=false; b.textContent="Guardar cambios";
 }
 function nombreDe(u){
-  return ({"est.jair":"Jair","est.gerencia":"Gerencia",
+  return ({"est.jair":"Jair","est.gloria":"Gloria Montserrat","est.gerencia":"Gerencia",
            "est.subgerencia":"Subgerencia"})[u] || u;
 }
 
@@ -537,6 +575,20 @@ function imprimirTodas(){
 (async function(){
   if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
 })();
+
+/* ---------- que no salga siempre el primero de la lista ----------
+   El menu se quedaba en la primera opcion, y esa es Jenifer: todos veian su
+   nombre al entrar. Ahora se preselecciona quien uso esta pantalla la ultima vez
+   en este equipo, o a quien se eligio en el inicio. Es solo comodidad: la clave
+   se sigue pidiendo igual. */
+function recordarQuien(){
+  const sel=document.getElementById("inUsr");
+  if(!sel) return;
+  const u=localStorage.getItem("md_quien");
+  if(u && sel.querySelector('option[value="'+u+'"]')) sel.value=u;
+}
+try{ recordarQuien(); }catch(e){}
+
 </script>
 </body>
 </html>

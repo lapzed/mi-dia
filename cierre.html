@@ -34,6 +34,24 @@
   button.pri{background:var(--acc);color:#07203a}
   .mini{padding:4px 9px;font-size:11.5px}
 
+
+  /* ---- barra de etapas: moverse por el flujo sin volver al inicio ---- */
+  .etapas{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 14px;
+    font-size:12.5px}
+  .etapas a{display:flex;align-items:center;gap:6px;text-decoration:none;
+    color:var(--txt2);background:#0F2C4A;border:1px solid var(--line);
+    border-radius:10px;padding:7px 11px;white-space:nowrap}
+  .etapas a:hover{color:var(--txt);background:#17456E}
+  .etapas a.aqui{background:var(--acc);color:#07203a;border-color:var(--acc);font-weight:700}
+  .etapas .fl{color:var(--txt3);font-size:11px}
+  .etapas .paso{padding:7px 11px;font-size:12px;background:#17456E;color:var(--acc);
+    border-radius:10px}
+  .etapas .paso:disabled{opacity:.35}
+  .etapas select{padding:6px 9px;font-size:12px;width:auto;border-radius:10px}
+  .etapas .ini{margin-left:auto}
+  .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt2);
+    text-transform:none;letter-spacing:0;cursor:pointer;white-space:nowrap}
+  .chk input{width:auto;margin:0}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -81,6 +99,8 @@
     </div>
   </header>
 
+  <div id="etapas"></div>
+
   <div class="barra" id="barra" style="display:none">
     <div class="f"><label>Coordinación</label>
       <select id="fCoord" onchange="cargar()">
@@ -98,6 +118,11 @@
       </select></div>
     <button onclick="rango(30)">Último mes</button>
     <button onclick="rango(120)">Últimos 4 meses</button>
+    <div class="f"><label>Buscar TKT o sitio</label>
+      <input id="fTkt" placeholder="11998, WALMART…" oninput="filtrarVista()"
+             style="min-width:170px"></div>
+    <label class="chk"><input type="checkbox" id="fTodos" onchange="verTodos()">
+      Ver todos</label>
   </div>
 
   <div class="resumen" id="resumen"></div>
@@ -116,6 +141,7 @@
       <option value="est.ariana">Ariana · CAT</option>
       <option value="est.proyectos">Proyectos especiales</option>
       <option value="est.jenifer">Jenifer · Captura</option>
+      <option value="est.gloria">Gloria Montserrat · Apoyo</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
     </select>
@@ -138,7 +164,8 @@ const SUYA={"est.jair":"LEV","est.alin":"INST","est.ariana":"CAT",
             "est.proyectos":"PRY_ESP","est.ivan":"MANT","est.patricia":"MANT",
             "est.jenifer":"MANT"};
 
-let ses=JSON.parse(localStorage.getItem("md_cierre")||"null");
+let ses=JSON.parse(localStorage.getItem("md_cierre")||
+  localStorage.getItem("md_web")||"null")   /* la sesion es una sola: ver md_web abajo */;
 let filas=[], EV={}, CAT={};
 
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
@@ -168,8 +195,17 @@ async function auth(c,tipo){
 }
 function guardarSes(j){
   ses={token:j.access_token,refresh:j.refresh_token,
-       usuario:(j.user&&j.user.email||"").split("@")[0]};
+       usuario:(j.user&&j.user.email||"").split("@")[0],
+       rol:(j.user&&j.user.user_metadata&&j.user.user_metadata.rol)||"",
+       coord:(j.user&&j.user.user_metadata&&j.user.user_metadata.coord)||""};
   localStorage.setItem("md_cierre",JSON.stringify(ses));
+  /* ---------- una sola sesion para todo ----------
+     Cada pantalla guardaba su sesion aparte, asi que al pasar de
+     supervision a captura la segunda no encontraba nada y volvia a
+     pedir la clave, mostrando ademas el primer nombre de la lista.
+     Ahora la sesion se escribe tambien en una llave comun y todas la
+     leen: se entra una vez y se anda por las etapas sin teclear otra vez. */
+  localStorage.setItem("md_web",JSON.stringify(ses));
 }
 async function renovar(){
   if(!ses||!ses.refresh) return false;
@@ -180,14 +216,16 @@ async function entrar(){
   const e=document.getElementById("err");
   try{
     guardarSes(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    localStorage.setItem("md_quien", u);
     document.getElementById("mLogin").style.display="none"; arrancar();
   }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
 }
-function salir(){ localStorage.removeItem("md_cierre"); location.reload() }
+function salir(){ localStorage.removeItem("md_cierre");
+  localStorage.removeItem("md_web"); location.reload() }
 function nombreDe(u){
   return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
            "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Proyectos especiales",
-           "est.ariana":"Ariana","est.gerencia":"Gerencia",
+           "est.gloria":"Gloria Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
            "est.subgerencia":"Subgerencia"})[u] || u;
 }
 
@@ -204,6 +242,7 @@ function abierto(x){
 async function arrancar(){
   document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
   document.getElementById("barra").style.display="flex";
+  ponerBarra();
   if(!document.getElementById("fDe").value){
     document.getElementById("fDe").value=isoDe(-30);
     document.getElementById("fA").value=hoyISO();
@@ -273,7 +312,48 @@ function vistas(){
   return filas;
 }
 
-function pintar(){
+/* ---------- buscador de TKT y casilla de ver todos ----------
+   Los dos venian de la estacion de Excel: txtBuscarTkt filtraba la cola por TKT
+   o por nombre, y chkTodos decidia si se veia nada mas lo pendiente de esa etapa
+   o todo el historico de la coordinacion.
+
+   El buscador filtra sobre lo ya pintado (no vuelve a la base): es instantaneo
+   y no toca los indices de los renglones, que son los que usan los desplegables
+   para saber a que servicio le estan guardando. */
+function filtrarVista(){
+  const e=document.getElementById("fTkt");
+  const q=(e?e.value:"").trim().toUpperCase();
+  const trs=document.querySelectorAll("#lista tbody tr");
+  let vistos=0;
+  trs.forEach(function(tr){
+    const ok = !q || tr.textContent.toUpperCase().indexOf(q)>=0;
+    tr.style.display = ok ? "" : "none";
+    if(ok) vistos++;
+  });
+  const c=document.getElementById("cuentaTkt");
+  if(c) c.textContent = q ? (vistos+" de "+trs.length+" con «"+e.value.trim()+"»") : "";
+}
+/* Ver todos: deja de mostrar nada mas lo pendiente y abre el rango de fechas. */
+function verTodos(){
+  const on=document.getElementById("fTodos").checked;
+  const ver=document.getElementById("fVer");
+  if(ver){ ver.value = on ? "" : ver.options[0].value; }
+  const de=document.getElementById("fDe"), a=document.getElementById("fA");
+  if(on && de && a){
+    const h=new Date(), d=new Date(); d.setMonth(d.getMonth()-12);
+    const iso=x=>x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+
+                 String(x.getDate()).padStart(2,"0");
+    de.dataset.previo=de.value; a.dataset.previo=a.value;
+    de.value=iso(d); a.value=iso(h);
+  } else if(de && a && de.dataset.previo){
+    de.value=de.dataset.previo; a.value=a.dataset.previo;
+  }
+  if(typeof cargar==="function") cargar();
+  else if(typeof cargarAt==="function") cargarAt();
+  else if(typeof pintar==="function") pintar();
+}
+
+function pintar(){ setTimeout(filtrarVista,0);
   const v=vistas(), cont=document.getElementById("lista");
   const ab=filas.filter(abierto).length;
   const sinEv=filas.filter(x=>cerrado(x)&&!completo(x)).length;
@@ -365,6 +445,30 @@ async function abrirInforme(ruta){
   }catch(e){ alert("No se pudo abrir: "+String(e).slice(0,120)) }
 }
 
+const ETAPA_AQUI=4;
+
+/* ---------- bitacora: quien movio que ----------
+   Es el mismo LOG que llevaba la estacion de Excel (LogSupa). Al pasar a web se
+   habia quedado sin anotar, y con la gente migrando el rastro se perdia.
+
+   Se manda sin esperar y con el error tragado a proposito: si la bitacora
+   falla, el trabajo del usuario ya quedo guardado y no tiene por que enterarse.
+   Un log que estorba se acaba quitando. */
+function anotar(accion, detalle, x){
+  try{
+    const t=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    api("log",{method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({
+      timestamp:t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" "+
+                p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()),
+      usuario:nombreDe(ses&&ses.usuario), win_user:"web",
+      coord:(x&&x.coord)||(ses&&ses.coord)||"", rol:(ses&&ses.rol)||"",
+      etapa:String((x&&x.etapa_actual)||ETAPA_AQUI),
+      tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
+    })}).catch(function(){});
+  }catch(e){}
+}
+
 async function editar(i, campo, valor){
   const x=filas[i], celda=document.getElementById("est"+i);
   const antes=x[campo], cuerpo={};
@@ -380,6 +484,8 @@ async function editar(i, campo, valor){
       {method:"PATCH", headers:{Prefer:"return=representation"}, body:JSON.stringify(cuerpo)});
     if(!d||!d.length) throw new Error("no encontró el servicio");
     Object.assign(x, cuerpo);
+    anotar(campo==="status" ? "AVANZA A "+valor : "GUARDAR",
+           "ID="+x.id+" · "+campo+" = "+(valor||"(vacío)"), x);
     if(celda){ celda.innerHTML='<span class="guardado">✓</span>';
       setTimeout(()=>{ if(celda) celda.innerHTML="" },2500) }
     const ab=filas.filter(abierto).length, se=filas.filter(y=>cerrado(y)&&!completo(y)).length;
@@ -393,9 +499,85 @@ async function editar(i, campo, valor){
   }
 }
 
+/* ---------- barra de etapas, como en la estacion de Excel ----------
+   Alla habia una sola ventana: se elegia la coordinacion y con dos botones se
+   iba y venia entre Captura, Programa, Coordina y Supervisa. Aqui cada etapa es
+   una pantalla, asi que los botones navegan; la coordinacion elegida viaja con
+   uno para no tener que volver a filtrarla en cada etapa. */
+const FLUJO=[["captura.html","Captura"],
+             ["programacion.html","Programa"],
+             ["coordinacion.html","Coordina"],
+             ["cierre.html","Supervisa"]];
+const COORDS_BARRA=[["LEV","Levantamientos"],["INST","Instalaciones"],
+                    ["MANT","Mantenimientos"],["CAT","CAT"],
+                    ["PRY_ESP","Proyectos especiales"]];
+
+function coordElegida(){
+  const u=new URLSearchParams(location.search).get("coord");
+  if(u) localStorage.setItem("md_coord_sel", u);
+  return localStorage.getItem("md_coord_sel")||"";
+}
+function irEtapa(paso){
+  const i=ETAPA_AQUI-1+paso;
+  if(i<0||i>=FLUJO.length) return;
+  const c=document.getElementById("brCoord");
+  const q=c&&c.value ? "?coord="+encodeURIComponent(c.value) : "";
+  location.href=FLUJO[i][0]+q;
+}
+function cambiaCoordBarra(){
+  const c=document.getElementById("brCoord").value;
+  localStorage.setItem("md_coord_sel", c);
+  const f=document.getElementById("fCoord");
+  if(f){ f.value=c; if(typeof cargar==="function") cargar(); }
+}
+function ponerBarra(){
+  const b=document.getElementById("etapas");
+  if(!b) return;
+  const sel=coordElegida();
+  b.innerHTML=
+    '<div class="etapas">'+
+      '<button class="paso" onclick="irEtapa(-1)"'+(ETAPA_AQUI<=1?" disabled":"")+
+        '>&#9664; Etapa anterior</button>'+
+      FLUJO.map(function(f,i){
+        const aqui=(i===ETAPA_AQUI-1);
+        const q=sel?"?coord="+encodeURIComponent(sel):"";
+        return (i?'<span class="fl">&rsaquo;</span>':"")+
+          '<a href="'+f[0]+q+'"'+(aqui?' class="aqui"':"")+'>'+(i+1)+'. '+f[1]+'</a>';
+      }).join("")+
+      '<button class="paso" onclick="irEtapa(1)"'+(ETAPA_AQUI>=FLUJO.length?" disabled":"")+
+        '>Etapa siguiente &#9654;</button>'+
+      '<span class="fl">|</span>'+
+      '<select id="brCoord" onchange="cambiaCoordBarra()" title="Coordinación">'+
+        '<option value="">Todas las coordinaciones</option>'+
+        COORDS_BARRA.map(function(c){
+          return '<option value="'+c[0]+'"'+(c[0]===sel?" selected":"")+'>'+c[1]+'</option>'
+        }).join("")+
+      '</select>'+
+      '<a href="inicio.html" class="ini">&#9776; Inicio</a>'+
+    '</div>';
+  /* la coordinacion elegida manda sobre el filtro de la pantalla */
+  const f=document.getElementById("fCoord");
+  if(f && sel){ f.value=sel; }
+}
+
+
 (async function(){
   if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
 })();
+
+/* ---------- que no salga siempre el primero de la lista ----------
+   El menu se quedaba en la primera opcion, y esa es Jenifer: todos veian su
+   nombre al entrar. Ahora se preselecciona quien uso esta pantalla la ultima vez
+   en este equipo, o a quien se eligio en el inicio. Es solo comodidad: la clave
+   se sigue pidiendo igual. */
+function recordarQuien(){
+  const sel=document.getElementById("inUsr");
+  if(!sel) return;
+  const u=localStorage.getItem("md_quien");
+  if(u && sel.querySelector('option[value="'+u+'"]')) sel.value=u;
+}
+try{ recordarQuien(); }catch(e){}
+
 </script>
 </body>
 </html>

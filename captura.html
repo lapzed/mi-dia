@@ -33,6 +33,39 @@
   button:disabled{opacity:.45;cursor:default}
   .mini{padding:5px 10px;font-size:11.5px;width:auto}
 
+
+  /* ---- barra de etapas: moverse por el flujo sin volver al inicio ---- */
+  .etapas{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 14px;
+    font-size:12.5px}
+  .etapas a{display:flex;align-items:center;gap:6px;text-decoration:none;
+    color:var(--txt2);background:#0F2C4A;border:1px solid var(--line);
+    border-radius:10px;padding:7px 11px;white-space:nowrap}
+  .etapas a:hover{color:var(--txt);background:#17456E}
+  .etapas a.aqui{background:var(--acc);color:#07203a;border-color:var(--acc);font-weight:700}
+  .etapas .fl{color:var(--txt3);font-size:11px}
+  .etapas .paso{padding:7px 11px;font-size:12px;background:#17456E;color:var(--acc);
+    border-radius:10px}
+  .etapas .paso:disabled{opacity:.35}
+  .etapas select{padding:6px 9px;font-size:12px;width:auto;border-radius:10px}
+  .etapas .ini{margin-left:auto}
+
+  /* ---- carga masiva ---- */
+  .previa{max-height:44vh;overflow:auto;border:1px solid var(--line);border-radius:11px;
+    margin-top:12px}
+  .previa table{min-width:760px;font-size:12px}
+  .previa th{position:sticky;top:0;background:var(--bg2);z-index:2}
+  .previa td{white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis}
+  tr.mal td{background:rgba(198,65,59,.13)}
+  tr.duda td{background:rgba(232,163,61,.10)}
+  .porque{font-size:11px;white-space:normal;max-width:330px}
+  .porque.no{color:#F0A9A5} .porque.ojo{color:#F0BE6E} .porque.si{color:#5BD79B}
+  .suelta{border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;
+    color:var(--txt2);font-size:13px;cursor:pointer}
+  .suelta.encima{border-color:var(--acc);background:rgba(99,179,255,.07)}
+  #pegar{width:100%;height:110px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+    white-space:pre;margin-top:10px}
+  .cuenta{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px;font-size:12px}
+  .cuenta span{background:#0F2C4A;border:1px solid var(--line);border-radius:9px;padding:5px 10px}
   .caja{background:var(--card);border:1px solid var(--line);border-radius:14px;
     padding:16px;margin-bottom:14px}
   .caja h2{margin:0 0 3px;font-size:15px}
@@ -54,6 +87,10 @@
   .hallazgo b{display:block}
   .hallazgo span{color:var(--txt3);font-size:11.5px}
 
+  .tramo{border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:12px}
+  .tramo h3{margin:0 0 10px;font-size:13px;color:var(--acc);text-transform:uppercase;
+    letter-spacing:.06em}
+  .kitq{font-size:11.5px;color:var(--txt3);margin-top:-4px}
   .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
     background:#17456E;color:var(--acc);white-space:nowrap}
   table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -85,6 +122,8 @@
     </div>
   </header>
 
+  <div id="etapas"></div>
+
   <div id="todo" style="display:none">
     <div class="caja">
       <h2>¿Ya habíamos ido a ese sitio?</h2>
@@ -113,6 +152,7 @@
       <div id="msg"></div>
       <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px">
         <button class="pri" id="btnAlta" onclick="guardar()">Dar de alta el servicio</button>
+        <button onclick="abrirCarga()">📥 Carga masiva</button>
         <button onclick="limpiarSitio()">Limpiar</button>
       </div>
     </div>
@@ -121,6 +161,45 @@
       <h2>Lo que llevas capturado</h2>
       <div class="q">Los últimos servicios dados de alta, para confirmar que quedaron.</div>
       <div id="ultimos"><div class="load">Cargando…</div></div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal" id="mCarga" style="display:none">
+  <div class="box" style="max-width:1000px;max-height:94vh;overflow:auto">
+    <h2>Carga masiva &middot; un cliente, sus sitios</h2>
+    <p>Arriba los datos que son iguales para todos los sitios. Abajo el archivo
+       con la lista de sucursales. Lo que el archivo traiga por sitio le gana a lo de arriba.</p>
+
+    <div class="tramo">
+      <h3>1 &middot; Datos generales del cliente</h3>
+      <div class="rej" id="cgComunes"></div>
+    </div>
+
+    <div class="tramo">
+      <h3>2 &middot; Los sitios a visitar</h3>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="mini" onclick="plantilla()">&darr; Bajar plantilla de sitios</button>
+        <button class="mini" onclick="document.getElementById('cgFile').click()">Elegir archivo</button>
+        <input type="file" id="cgFile" accept=".csv,.txt,.tsv" style="display:none"
+               onchange="leerArchivo(this.files[0])">
+      </div>
+      <div class="suelta" id="cgSuelta">Arrastra aqu&iacute; el CSV&hellip; o pega abajo lo que copiaste de Excel</div>
+      <textarea id="pegar" spellcheck="false"
+                placeholder="Sitio, Direccion, # Serie, Fecha&#10;WALMART LOMAS VERDES, Av. Lomas Verdes 1200, SM6232, 12/08/2026"
+                oninput="analizar()"></textarea>
+    </div>
+
+    <div id="cgMsg"></div>
+    <div class="cuenta" id="cgCuenta"></div>
+    <div class="previa" id="cgPrevia"></div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:13px">
+      <button class="pri" id="cgBtn" onclick="subirLote()" disabled>Dar de alta</button>
+      <button onclick="document.getElementById('pegar').value='';analizar()">Limpiar lista</button>
+      <button onclick="document.getElementById('mCarga').style.display='none'"
+              style="margin-left:auto">Cerrar</button>
     </div>
   </div>
 </div>
@@ -137,6 +216,7 @@
       <option value="est.alin">Alin · Instalaciones</option>
       <option value="est.proyectos">Proyectos especiales</option>
       <option value="est.ariana">Ariana · CAT</option>
+      <option value="est.gloria">Gloria Montserrat · Apoyo</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
     </select>
@@ -152,7 +232,8 @@ const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
 const DOMINIO="mdcontrol.local";
 
-let ses=JSON.parse(localStorage.getItem("md_capt")||"null");
+let ses=JSON.parse(localStorage.getItem("md_capt")||
+  localStorage.getItem("md_web")||"null")   /* la sesion es una sola: ver md_web abajo */;
 let CAT={}, sitioSel=null;
 
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
@@ -179,8 +260,17 @@ async function auth(c,tipo){
 }
 function guardarSes(j){
   ses={token:j.access_token,refresh:j.refresh_token,
-       usuario:(j.user&&j.user.email||"").split("@")[0]};
+       usuario:(j.user&&j.user.email||"").split("@")[0],
+       rol:(j.user&&j.user.user_metadata&&j.user.user_metadata.rol)||"",
+       coord:(j.user&&j.user.user_metadata&&j.user.user_metadata.coord)||""};
   localStorage.setItem("md_capt",JSON.stringify(ses));
+  /* ---------- una sola sesion para todo ----------
+     Cada pantalla guardaba su sesion aparte, asi que al pasar de
+     supervision a captura la segunda no encontraba nada y volvia a
+     pedir la clave, mostrando ademas el primer nombre de la lista.
+     Ahora la sesion se escribe tambien en una llave comun y todas la
+     leen: se entra una vez y se anda por las etapas sin teclear otra vez. */
+  localStorage.setItem("md_web",JSON.stringify(ses));
 }
 async function renovar(){
   if(!ses||!ses.refresh) return false;
@@ -191,14 +281,16 @@ async function entrar(){
   const e=document.getElementById("err");
   try{
     guardarSes(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    localStorage.setItem("md_quien", u);
     document.getElementById("mLogin").style.display="none"; arrancar();
   }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
 }
-function salir(){ localStorage.removeItem("md_capt"); location.reload() }
+function salir(){ localStorage.removeItem("md_capt");
+  localStorage.removeItem("md_web"); location.reload() }
 function nombreDe(u){
   return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
            "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Proyectos especiales",
-           "est.ariana":"Ariana","est.gerencia":"Gerencia",
+           "est.gloria":"Gloria Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
            "est.subgerencia":"Subgerencia"})[u] || u;
 }
 
@@ -460,6 +552,7 @@ async function guardar(){
         if(intento>=4 || !choque) throw e;
       }
     }
+    anotar("ALTA REGISTRO", "ID="+fila.id, fila);
     msg.innerHTML='<div class="bien">Dado de alta como <b>'+esc(co)+' · id '+esc(fila.id)+
       '</b>'+(limpio(fila.tkt)?' · TKT '+esc(fila.tkt):"")+
       '. Ya lo ve programación.</div>';
@@ -469,6 +562,406 @@ async function guardar(){
     msg.innerHTML='<div class="aviso">No se pudo dar de alta: '+esc(String(e).slice(0,160))+'</div>';
   }
   btn.disabled=false; btn.textContent="Dar de alta el servicio";
+}
+
+
+/* ================= CARGA MASIVA · UN CLIENTE, SUS SITIOS =================
+   Es la misma forma que tenia en la estacion de Excel (AltaMasiva): arriba los
+   datos comunes del cliente, y el archivo trae nada mas la lista de sucursales
+   con su direccion y, si hay, su numero de serie. Se le agrego la fecha, para
+   cuando el cliente ya mando un cronograma formal.
+
+   Regla: lo que el archivo traiga por sitio le gana a lo de arriba. Asi una
+   sucursal puede tener su propio contacto o su propia fecha sin romper el resto.
+
+   La plantilla no es un archivo aparte: sale de las mismas listas de campos, y
+   solo con las columnas que van por sitio. */
+
+function llaveEnc(h){
+  return String(h||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().replace(/[^a-z0-9]/g,"");
+}
+
+/* Lo que se llena una sola vez, arriba. */
+const COMUNES=[
+  ["dependencia",     "Dependencia / Cliente",   "text", 1],
+  ["tkt",             "TKT",                     "text", 1],
+  ["dia_creacion",    "Dia de creacion del TKT", "date", 1],
+  ["tipo_servicio",   "Tipo de servicio",        "TIPO_SERVICIO", 1],
+  ["ejecutivo",       "Ejecutivo de cuenta",     "text", 0],
+  ["personal_atiende","Personal que atiende",    "text", 0],
+  ["telefono",        "Telefono",                "text", 1],
+  ["correo",          "Correo",                  "text", 0],
+  ["obs_captura",     "Comentarios",             "area", 0]
+];
+const COMUNES_CAT=[
+  ["fecha_atencion", "Fecha de atencion", "date", 1],
+  ["cat_tipo",       "Tipo de atencion",  "CAT_TIPO", 1],
+  ["cat_medio",      "Medio",             "MEDIO_CONTACTO", 0],
+  ["cat_estatus",    "Estatus",           "CAT_ESTATUS", 1],
+  ["cat_descripcion","Descripcion",       "area", 1]
+];
+/* Lo que puede venir distinto en cada sitio. */
+const POR_SITIO=[
+  ["nombre",          "Sitio", 1],
+  ["direccion",       "Direccion", 0],
+  ["cp",              "CP", 0],
+  ["localidad",       "Colonia", 0],
+  ["municipio",       "Municipio / alcaldia", 0],
+  ["estado",          "Estado", 0],
+  ["serie",           "# Serie", 0],
+  ["equipo",          "Equipo", 0],
+  ["fecha_servicio",  "Fecha de visita (cronograma)", 0],
+  ["personal_atiende","Personal que atiende", 0],
+  ["telefono",        "Telefono", 0],
+  ["correo",          "Correo", 0],
+  ["lat",             "Latitud", 0],
+  ["long",            "Longitud", 0],
+  ["obs_captura",     "Comentarios", 0]
+];
+
+/* Sinonimos: cada quien titula sus columnas a su manera. OJO: aqui una columna
+   que diga nada mas "Fecha" es la de la visita, no la del alta del TKT: la del
+   alta se llena arriba una sola vez. */
+const SINONIMOS={
+  sucursal:"nombre", tienda:"nombre", sitio:"nombre", plaza:"nombre",
+  nombresitio:"nombre", nombresucursal:"nombre", referencia:"nombre",
+  domicilio:"direccion", calle:"direccion", ubicacion:"direccion",
+  codigopostal:"cp", cpostal:"cp",
+  colonia:"localidad", localidadcolonia:"localidad",
+  alcaldia:"municipio", delegacion:"municipio", municipioalcaldia:"municipio",
+  entidad:"estado",
+  numeroserie:"serie", nserie:"serie", noserie:"serie", numserie:"serie",
+  serial:"serie", numerodeserie:"serie",
+  fecha:"fecha_servicio", fechavisita:"fecha_servicio", fechadevisita:"fecha_servicio",
+  fechaprogramada:"fecha_servicio", fechaservicio:"fecha_servicio",
+  cronograma:"fecha_servicio", dia:"fecha_servicio",
+  contacto:"personal_atiende", personalatiende:"personal_atiende",
+  personaqueatiende:"personal_atiende", personalqueatiende:"personal_atiende",
+  encargado:"personal_atiende", gerente:"personal_atiende",
+  tel:"telefono", telefonos:"telefono", celular:"telefono",
+  email:"correo", mail:"correo", correoelectronico:"correo",
+  latitud:"lat", longitud:"long", lng:"long", latitude:"lat", longitude:"long",
+  comentarios:"obs_captura", observaciones:"obs_captura", notas:"obs_captura",
+  modelo:"equipo", equipoainstalar:"equipo"
+};
+
+var KITS=[], LOTE=[], COMUNES_VAL={};
+
+function comunesDe(co){
+  var f=COMUNES.slice();
+  if(co==="CAT") f=f.concat(COMUNES_CAT);
+  return f;
+}
+function mapaSitio(){
+  var m={};
+  POR_SITIO.forEach(function(a){ m[llaveEnc(a[0])]=a[0]; m[llaveEnc(a[1])]=a[0]; });
+  EQUIPO.forEach(function(a){ m[llaveEnc(a[0])]=a[0]; m[llaveEnc(a[1])]=a[0]; });
+  Object.keys(SINONIMOS).forEach(function(k){ m[k]=SINONIMOS[k] });
+  return m;
+}
+function etiquetaSitio(id){
+  var f=POR_SITIO.filter(function(a){return a[0]===id})[0];
+  if(f) return f[1];
+  var g=EQUIPO.filter(function(a){return a[0]===id})[0];
+  return g?g[1]:id;
+}
+
+function partir(txt){
+  txt=txt.replace(/^\ufeff/,"").replace(/\r\n?/g,"\n").replace(/\s+$/,"");
+  if(!txt.trim()) return [];
+  var cab=txt.split("\n")[0];
+  var cuenta=function(c){ return cab.split(c).length-1 };
+  var sep="\t";
+  if(cuenta("\t")===0) sep = cuenta(";")>=cuenta(",") ? ";" : ",";
+  var filas=[], f=[], celda="", coms=false;
+  for(var i=0;i<txt.length;i++){
+    var c=txt[i];
+    if(coms){
+      if(c==='"'){ if(txt[i+1]==='"'){celda+='"';i++;} else coms=false; }
+      else celda+=c;
+    } else if(c==='"') coms=true;
+    else if(c===sep){ f.push(celda); celda=""; }
+    else if(c==="\n"){ f.push(celda); filas.push(f); f=[]; celda=""; }
+    else celda+=c;
+  }
+  f.push(celda); filas.push(f);
+  return filas.filter(function(r){ return r.some(function(v){return String(v).trim()!==""}) });
+}
+
+function aFecha(v){
+  v=String(v||"").trim();
+  if(!v) return "";
+  if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+  if(/^\d{5}(\.\d+)?$/.test(v)){
+    var d=new Date(Date.UTC(1899,11,30)+Math.round(Number(v))*86400000);
+    return d.toISOString().slice(0,10);
+  }
+  var m=v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(!m) return null;
+  var dd=m[1], mm=m[2], aa=Number(m[3]);
+  if(aa<100) aa+=2000;
+  if(Number(mm)>12 || Number(dd)>31) return null;
+  return aa+"-"+String(mm).padStart(2,"0")+"-"+String(dd).padStart(2,"0");
+}
+
+async function abrirCarga(){
+  document.getElementById("mCarga").style.display="flex";
+  var z=document.getElementById("cgSuelta");
+  z.ondragover=function(e){e.preventDefault();z.classList.add("encima")};
+  z.ondragleave=function(){z.classList.remove("encima")};
+  z.ondrop=function(e){e.preventDefault();z.classList.remove("encima");
+    if(e.dataTransfer.files[0]) leerArchivo(e.dataTransfer.files[0])};
+  z.onclick=function(){document.getElementById("cgFile").click()};
+  if(!KITS.length){ try{ KITS=await api("kits?select=*&order=kit"); }catch(e){ KITS=[]; } }
+  pintarComunes();
+}
+
+/* El bloque de arriba se dibuja segun la coordinacion: CAT pide lo suyo, y las
+   que llevan equipo pueden aplicar un kit a todas las sucursales de un golpe. */
+function pintarComunes(){
+  var co=(COMUNES_VAL.coord)||document.getElementById("fCoord").value;
+  var h='<div class="campo req"><label>Coordinacion</label><select id="cg_coord" onchange="cambiaCoord()">'+
+    ["MANT","LEV","INST","PRY_ESP","CAT"].map(function(c){
+      return '<option'+(c===co?" selected":"")+'>'+c+'</option>' }).join("")+'</select></div>';
+  comunesDe(co).forEach(function(a){
+    var id=a[0], etq=a[1], tipo=a[2], ob=a[3];
+    var ancho=(tipo==="area")?" ancho":"";
+    var ctrl;
+    if(tipo==="area") ctrl='<textarea id="cg_'+id+'" oninput="analizar()"></textarea>';
+    else if(tipo==="date") ctrl='<input type="date" id="cg_'+id+'" onchange="analizar()">';
+    else if(CAT[tipo]) ctrl='<select id="cg_'+id+'" onchange="analizar()"><option value=""></option>'+
+      CAT[tipo].map(function(v){return '<option>'+esc(v)+'</option>'}).join("")+'</select>';
+    else ctrl='<input id="cg_'+id+'" oninput="analizar()">';
+    h+='<div class="campo'+ancho+(ob?" req":"")+'"><label>'+esc(etq)+'</label>'+ctrl+'</div>';
+  });
+  if(CON_EQUIPO.indexOf(co)>=0){
+    h+='<div class="campo ancho"><label>Kit de equipo (se aplica a todos los sitios)</label>'+
+      '<select id="cg_kit" onchange="analizar()"><option value="">(ninguno)</option>'+
+      KITS.map(function(k){return '<option>'+esc(k.kit)+'</option>'}).join("")+
+      '</select><div class="kitq" id="cgKitQ"></div></div>';
+  }
+  document.getElementById("cgComunes").innerHTML=h;
+  analizar();
+}
+function cambiaCoord(){
+  COMUNES_VAL.coord=document.getElementById("cg_coord").value;
+  pintarComunes();
+}
+function leerComunes(){
+  var co=document.getElementById("cg_coord").value, v={coord:co};
+  comunesDe(co).forEach(function(a){
+    var e=document.getElementById("cg_"+a[0]);
+    if(e) v[a[0]]=limpio(e.value);
+  });
+  var k=document.getElementById("cg_kit");
+  v.__kit = k ? k.value : "";
+  return v;
+}
+/* Un kit son cantidades de aditamentos: se vuelcan igual en cada sucursal. */
+function camposDelKit(nombre){
+  var k=KITS.filter(function(x){return x.kit===nombre})[0], r={};
+  if(!k) return r;
+  Object.keys(k).forEach(function(c){
+    if(c!=="kit" && c!=="nota" && k[c]!==null && String(k[c]).trim()!=="") r[c]=String(k[c]);
+  });
+  return r;
+}
+
+function plantilla(){
+  var co=document.getElementById("cg_coord").value;
+  var cols=POR_SITIO.map(function(a){return a[1]});
+  var ej=["WALMART LOMAS VERDES","Av. Lomas Verdes 1200","53120","Lomas Verdes",
+          "Naucalpan","Mexico","SM6232","PA020","12/08/2026","Lic. Ramirez",
+          "5512345678","","","",""];
+  var q=function(v){ return /[",;\n]/.test(v) ? '"'+String(v).replace(/"/g,'""')+'"' : v };
+  var txt="\ufeff"+cols.map(q).join(",")+"\n"+ej.map(q).join(",")+"\n";
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([txt],{type:"text/csv;charset=utf-8"}));
+  a.download="sitios_"+co+".csv"; a.click();
+}
+
+function analizar(){
+  var msg=document.getElementById("cgMsg"), pre=document.getElementById("cgPrevia"),
+      cue=document.getElementById("cgCuenta"), btn=document.getElementById("cgBtn");
+  if(!document.getElementById("cg_coord")) return;
+  msg.innerHTML=""; pre.innerHTML=""; cue.innerHTML=""; LOTE=[];
+  btn.disabled=true; btn.textContent="Dar de alta";
+
+  var com=leerComunes(), co=com.coord;
+  var kit=camposDelKit(com.__kit);
+  var qk=document.getElementById("cgKitQ");
+  if(qk) qk.textContent = com.__kit
+    ? Object.keys(kit).map(function(c){return c+" = "+kit[c]}).join("  \u00b7  ")
+    : "";
+
+  var txt=document.getElementById("pegar").value;
+  var filas=partir(txt);
+  if(filas.length<2){
+    if(txt.trim()) msg.innerHTML='<div class="aviso">Hace falta el renglon de encabezados y al menos un sitio abajo.</div>';
+    return;
+  }
+  var mapa=mapaSitio();
+  var enc=filas[0].map(function(h){ return mapa[llaveEnc(h)]||null });
+  var noReconocidos=filas[0].filter(function(h,i){ return !enc[i] && String(h).trim()!=="" });
+  var trae=function(id){ return enc.indexOf(id)>=0 };
+
+  /* Un dato obligatorio puede venir de arriba o del archivo; solo falta si no
+     esta en ninguno de los dos. */
+  var req=[["dia_creacion","dia de creacion del TKT"],["tkt","TKT"],
+           ["tipo_servicio","tipo de servicio"],["telefono","telefono"]];
+  if(co==="CAT") req=req.concat([["fecha_atencion","fecha de atencion"],
+    ["cat_tipo","tipo de atencion"],["cat_estatus","estatus"],["cat_descripcion","descripcion"]]);
+  var arriba=req.filter(function(a){ return !com[a[0]] && !trae(a[0]) });
+  if(arriba.length){
+    msg.innerHTML='<div class="aviso">Arriba te falta llenar: <b>'+
+      arriba.map(function(a){return esc(a[1])}).join(", ")+
+      '</b>. O traelo como columna en el archivo, si cambia por sitio.</div>';
+  }
+  if(!trae("nombre")){
+    msg.innerHTML+='<div class="aviso">El archivo no trae la columna del <b>sitio</b>. '+
+      'Baja la plantilla y compara los encabezados.</div>';
+    return;
+  }
+
+  var ok=0, mal=0, dudas=0;
+  var cuerpo=filas.slice(1).map(function(f,n){
+    var sitio={}, falla=[], ojo=[];
+    enc.forEach(function(id,i){ if(id){ var v=limpio(f[i]); if(v) sitio[id]=v; } });
+    /* el orden importa: lo del sitio pisa lo del kit, y el kit pisa lo comun */
+    var x=Object.assign({}, com, kit, sitio);
+    delete x.__kit;
+    if(!x.nombre) falla.push("falta el nombre del sitio");
+    ["dia_creacion","fecha_atencion","fecha_servicio"].forEach(function(id){
+      if(x[id]){ var d=aFecha(x[id]);
+        if(d===null) falla.push("no entiendo la fecha \u00ab"+x[id]+"\u00bb");
+        else x[id]=d; }
+    });
+    req.forEach(function(a){ if(!x[a[0]]) falla.push("falta "+a[1]) });
+    if(x.cp && !/^\d{5}$/.test(x.cp)) ojo.push("el CP no trae 5 digitos");
+    if(x.telefono && x.telefono.replace(/\D/g,"").length<10) ojo.push("el telefono no llega a 10 digitos");
+    if(!x.direccion) ojo.push("va sin direccion");
+    if(falla.length) mal++; else { ok++; if(ojo.length) dudas++; }
+    return {n:n+2, x:x, falla:falla, ojo:ojo};
+  });
+  LOTE=cuerpo.filter(function(r){return !r.falla.length}).map(function(r){return r.x});
+
+  var conFecha=LOTE.filter(function(x){return x.fecha_servicio}).length;
+  cue.innerHTML='<span>Entran: <b style="color:#5BD79B">'+ok+'</b></span>'+
+    (mal?'<span>Se quedan fuera: <b style="color:#F0A9A5">'+mal+'</b></span>':"")+
+    (dudas?'<span>Entran pero revisalos: <b style="color:#F0BE6E">'+dudas+'</b></span>':"")+
+    '<span>Cliente: <b>'+esc(com.dependencia||"(sin nombre)")+'</b></span>'+
+    '<span>Coordinacion: <b>'+esc(co)+'</b></span>'+
+    (conFecha?'<span>Con fecha de cronograma: <b>'+conFecha+'</b></span>':"");
+  if(noReconocidos.length)
+    msg.innerHTML+='<div class="aviso">Estas columnas no las conozco y las voy a ignorar: <b>'+
+      noReconocidos.map(esc).join(", ")+'</b>.</div>';
+
+  var cols=["nombre","direccion","serie","fecha_servicio","personal_atiende","telefono"]
+    .filter(function(c){ return trae(c) || c==="nombre" });
+  pre.innerHTML='<table><tr><th>#</th>'+
+    cols.map(function(c){return '<th>'+esc(etiquetaSitio(c))+'</th>'}).join("")+
+    '<th>\u00bfEntra?</th></tr>'+
+    cuerpo.map(function(r){
+      return '<tr class="'+(r.falla.length?"mal":(r.ojo.length?"duda":""))+'"><td>'+r.n+'</td>'+
+      cols.map(function(c){return '<td>'+esc(r.x[c]||"")+'</td>'}).join("")+
+      '<td class="porque '+(r.falla.length?"no":(r.ojo.length?"ojo":"si"))+'">'+
+      (r.falla.length?esc(r.falla.join(" \u00b7 ")):(r.ojo.length?esc(r.ojo.join(" \u00b7 ")):"si"))+
+      '</td></tr>';
+    }).join("")+'</table>';
+
+  if(LOTE.length){
+    btn.disabled=false;
+    btn.textContent="Dar de alta "+LOTE.length+" sitio"+(LOTE.length>1?"s":"");
+  }
+}
+
+async function subirLote(){
+  var btn=document.getElementById("cgBtn"), msg=document.getElementById("cgMsg");
+  if(!LOTE.length) return;
+  btn.disabled=true;
+  var co=document.getElementById("cg_coord").value;
+  var sello=new Date().toISOString().slice(0,16).replace("T"," ");
+  var id=await siguienteId(), hechos=0, fallos=[];
+
+  /* La cola de cada etapa se arma con etapa_actual: lo que se queda en 1 vive en
+     la cola de captura y nunca aparece en la de programacion. Un sitio que ya
+     trae fecha de cronograma esta capturado y fechado; lo que le falta es
+     brigada. Por eso entra directo en la etapa 2 y sale en la lista de quien
+     programa, en vez de perderse en la de captura. */
+  var listos=LOTE.map(function(x){
+    return Object.assign({},x,{coord:co,
+      etapa_actual: x.fecha_servicio ? 2 : 1,
+      jen_user:nombreDe(ses.usuario), jen_ts:sello, id:id++});
+  });
+  /* De 25 en 25 para no hacer un viaje por sucursal. Si un paquete truena se
+     reintenta uno por uno: asi un sitio malo no se lleva a los otros 24. */
+  var paquetes=[];
+  for(var i=0;i<listos.length;i+=25) paquetes.push(listos.slice(i,i+25));
+
+  for(var k=0;k<paquetes.length;k++){
+    var p=paquetes[k];
+    btn.textContent="Subiendo\u2026 "+hechos+" de "+listos.length;
+    try{
+      await api("servicios",{method:"POST",headers:{Prefer:"return=minimal"},
+                             body:JSON.stringify(p)});
+      hechos+=p.length;
+    }catch(e){
+      for(var j=0;j<p.length;j++){
+        var f=p[j];
+        try{
+          await api("servicios",{method:"POST",headers:{Prefer:"return=minimal"},
+                                 body:JSON.stringify(f)});
+          hechos++;
+        }catch(e2){
+          if(/409|duplicate|llave|key/i.test(String(e2))){
+            try{
+              f.id=await siguienteId();
+              await api("servicios",{method:"POST",headers:{Prefer:"return=minimal"},
+                                     body:JSON.stringify(f)});
+              hechos++;
+              continue;
+            }catch(e3){}
+          }
+          fallos.push((f.nombre||"sin nombre")+": "+String(e2).slice(0,90));
+        }
+      }
+    }
+  }
+  var elKit=document.getElementById("cg_kit"), kitUsado=elKit?elKit.value:"";
+  if(hechos) anotar("ALTA MASIVA",
+        hechos+" sitios desde archivo (cliente: "+(listos[0].dependencia||"sin nombre")+
+        (kitUsado?", kit: "+kitUsado:"")+")", listos[0]);
+  msg.innerHTML='<div class="'+(fallos.length?"aviso":"bien")+'">Se dieron de alta <b>'+
+    hechos+'</b> de '+listos.length+' sitios en '+esc(co)+'. Ya los ve programacion.'+
+    (fallos.length?'<br>No entraron: '+esc(fallos.join(" | ").slice(0,400)):"")+'</div>';
+  if(hechos){ document.getElementById("pegar").value=""; analizar(); ultimos(); }
+  btn.disabled=false;
+  btn.textContent="Dar de alta";
+}
+
+const ETAPA_AQUI=1;
+
+/* ---------- bitacora: quien movio que ----------
+   Es el mismo LOG que llevaba la estacion de Excel (LogSupa). Al pasar a web se
+   habia quedado sin anotar, y con la gente migrando el rastro se perdia.
+
+   Se manda sin esperar y con el error tragado a proposito: si la bitacora
+   falla, el trabajo del usuario ya quedo guardado y no tiene por que enterarse.
+   Un log que estorba se acaba quitando. */
+function anotar(accion, detalle, x){
+  try{
+    const t=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    api("log",{method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({
+      timestamp:t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" "+
+                p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()),
+      usuario:nombreDe(ses&&ses.usuario), win_user:"web",
+      coord:(x&&x.coord)||(ses&&ses.coord)||"", rol:(ses&&ses.rol)||"",
+      etapa:String((x&&x.etapa_actual)||ETAPA_AQUI),
+      tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
+    })}).catch(function(){});
+  }catch(e){}
 }
 
 async function ultimos(){
@@ -490,6 +983,7 @@ async function ultimos(){
 async function arrancar(){
   document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
   document.getElementById("todo").style.display="block";
+  ponerBarra();
   try{
     const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
     CAT={}; c.forEach(x=>(CAT[x.catalogo]=CAT[x.catalogo]||[]).push(x.valor));
@@ -498,9 +992,85 @@ async function arrancar(){
   ultimos();
 }
 
+/* ---------- barra de etapas, como en la estacion de Excel ----------
+   Alla habia una sola ventana: se elegia la coordinacion y con dos botones se
+   iba y venia entre Captura, Programa, Coordina y Supervisa. Aqui cada etapa es
+   una pantalla, asi que los botones navegan; la coordinacion elegida viaja con
+   uno para no tener que volver a filtrarla en cada etapa. */
+const FLUJO=[["captura.html","Captura"],
+             ["programacion.html","Programa"],
+             ["coordinacion.html","Coordina"],
+             ["cierre.html","Supervisa"]];
+const COORDS_BARRA=[["LEV","Levantamientos"],["INST","Instalaciones"],
+                    ["MANT","Mantenimientos"],["CAT","CAT"],
+                    ["PRY_ESP","Proyectos especiales"]];
+
+function coordElegida(){
+  const u=new URLSearchParams(location.search).get("coord");
+  if(u) localStorage.setItem("md_coord_sel", u);
+  return localStorage.getItem("md_coord_sel")||"";
+}
+function irEtapa(paso){
+  const i=ETAPA_AQUI-1+paso;
+  if(i<0||i>=FLUJO.length) return;
+  const c=document.getElementById("brCoord");
+  const q=c&&c.value ? "?coord="+encodeURIComponent(c.value) : "";
+  location.href=FLUJO[i][0]+q;
+}
+function cambiaCoordBarra(){
+  const c=document.getElementById("brCoord").value;
+  localStorage.setItem("md_coord_sel", c);
+  const f=document.getElementById("fCoord");
+  if(f){ f.value=c; if(typeof cargar==="function") cargar(); }
+}
+function ponerBarra(){
+  const b=document.getElementById("etapas");
+  if(!b) return;
+  const sel=coordElegida();
+  b.innerHTML=
+    '<div class="etapas">'+
+      '<button class="paso" onclick="irEtapa(-1)"'+(ETAPA_AQUI<=1?" disabled":"")+
+        '>&#9664; Etapa anterior</button>'+
+      FLUJO.map(function(f,i){
+        const aqui=(i===ETAPA_AQUI-1);
+        const q=sel?"?coord="+encodeURIComponent(sel):"";
+        return (i?'<span class="fl">&rsaquo;</span>':"")+
+          '<a href="'+f[0]+q+'"'+(aqui?' class="aqui"':"")+'>'+(i+1)+'. '+f[1]+'</a>';
+      }).join("")+
+      '<button class="paso" onclick="irEtapa(1)"'+(ETAPA_AQUI>=FLUJO.length?" disabled":"")+
+        '>Etapa siguiente &#9654;</button>'+
+      '<span class="fl">|</span>'+
+      '<select id="brCoord" onchange="cambiaCoordBarra()" title="Coordinación">'+
+        '<option value="">Todas las coordinaciones</option>'+
+        COORDS_BARRA.map(function(c){
+          return '<option value="'+c[0]+'"'+(c[0]===sel?" selected":"")+'>'+c[1]+'</option>'
+        }).join("")+
+      '</select>'+
+      '<a href="inicio.html" class="ini">&#9776; Inicio</a>'+
+    '</div>';
+  /* la coordinacion elegida manda sobre el filtro de la pantalla */
+  const f=document.getElementById("fCoord");
+  if(f && sel){ f.value=sel; }
+}
+
+
 (async function(){
   if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
 })();
+
+/* ---------- que no salga siempre el primero de la lista ----------
+   El menu se quedaba en la primera opcion, y esa es Jenifer: todos veian su
+   nombre al entrar. Ahora se preselecciona quien uso esta pantalla la ultima vez
+   en este equipo, o a quien se eligio en el inicio. Es solo comodidad: la clave
+   se sigue pidiendo igual. */
+function recordarQuien(){
+  const sel=document.getElementById("inUsr");
+  if(!sel) return;
+  const u=localStorage.getItem("md_quien");
+  if(u && sel.querySelector('option[value="'+u+'"]')) sel.value=u;
+}
+try{ recordarQuien(); }catch(e){}
+
 </script>
 </body>
 </html>
