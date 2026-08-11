@@ -1055,7 +1055,31 @@ function ponerBarra(){
 
 
 (async function(){
-  if(ses){ await renovar(); document.getElementById("mLogin").style.display="none"; arrancar() }
+  /* Si hay sesion guardada se entra derecho; pero si ya no sirve hay que
+     volver a pedir la clave. Antes se escondia el recuadro ANTES de saber si
+     la sesion valia: cuando estaba vencida, la pantalla se quedaba cargando
+     para siempre y sin manera de entrar. Le pasaba a quien ya habia abierto
+     antes; a uno recien llegado no, porque ese si veia el recuadro. */
+  if(ses){
+    let sirve = await renovar();
+    if(!sirve){
+      /* el refresco pudo fallar por la red, no por la sesion: se prueba el
+         pase que ya se tenia antes de correr a nadie */
+      try{ await api("servicios?select=id&limit=1"); sirve = true; }
+      catch(e){ sirve = false; }
+    }
+    if(sirve){
+      document.getElementById("mLogin").style.display="none";
+      arrancar();
+    }else{
+      localStorage.removeItem("md_capt");
+      localStorage.removeItem("md_web");
+      ses = null;
+      const e=document.getElementById("err");
+      if(e){ e.textContent="Tu sesion vencio. Vuelve a entrar con tu clave.";
+             e.style.display="block"; }
+    }
+  }
 })();
 
 /* ---------- que no salga siempre el primero de la lista ----------
