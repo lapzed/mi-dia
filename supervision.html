@@ -183,7 +183,7 @@ function marcarUso(){
 
 let ses=sesionVigente(JSON.parse(localStorage.getItem("md_sup")||
   localStorage.getItem("md_web")||"null"))   /* la sesion es una sola: ver md_web abajo */;
-let todos=[], vista="hoy", mapa=null, capa=null;
+let todos=[], sinProgramar=[], vista="hoy", mapa=null, capa=null;
 
 function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -257,7 +257,8 @@ async function arrancar(){
        periodo al servidor, así que puede mirar tan atrás como quiera sin que el
        teléfono cargue con el historial completo. */
     const CAMPOS="id,coord,tkt,nombre,dependencia,direccion,lat,long,fecha_servicio,"+
-      "horario_atencion,status,tecnico,auxiliar,duracion_est,cita_confirmada,obs_coord";
+      "horario_atencion,status,tecnico,auxiliar,duracion_est,cita_confirmada,obs_coord,"+
+      "dia_creacion,jen_user";
     const desde=isoDe(-90);
     const paginar = async filtro => {
       let out=[];
@@ -271,6 +272,11 @@ async function arrancar(){
     };
     const recientes=await paginar("&fecha_servicio=gte."+desde);
     const abiertos =await paginar("&status=not.in.(ATENDIDO,CANCELADO)&fecha_servicio=lt."+desde);
+    /* Las dos consultas de arriba piden fecha_servicio mayor o menor que algo, y
+       las dos dejan fuera a los que NO tienen fecha: se capturaron y nadie los
+       programo. Eran casi mil servicios abiertos que no aparecian en ninguna
+       pantalla de supervision. */
+    sinProgramar=await paginar("&status=is.null&fecha_servicio=is.null");
     const vistos=new Set(recientes.map(x=>x.coord+"|"+x.id));
     todos=recientes.concat(abiertos.filter(x=>!vistos.has(x.coord+"|"+x.id)));
     ver(vista);
@@ -384,7 +390,31 @@ function pintarAtoro(){
   const rep=v.filter(x=>(x.status||"").toUpperCase().indexOf("REPROGRAMAD")>=0).length;
   const obras=v.filter(enProceso).length;
 
-  document.getElementById("cuerpo").innerHTML=`
+  /* los que nunca recibieron fecha: no estan "detenidos" en el camino, es que
+     nunca arrancaron. Se cuentan aparte porque se arreglan en otro lado —en
+     programacion, poniendoles fecha— y mezclarlos confundiria las dos cosas. */
+  const sp=sinProgramar.slice().sort(function(a,b){
+    return String(a.dia_creacion||"").localeCompare(String(b.dia_creacion||"")) });
+  const bloqueSP = !sp.length ? "" : `
+    <div class="alerta" style="margin-bottom:16px">
+      <span class="num">${sp.length}</span>
+      <h3>Capturados y nunca programados</h3>
+      <div class="q">Sin fecha de servicio, así que no salen en ningún día.
+        Se les pone fecha en Programación y entran al flujo.</div>
+      <table style="margin-top:10px"><thead><tr><th>Días desde captura</th><th>Capturó</th>
+        <th>Coord</th><th>Sitio</th></tr></thead><tbody>
+        ${sp.slice(0,25).map(x=>{
+          const d=x.dia_creacion?dias(x.dia_creacion):"";
+          return `<tr><td class="dias ${d>180?"rojo":(d>60?"ambar":"")}">${d}</td>
+            <td>${esc(limpio(x.jen_user)||"—")}</td>
+            <td><span class="tag">${esc(x.coord)}</span></td>
+            <td>${esc((x.nombre||"").slice(0,44))}</td></tr>`;
+        }).join("")}
+      </tbody></table>
+      ${sp.length>25?`<div class="q" style="margin-top:7px">Se muestran los 25 más viejos.</div>`:""}
+    </div>`;
+
+  document.getElementById("cuerpo").innerHTML=bloqueSP+`
     <h2>${v.length} servicios detenidos</h2>
     <p class="sub">Con la fecha ya pasada y sin cerrar.
        ${rep?rep+" están como reprogramados. ":""}

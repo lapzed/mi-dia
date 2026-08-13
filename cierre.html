@@ -52,6 +52,11 @@
   .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt2);
     text-transform:none;letter-spacing:0;cursor:pointer;white-space:nowrap}
   .chk input{width:auto;margin:0}
+  .avisoAtoro{background:rgba(198,65,59,.10);border:1px solid rgba(198,65,59,.42);
+    border-radius:13px;padding:12px 14px;margin-bottom:13px;font-size:13px}
+  .avisoAtoro b{color:#F0A9A5}
+  .avisoAtoro .dd{font-weight:800;font-variant-numeric:tabular-nums}
+  .avisoAtoro .rojo{color:#F0A9A5} .avisoAtoro .ambar{color:#F0BE6E}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -126,6 +131,7 @@
   </div>
 
   <div class="resumen" id="resumen"></div>
+  <div id="atorados"></div>
   <div id="lista"><div class="load">Entra para cerrar tus servicios.</div></div>
 </div>
 
@@ -188,7 +194,7 @@ function marcarUso(){
 
 let ses=sesionVigente(JSON.parse(localStorage.getItem("md_cierre")||
   localStorage.getItem("md_web")||"null"))   /* la sesion es una sola: ver md_web abajo */;
-let filas=[], EV={}, CAT={};
+let filas=[], atorados=[], totalAtorados=0, EV={}, CAT={};
 
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
   Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
@@ -292,6 +298,18 @@ function rango(n){
   cargar();
 }
 
+/* Cuantos hay en total. Pedirlos y contarlos no sirve: el servidor entrega
+   como maximo 1000 renglones y el numero saldria topado en 1000, que fue
+   justo el error de la primera version de este aviso. Con `count=exact` el
+   total viene en la cabecera Content-Range. */
+async function cuantos(filtro){
+  const r=await fetch(SUPA_URL+"/rest/v1/servicios?select=id"+filtro+"&limit=1",
+    {headers:hdr({Prefer:"count=exact"})});
+  const cr=r.headers.get("Content-Range")||"";
+  const n=Number(String(cr).split("/")[1]);
+  return isNaN(n) ? 0 : n;
+}
+
 async function cargar(){
   const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
   const co=document.getElementById("fCoord").value;
@@ -304,6 +322,21 @@ async function cargar(){
       "&order=fecha_servicio&limit=800");
     await cargarEvidencias();
     await cargarSolicitudes();
+    /* Aparte del rango elegido: lo que quedo sin cerrar hace mas de un mes.
+       El rango por omision son 30 dias y "Ver todos" abre doce meses, asi que
+       una obra parada desde hace ano y medio no salia por ningun lado aqui.
+       Estas no dependen del rango: siempre se avisan. */
+    /* FUERA los mismos estatus que no cuentan en el reporte: atendido y
+       cancelado ya terminaron, y prospecto y atencion ventas todavia no son
+       trabajo del area. Si no, la lista se llena de cosas que no hay que cerrar. */
+    const FUERA="(ATENDIDO,CANCELADO,PROSPECTO,\"ATENCION VENTAS\")";
+    const filtroAtoro="&status=not.in."+FUERA+
+      "&fecha_servicio=lt."+isoDe(-30)+(co?"&coord=eq."+co:"");
+    try{
+      atorados = await api("servicios?select=coord,id,tkt,nombre,dependencia,"+
+        "fecha_servicio,status,tecnico"+filtroAtoro+"&order=fecha_servicio.asc&limit=25");
+      totalAtorados = await cuantos(filtroAtoro);
+    }catch(e){ atorados=[]; totalAtorados=0 }
     pintar();
   }catch(e){
     document.getElementById("lista").innerHTML=
@@ -383,7 +416,34 @@ function verTodos(){
   else if(typeof pintar==="function") pintar();
 }
 
-function pintar(){ setTimeout(filtrarVista,0);
+/* lo atorado: los mas viejos primero, que son los que peor se ven */
+function pintarAtorados(){
+  const c=document.getElementById("atorados");
+  if(!c) return;
+  if(!atorados.length){ c.innerHTML=""; return }
+  const dd=f=>Math.round((new Date(hoyISO())-new Date(f))/86400000);
+  c.innerHTML='<div class="avisoAtoro"><b>'+totalAtorados+
+    ' servicio'+(totalAtorados>1?"s":"")+' sin cerrar con más de un mes</b>'+
+    ' — no dependen del rango de fechas de arriba.'+
+    '<div class="tabla" style="margin-top:9px"><table><thead><tr>'+
+    '<th>Días parado</th><th>Fecha</th><th>Servicio</th><th>Técnico</th>'+
+    '<th>Estatus</th></tr></thead><tbody>'+
+    atorados.map(function(x){
+      const d=dd(x.fecha_servicio);
+      return '<tr><td class="dd '+(d>180?"rojo":(d>60?"ambar":""))+'">'+d+'</td>'+
+        '<td class="sub">'+esc(x.fecha_servicio)+'</td>'+
+        '<td><div class="sitio">'+esc((x.nombre||"").slice(0,42))+'</div>'+
+        '<div class="sub"><span class="tag">'+esc(x.coord)+'</span>'+
+        (x.tkt?" TKT "+esc(x.tkt):"")+'</div></td>'+
+        '<td class="sub">'+esc(limpio(x.tecnico)||"—")+'</td>'+
+        '<td class="sub">'+esc(x.status||"sin estatus")+'</td></tr>';
+    }).join("")+'</tbody></table></div>'+
+    (totalAtorados>atorados.length
+      ? '<div class="sub" style="margin-top:7px">Se listan los '+atorados.length+
+        ' más viejos.</div>' : "")+'</div>';
+}
+
+function pintar(){ setTimeout(filtrarVista,0); pintarAtorados();
   const v=vistas(), cont=document.getElementById("lista");
   const ab=filas.filter(abierto).length;
   const sinEv=filas.filter(x=>cerrado(x)&&!completo(x)).length;
