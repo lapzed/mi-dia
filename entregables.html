@@ -349,24 +349,34 @@ const ESTACIONES=[
   ["est.jenifer","Jenifer · Captura"], ["est.ivan","Iván · Mantenimientos"],
   ["est.patricia","Patricia · Mantenimientos"], ["est.jair","Jair · Levantamientos"],
   ["est.alin","Alin · Instalaciones"], ["est.proyectos","Karina · Proyectos especiales"],
-  ["est.ariana","Ariana · CAT"], ["est.gloria","Montserrat · Aux administrativo"],
+  ["est.ariana","Ariana · CAT"]
+];
+/* los auxiliares y el mando van con el área administrativa, no con las
+   coordinaciones */
+const ADMIN_FIJOS=[
+  ["jesus.acosta","Jesús · Aux administrativo"],
+  ["est.gloria","Montserrat · Aux administrativo"],
   ["est.subgerencia","Subgerencia"], ["est.gerencia","Gerencia"]
 ];
 
 async function llenarUsuarios(){
   const sel=document.getElementById("selUsr");
   const est=ESTACIONES.map(([u,n])=>`<option value="${u}">${esc(n)}</option>`).join("");
+  const fijos=ADMIN_FIJOS.map(([u,n])=>`<option value="${u}">${esc(n)}</option>`).join("");
   try{
     const l=await api("login_usuarios?select=usuario,nombre,rol&order=nombre");
-    const adm=l.filter(u=>u.rol==="ADMINISTRATIVO");
+    /* los que ya vienen con etiqueta propia no se repiten */
+    const puestos=ADMIN_FIJOS.map(([u])=>u);
+    const adm=l.filter(u=>u.rol==="ADMINISTRATIVO" && puestos.indexOf(u.usuario)<0);
     sel.innerHTML='<option value="">Elige tu nombre…</option>'+
-      (adm.length?'<optgroup label="Área administrativa">'+
+      '<optgroup label="Área administrativa">'+
         adm.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("")+
-        '</optgroup>':"")+
+        fijos+'</optgroup>'+
       '<optgroup label="Coordinaciones">'+est+'</optgroup>';
   }catch(e){
     // sin conexión igual se puede entrar: las estaciones no dependen de la consulta
     sel.innerHTML='<option value="">Elige tu nombre…</option>'+
+      '<optgroup label="Área administrativa">'+fijos+'</optgroup>'+
       '<optgroup label="Coordinaciones">'+est+'</optgroup>';
   }
 }
