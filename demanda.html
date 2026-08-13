@@ -314,6 +314,23 @@ function mover(n){
   cargar();
 }
 
+/* ---------- quienes van a ese servicio ----------
+   El lider viene en `tecnico` y los apoyos en `auxiliar`, donde se escriben
+   juntos y separados como salga: coma, diagonal o "y". */
+function personasDe(x){
+  const out=[];
+  const t=limpio(x.tecnico);
+  if(t) out.push(t);
+  String(x.auxiliar||"").split(/[,\/;]| y | Y /).forEach(function(a){
+    const q=limpio(a);
+    if(q && out.indexOf(q)<0) out.push(q);
+  });
+  return out;
+}
+function papelEn(x, quien){
+  return limpio(x.tecnico)===quien ? "lider" : "auxiliar";
+}
+
 function claseCarga(m){ return m>480 ? "lleno" : (m>=240 ? "medio" : "cupo") }
 
 function pintar(){
@@ -336,16 +353,22 @@ function pintar(){
     const d=Math.round((new Date(x.fecha_servicio+"T00:00:00")-
                         new Date(iso(lunes)+"T00:00:00"))/86400000);
     if(d<0||d>5) return;
-    const t=limpio(x.tecnico);
-    if(t) suma(carga,t,d,x); else suma(sinBrig,"__sin__",d,x);
+    /* Cuenta a TODOS los que van al servicio, no solo al lider. Antes se
+       agrupaba por `tecnico` y quien siempre va de auxiliar no aparecia por
+       ningun lado: la rejilla lo mostraba libre teniendo la semana llena. La
+       pregunta que contesta esta pantalla es "a quien le puedo asignar", y
+       para eso importa si la persona esta comprometida, no en que papel. */
+    const gente=personasDe(x);
+    if(gente.length) gente.forEach(function(q){ suma(carga,q,d,x) });
+    else suma(sinBrig,"__sin__",d,x);
   });
 
-  const conBrig=vis.filter(x=>limpio(x.tecnico)).length;
+  const conBrig=vis.filter(x=>personasDe(x).length).length;
   const sin=vis.length-conBrig;
   document.getElementById("resumen").innerHTML=
     '<div class="pill"><b>'+vis.length+'</b>servicios con fecha</div>'+
     '<div class="pill"><b style="color:'+(sin?"#F0BE6E":"#5BD79B")+'">'+sin+'</b>sin brigada asignada</div>'+
-    '<div class="pill"><b>'+Object.keys(carga).length+'</b>brigadas ocupadas</div>';
+    '<div class="pill"><b>'+Object.keys(carga).length+'</b>personas ocupadas</div>';
 
   /* orden: primero los técnicos del catálogo, luego cualquiera que traiga
      servicios y no esté en el catálogo (para no esconderlo) */
@@ -353,7 +376,7 @@ function pintar(){
   Object.keys(carga).forEach(function(t){ if(nombres.indexOf(t)<0) nombres.push(t) });
 
   const dias=["Lun","Mar","Mié","Jue","Vie","Sáb"];
-  let h='<div class="tabla"><table><thead><tr><th class="nom">Técnico líder</th>'+
+  let h='<div class="tabla"><table><thead><tr><th class="nom">Técnico</th>'+
     ds.map((d,i)=>'<th>'+dias[i]+' '+String(d.getDate()).padStart(2,"0")+'</th>').join("")+
     '<th>Semana</th></tr></thead><tbody>';
 
@@ -380,7 +403,7 @@ function pintar(){
        '<span><i class="cupo" style="background:rgba(30,142,90,.6)"></i>menos de 4 h: hay cupo</span>'+
        '<span><i class="medio" style="background:rgba(232,163,61,.7)"></i>de 4 a 8 h: va cargado</span>'+
        '<span><i class="lleno" style="background:rgba(198,65,59,.7)"></i>más de 8 h: saturado</span>'+
-       '<span>Toca una celda para ver qué trae.</span>'+
+       '<span>Cuenta lideres y auxiliares: el total de la semana son horas-persona.</span>'+'<span>Toca una celda para ver qué trae.</span>'+
      '</div>';
   document.getElementById("rejilla").innerHTML=h;
   if(sel) verDetalle(sel[0], sel[1]);
@@ -394,8 +417,8 @@ function verDetalle(etqCod, dia){
   const ss=filas.filter(function(x){
     if(co && x.coord!==co) return false;
     if(x.fecha_servicio!==diaISO) return false;
-    const t=limpio(x.tecnico);
-    return etq.indexOf("Sin brigada")>=0 ? !t : t===etq;
+    const gente=personasDe(x);
+    return etq.indexOf("Sin brigada")>=0 ? !gente.length : gente.indexOf(etq)>=0;
   });
   const tot=ss.reduce((a,x)=>a+duracion(x),0);
   document.getElementById("detalle").innerHTML=
@@ -404,13 +427,14 @@ function verDetalle(etqCod, dia){
     '<div class="q">'+ss.length+' servicio'+(ss.length===1?"":"s")+' · '+(tot/60).toFixed(1)+
     ' horas estimadas'+(etq.indexOf("Sin brigada")>=0?' · <b style="color:#F0BE6E">falta asignarles brigada</b>':"")+'</div>'+
     (ss.length?'<div class="tabla"><table><thead><tr><th>TKT</th><th>Servicio</th>'+
-      '<th>Dependencia</th><th>Estatus</th><th>Estimado</th></tr></thead><tbody>'+
+      '<th>Dependencia</th><th>Estatus</th><th>Va como</th><th>Estimado</th></tr></thead><tbody>'+
       ss.map(function(x){
         return '<tr><td>'+esc(x.tkt||"—")+'</td>'+
           '<td><div>'+esc(x.nombre||"")+'</div><div class="sub"><span class="tag">'+
             esc(x.coord)+'</span> '+esc(limpio(x.tipo_servicio)||"")+'</div></td>'+
           '<td>'+esc(x.dependencia||"")+'</td>'+
           '<td>'+esc(limpio(x.status)||"—")+'</td>'+
+          '<td>'+esc(papelEn(x,etq))+'</td>'+
           '<td>'+(duracion(x)/60).toFixed(1)+' h</td></tr>';
       }).join("")+'</tbody></table></div>'
      :'<div class="vacio">Nada ese día.</div>')+
