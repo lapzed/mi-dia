@@ -346,12 +346,11 @@ async function renovar(){
    con el usuario de su estación. La base ya se encarga de que cada quien vea
    solo su coordinación; gerencia y subgerencia ven las cinco. */
 const ESTACIONES=[
-  ["est.gerencia","Gerencia"], ["est.subgerencia","Subgerencia"],
-  ["est.jenifer","Jenifer · Mantenimientos"], ["est.ivan","Iván · Mantenimientos"],
-  ["est.patricia","Patricia · Mantenimientos"], ["est.ariana","Ariana · CAT"],
-  ["est.jair","Jair · Levantamientos"], ["est.alin","Alin · Instalaciones"],
-  ["est.proyectos","Proyectos especiales"],
-  ["est.gloria","Gloria Montserrat · Apoyo"]
+  ["est.jenifer","Jenifer · Captura"], ["est.ivan","Iván · Mantenimientos"],
+  ["est.patricia","Patricia · Mantenimientos"], ["est.jair","Jair · Levantamientos"],
+  ["est.alin","Alin · Instalaciones"], ["est.proyectos","Karina · Proyectos especiales"],
+  ["est.ariana","Ariana · CAT"], ["est.gloria","Montserrat · Aux administrativo"],
+  ["est.subgerencia","Subgerencia"], ["est.gerencia","Gerencia"]
 ];
 
 async function llenarUsuarios(){
@@ -396,10 +395,10 @@ async function arrancar(){
   /* quien llega desde otra pantalla no trae `nombre` en la sesion: se resuelve
      del usuario para no saludarlo como "est.gerencia" */
   const NOMBRES={"est.gerencia":"Gerencia","est.subgerencia":"Subgerencia",
-    "est.gloria":"Gloria Montserrat","est.jenifer":"Jenifer","est.ivan":"Iván",
+    "est.gloria":"Montserrat","est.jenifer":"Jenifer","est.ivan":"Iván",
     "est.patricia":"Patricia","est.jair":"Jair","est.alin":"Alin",
-    "est.ariana":"Ariana","est.proyectos":"Proyectos especiales",
-    "jesus.acosta":"Jesús Acosta"};
+    "est.ariana":"Ariana","est.proyectos":"Karina",
+    "jesus.acosta":"Jesús"};
   document.getElementById("who").innerHTML="Salir<b>"+
     esc(ses.nombre||NOMBRES[ses.usuario]||ses.usuario)+"</b>";
   const h=new Date(), a=new Date(); a.setDate(a.getDate()-7);

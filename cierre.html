@@ -136,12 +136,12 @@
     <select id="inUsr">
       <option value="est.jair">Jair · Levantamientos</option>
       <option value="est.alin">Alin · Instalaciones</option>
-      <option value="est.ivan">Iván · Subgerencia</option>
-      <option value="est.patricia">Patricia · Coordinación</option>
+      <option value="est.ivan">Iván · Mantenimientos</option>
+      <option value="est.patricia">Patricia · Mantenimientos</option>
       <option value="est.ariana">Ariana · CAT</option>
-      <option value="est.proyectos">Proyectos especiales</option>
+      <option value="est.proyectos">Karina · Proyectos especiales</option>
       <option value="est.jenifer">Jenifer · Captura</option>
-      <option value="est.gloria">Gloria Montserrat · Apoyo</option>
+      <option value="est.gloria">Montserrat · Aux administrativo</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
     </select>
@@ -160,9 +160,9 @@ const BUCKET="evidencias";
 
 /* Cada coordinador abre en la suya; gerencia y subgerencia ven todas. Es lo
    mismo que su rol en la estación: INTEGRAL sobre su coordinación. */
-const SUYA={"est.jair":"LEV","est.alin":"INST","est.ariana":"CAT",
-            "est.proyectos":"PRY_ESP","est.ivan":"MANT","est.patricia":"MANT",
-            "est.jenifer":"MANT"};
+const SUYA={"est.jair":"Jair","est.alin":"Alin","est.ariana":"Ariana",
+            "est.proyectos":"Karina","est.ivan":"Iván","est.patricia":"Patricia",
+            "est.jenifer":"Jenifer"};
 
 let ses=JSON.parse(localStorage.getItem("md_cierre")||
   localStorage.getItem("md_web")||"null")   /* la sesion es una sola: ver md_web abajo */;
@@ -224,8 +224,8 @@ function salir(){ localStorage.removeItem("md_cierre");
   localStorage.removeItem("md_web"); location.reload() }
 function nombreDe(u){
   return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
-           "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Proyectos especiales",
-           "est.gloria":"Gloria Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
+           "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Karina",
+           "est.gloria":"Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
            "est.subgerencia":"Subgerencia"})[u] || u;
 }
 

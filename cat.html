@@ -113,7 +113,7 @@
     <p>Atención a clientes corporativos y centro de monitoreo.</p>
     <select id="inUsr">
       <option value="est.ariana">Ariana · CAT</option>
-      <option value="est.gloria">Gloria Montserrat · Apoyo</option>
+      <option value="est.gloria">Montserrat · Aux administrativo</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
     </select>
@@ -188,7 +188,7 @@ async function entrar(){
 function salir(){ localStorage.removeItem("md_cat");
   localStorage.removeItem("md_web"); location.reload() }
 function nombreDe(u){
-  return ({"est.gloria":"Gloria Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
+  return ({"est.gloria":"Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
            "est.subgerencia":"Subgerencia"})[u] || u;
 }
 
