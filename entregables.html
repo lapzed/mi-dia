@@ -393,7 +393,15 @@ function salir(){ localStorage.removeItem("md_ses");
 async function arrancar(){
   document.getElementById("mLogin").style.display="none";
   document.getElementById("filtros").style.display="flex";
-  document.getElementById("who").innerHTML="Salir<b>"+esc(ses.nombre||ses.usuario)+"</b>";
+  /* quien llega desde otra pantalla no trae `nombre` en la sesion: se resuelve
+     del usuario para no saludarlo como "est.gerencia" */
+  const NOMBRES={"est.gerencia":"Gerencia","est.subgerencia":"Subgerencia",
+    "est.gloria":"Gloria Montserrat","est.jenifer":"Jenifer","est.ivan":"Iván",
+    "est.patricia":"Patricia","est.jair":"Jair","est.alin":"Alin",
+    "est.ariana":"Ariana","est.proyectos":"Proyectos especiales",
+    "jesus.acosta":"Jesús Acosta"};
+  document.getElementById("who").innerHTML="Salir<b>"+
+    esc(ses.nombre||NOMBRES[ses.usuario]||ses.usuario)+"</b>";
   const h=new Date(), a=new Date(); a.setDate(a.getDate()-7);
   document.getElementById("fDe").value=iso(a);
   document.getElementById("fA").value=iso(h);
@@ -1192,8 +1200,26 @@ async function generar(){
 
 /* ---------- arranque ---------- */
 (async function(){
-  if(ses && ses.rol==="ADMINISTRATIVO"){ await renovar(); arrancar() }
-  else { llenarUsuarios() }
+  /* Antes solo entraba solo si el rol era ADMINISTRATIVO, o sea Jesus. A
+     cualquier otro —incluida Gerencia, que puede leer y escribir todo— le
+     volvia a pedir la clave aunque llegara con la sesion puesta desde el
+     inicio. Ahora entra quien traiga una sesion que sirva, sea quien sea; y si
+     la sesion ya vencio, se pide la clave con un aviso claro en vez de dejar la
+     pantalla colgada. */
+  if(!ses){ llenarUsuarios(); return }
+  let sirve = await renovar();
+  if(!sirve){
+    try{ await api("servicios?select=id&limit=1"); sirve = true; }
+    catch(e){ sirve = false; }
+  }
+  if(sirve){ arrancar(); return }
+  localStorage.removeItem("md_ses");
+  localStorage.removeItem("md_web");
+  ses = null;
+  llenarUsuarios();
+  const e=document.getElementById("err");
+  if(e){ e.textContent="Tu sesion vencio. Vuelve a entrar con tu clave.";
+         e.style.display="block"; }
 })();
 </script>
 </body>
