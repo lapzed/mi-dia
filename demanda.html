@@ -207,8 +207,14 @@ async function renovar(){
   if(!ses||!ses.refresh) return false;
   try{ guardar(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
 }
-function salir(){ localStorage.removeItem("md_demanda");
-  localStorage.removeItem("md_web"); location.reload() }
+function salir(){
+  /* Salir cierra en TODAS las pantallas, no solo en esta. Cada una guarda
+     su propia copia de la sesion: si se borraba nada mas la de aqui, las
+     otras seguian abiertas y al volver se entraba sin pedir la clave. */
+  ["md_capt", "md_prog", "md_coord", "md_cierre", "md_cat", "md_lev", "md_sup", "md_ventas", "md_demanda", "md_ses", "md_web"]
+    .forEach(function(k){ localStorage.removeItem(k) });
+  location.reload();
+}
 function nombreDe(u){
   return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
            "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Karina",

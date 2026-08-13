@@ -220,8 +220,14 @@ async function entrar(){
     document.getElementById("mLogin").style.display="none"; arrancar();
   }catch(x){ e.textContent="No se pudo entrar"; e.style.display="block" }
 }
-function salir(){ localStorage.removeItem("md_cierre");
-  localStorage.removeItem("md_web"); location.reload() }
+function salir(){
+  /* Salir cierra en TODAS las pantallas, no solo en esta. Cada una guarda
+     su propia copia de la sesion: si se borraba nada mas la de aqui, las
+     otras seguian abiertas y al volver se entraba sin pedir la clave. */
+  ["md_capt", "md_prog", "md_coord", "md_cierre", "md_cat", "md_lev", "md_sup", "md_ventas", "md_demanda", "md_ses", "md_web"]
+    .forEach(function(k){ localStorage.removeItem(k) });
+  location.reload();
+}
 function nombreDe(u){
   return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
            "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Karina",

@@ -231,6 +231,7 @@ function menu(u){
 
 function salir(){
   Object.values(LLAVES).forEach(ll=>localStorage.removeItem(ll));
+  localStorage.removeItem("md_web");   // la llave comun tambien
   localStorage.removeItem("md_quien");
   location.reload();
 }
