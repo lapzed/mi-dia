@@ -314,6 +314,72 @@ function mover(n){
   cargar();
 }
 
+/* ---------- las obras largas se reparten entre sus dias ----------
+   Una instalacion de varios dias se guarda como un renglon por dia, y cada uno
+   carga el equipo completo: la formula de tiempos le calcula a CADA dia la
+   duracion de TODA la obra. En la rejilla eso salia como 25 h en un solo dia,
+   y una persona con una obra de una semana parecia imposible de ocupar.
+
+   Ahora la estimacion se divide entre los dias que dura. Si el servicio declara
+   `dias_est` se usa ese; si no —que es lo comun en las continuidades— se cuentan
+   los dias que ese mismo sitio le aparece a esa persona en el periodo cargado.
+
+   El TKT no sirve para agruparlas: la misma obra de CINSA viene como "2260" en
+   unos renglones y "PRY2260" en otros. Por eso se agrupa por sitio. */
+let OBRAS = {};
+/* Se agrupa por los DIGITOS del TKT, no por el nombre del sitio: dentro de una
+   misma obra el nombre cambia —"OCESA" y "OCESA CITY BANAMEX COMEDORES",
+   "DESARROLADORA CINSA" con una L y con dos—, mientras que el ticket se
+   mantiene aunque le pongan o le quiten el prefijo PRY. */
+function llaveObra(x, quien){
+  const t = String(x.tkt||"").replace(/\D/g,"");
+  return (x.coord||"") + "|" + (t || (limpio(x.nombre)||"").toUpperCase()) + "|" + quien;
+}
+/* palabras del nombre que sirven para reconocer el sitio (las cortas no) */
+function palabrasSitio(n){
+  return String(n||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toUpperCase().split(/[^A-Z0-9]+/).filter(function(w){ return w.length>=4 });
+}
+function mapearObras(lista){
+  OBRAS = {};
+  const dias = {}, porDia = {}, pals = {};
+  lista.forEach(function(x){
+    personasDe(x).forEach(function(q){
+      const k = llaveObra(x, q);
+      (dias[k] = dias[k] || {})[x.fecha_servicio] = true;
+      porDia[k] = porDia[k] || {};
+      porDia[k][x.fecha_servicio] = (porDia[k][x.fecha_servicio]||0) + 1;
+      const w = palabrasSitio(x.nombre);
+      pals[k] = (pals[k]===undefined) ? w : pals[k].filter(function(p){ return w.indexOf(p)>=0 });
+    });
+  });
+  Object.keys(dias).forEach(function(k){
+    const n = Object.keys(dias[k]).length;
+    /* Tres condiciones, y las tres hacen falta para no confundir una obra larga
+       con una poliza:
+         - mas de un dia
+         - UN renglon por dia. La poliza Walmart trae varias sucursales el mismo
+           dia bajo un solo ticket, y cada una es un servicio completo
+         - los nombres comparten alguna palabra. Asi "OCESA" y "OCESA CITY
+           BANAMEX COMEDORES" son el mismo sitio, y dos sucursales distintas del
+           mismo ticket no lo son
+       No se pide que todos digan CONTINUIDAD: hay obras cuyos dias quedan como
+       ATENDIDO o PROGRAMADO y son igual de largas. */
+    const unoPorDia = Object.keys(porDia[k]).every(function(f){ return porDia[k][f]===1 });
+    const mismoSitio = (pals[k]||[]).length > 0;
+    if(n > 1 && unoPorDia && mismoSitio) OBRAS[k] = n;
+  });
+}
+function diasDeLaObra(x, quien){
+  const d = Number(x.dias_est) || 0;
+  if(d > 1) return d;
+  return OBRAS[llaveObra(x, quien)] || 1;
+}
+/* lo que carga esa persona ese dia */
+function duracionDe(x, quien){
+  return duracion(x) / diasDeLaObra(x, quien);
+}
+
 /* ---------- quienes van a ese servicio ----------
    El lider viene en `tecnico` y los apoyos en `auxiliar`, donde se escriben
    juntos y separados como salga: coma, diagonal o "y". */
@@ -342,10 +408,11 @@ function pintar(){
   const vis=filas.filter(x=>!co||x.coord===co);
   /* Los que ya tienen brigada se acumulan por técnico; los que no, aparte:
      ésos son los que hay que programar y los que se perdían de vista. */
+  mapearObras(vis);
   const carga={}, sinBrig={};
   const suma=(mapa,llave,dia,x)=>{
     mapa[llave]=mapa[llave]||{min:[0,0,0,0,0,0], n:[0,0,0,0,0,0], ss:[[],[],[],[],[],[]]};
-    mapa[llave].min[dia]+=duracion(x);
+    mapa[llave].min[dia]+=duracionDe(x, llave);
     mapa[llave].n[dia]++;
     mapa[llave].ss[dia].push(x);
   };
@@ -420,7 +487,7 @@ function verDetalle(etqCod, dia){
     const gente=personasDe(x);
     return etq.indexOf("Sin brigada")>=0 ? !gente.length : gente.indexOf(etq)>=0;
   });
-  const tot=ss.reduce((a,x)=>a+duracion(x),0);
+  const tot=ss.reduce((a,x)=>a+duracionDe(x,etq),0);
   document.getElementById("detalle").innerHTML=
     '<div class="det"><h2>'+esc(etq)+' · '+["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"][dia]+
     ' '+ddmmm(d)+'</h2>'+
@@ -435,7 +502,11 @@ function verDetalle(etqCod, dia){
           '<td>'+esc(x.dependencia||"")+'</td>'+
           '<td>'+esc(limpio(x.status)||"—")+'</td>'+
           '<td>'+esc(papelEn(x,etq))+'</td>'+
-          '<td>'+(duracion(x)/60).toFixed(1)+' h</td></tr>';
+          '<td>'+(duracionDe(x,etq)/60).toFixed(1)+' h'+
+            (diasDeLaObra(x,etq)>1
+              ? '<div class="sub">obra de '+diasDeLaObra(x,etq)+' días · '+
+                (duracion(x)/60).toFixed(1)+' h en total</div>'
+              : '')+'</td></tr>';
       }).join("")+'</tbody></table></div>'
      :'<div class="vacio">Nada ese día.</div>')+
     '</div>';
