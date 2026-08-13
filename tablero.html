@@ -250,14 +250,21 @@ function pintar(){
   const cerrado=x=>CERRADO.indexOf(String(x.status||"").toUpperCase())>=0;
   const atendidos=s.filter(x=>String(x.status||"").toUpperCase()==="ATENDIDO").length;
   const abiertos=s.filter(x=>!cerrado(x)).length;
-  const gente=new Set(); s.forEach(x=>personasDe(x).forEach(q=>gente.add(q)));
+  /* En el tablero se cuenta por BRIGADA, o sea por tecnico lider. En la pantalla
+     de demanda se cuenta por persona —ahi la pregunta es a quien se le puede
+     asignar—, pero direccion razona en brigadas y mezclar las dos cuentas en la
+     misma reunion confunde. */
+  const brigadas=new Set(); s.forEach(function(x){
+    const t=limpio(x.tecnico); if(t) brigadas.add(t) });
+  const apoyos=new Set(); s.forEach(function(x){
+    personasDe(x).forEach(function(q){ if(!brigadas.has(q)) apoyos.add(q) }) });
   const sinBrigada=s.filter(x=>!personasDe(x).length).length;
 
   let h='<div class="tarjetas">'+
     tarjeta(s.length,"servicios con fecha esta semana","")+
     tarjeta(atendidos,"ya atendidos","ok")+
     tarjeta(abiertos,"sin cerrar", abiertos?"ojo":"ok")+
-    tarjeta(gente.size,"personas en campo","")+
+    tarjeta(brigadas.size,"brigadas en campo","")+
     tarjeta(D.atorados,"parados más de un mes", D.atorados?"mal":"ok")+
     tarjeta(D.sinProgramar,"capturados sin fecha", D.sinProgramar?"ojo":"ok")+
     '</div>';
@@ -286,17 +293,20 @@ function pintar(){
 
   /* carga por persona */
   const carga={};
-  s.forEach(function(x){ personasDe(x).forEach(function(q){ carga[q]=(carga[q]||0)+1 }) });
+  s.forEach(function(x){ const t=limpio(x.tecnico); if(t) carga[t]=(carga[t]||0)+1 });
   const orden=Object.entries(carga).sort((a,b)=>b[1]-a[1]);
   const tope=orden.length?orden[0][1]:1;
-  h+='<div class="dos"><div><h2>Quién trae más carga</h2><div class="caja"><table><tbody>'+
+  h+='<div class="dos"><div><h2>Carga por brigada</h2><div class="caja"><table><tbody>'+
     orden.slice(0,10).map(function(p){
       return '<tr><td>'+esc(p[0])+'<div class="barrita"><i style="width:'+
         Math.round(100*p[1]/tope)+'%"></i></div></td>'+
         '<td class="num">'+p[1]+'</td></tr>';
     }).join("")+'</tbody></table>'+
-    (orden.length>10?'<div class="sub" style="margin-top:8px">y '+(orden.length-10)+
-      ' personas más.</div>':"")+'</div></div>';
+    '<div class="sub" style="margin-top:8px">'+
+      (orden.length>10 ? 'y '+(orden.length-10)+' brigadas más. ' : "")+
+      (apoyos.size ? 'Además '+apoyos.size+
+        ' auxiliares de apoyo, que no llevan brigada propia.' : "")+
+    '</div></div></div>';
 
   /* monitoreo */
   h+='<div><h2>Centro de monitoreo</h2><div class="caja">';
