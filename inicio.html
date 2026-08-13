@@ -115,7 +115,7 @@ const DOMINIO="mdcontrol.local";
 /* Cada pantalla guarda su sesión en su propia llave. Al entrar aquí se escribe
    en todas las que esa persona usa, para que no le vuelvan a pedir la clave
    pantalla por pantalla. */
-const LLAVES={"demanda.html":"md_demanda", "captura.html":"md_capt", "programacion.html":"md_prog",
+const LLAVES={"tablero.html":"md_tablero", "demanda.html":"md_demanda", "captura.html":"md_capt", "programacion.html":"md_prog",
   "coordinacion.html":"md_coord", "cierre.html":"md_cierre", "cat.html":"md_cat",
   "supervision.html":"md_sup", "ventas.html":"md_ventas", "levantamientos.html":"md_lev",
   "entregables.html":"md_ses"};
@@ -131,6 +131,7 @@ const PANTALLAS={
   cat:          ["cat.html",          "🎧", "CAT", "Atenciones y centro de monitoreo"],
   entregables:  ["entregables.html",  "📄", "Entregables", "Informes y reportes al cliente"],
   demanda:      ["demanda.html",      "📊", "Demanda de técnicos", "Cuánto trae cada brigada y qué falta asignar"],
+  tablero:      ["tablero.html",      "📈", "Tablero de dirección", "Los números del área, para la reunión"],
   supervision:  ["supervision.html",  "🛰️", "Supervisión", "Brigadas, atorones y lo realizado"],
   ventas:       ["ventas.html",       "💼", "Ventas", "Los servicios por ejecutivo de cuenta"],
   dia:          ["index.html",        "🔧", "Mi día", "Tus servicios de hoy"]
@@ -150,8 +151,8 @@ const DESTINOS={
                      "demanda","levantamientos","cat","entregables"],
   "jesus.acosta":   ["entregables"],
   "est.ventas":     ["ventas"],
-  "est.gerencia":   ["supervision","demanda","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
-  "est.subgerencia":["supervision","demanda","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
+  "est.gerencia":   ["tablero","supervision","demanda","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
+  "est.subgerencia":["tablero","supervision","demanda","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
 };
 
 const NOMBRES={"est.jenifer":["Jenifer","Captura"],
