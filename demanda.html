@@ -164,8 +164,30 @@ const DOMINIO="mdcontrol.local";
    entran por cronograma traen fecha pero todavía no técnico, y ahí es donde se
    perdían de vista. Ahora salen arriba y con su día. */
 
-let ses=JSON.parse(localStorage.getItem("md_demanda")||
-  localStorage.getItem("md_web")||"null");
+const LLAVES_SESION=["md_capt", "md_prog", "md_coord", "md_cierre", "md_cat", "md_lev", "md_sup", "md_ventas", "md_demanda", "md_ses", "md_web", "md_tec"];
+
+/* ---------- la sesion guardada caduca ----------
+   Antes no caducaba nunca: un equipo que nadie cerraba quedaba abierto para
+   siempre, y quien lo tomara escribia con el nombre del dueno. Ahora se anota
+   cuando se uso por ultima vez y a los 15 dias se pide la clave otra vez. */
+const DIAS_SESION = 15;
+function sesionVigente(s){
+  if(!s) return null;
+  if(s.visto && (Date.now() - s.visto) > DIAS_SESION*86400000) return null;
+  return s;
+}
+function marcarUso(){
+  try{
+    if(!ses) return;
+    ses.visto = Date.now();
+    LLAVES_SESION.forEach(function(k){
+      if(localStorage.getItem(k)) localStorage.setItem(k, JSON.stringify(ses));
+    });
+  }catch(e){}
+}
+
+let ses=sesionVigente(JSON.parse(localStorage.getItem("md_demanda")||
+  localStorage.getItem("md_web")||"null"));
 let lunes=null, filas=[], TIEMPOS=[], TECNICOS=[], sel=null;
 
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
@@ -200,6 +222,8 @@ function guardar(j){
        usuario:(j.user&&j.user.email||"").split("@")[0],
        rol:(j.user&&j.user.user_metadata&&j.user.user_metadata.rol)||"",
        coord:(j.user&&j.user.user_metadata&&j.user.user_metadata.coord)||""};
+  localStorage.setItem("md_demanda",JSON.stringify(ses));
+  ses.visto = Date.now();
   localStorage.setItem("md_demanda",JSON.stringify(ses));
   localStorage.setItem("md_web",JSON.stringify(ses));
 }

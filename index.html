@@ -388,7 +388,34 @@ const BUCKET   = "evidencias";
 
 /* la sesion del tecnico: todo lo que pida la app va firmado con su token, no
    con la llave publica, para que la base sepa quien es quien */
-let ses = JSON.parse(localStorage.getItem("md_ses") || "null");
+const LLAVES_SESION=["md_capt", "md_prog", "md_coord", "md_cierre", "md_cat", "md_lev", "md_sup", "md_ventas", "md_demanda", "md_ses", "md_web", "md_tec"];
+
+/* ---------- la sesion guardada caduca ----------
+   Antes no caducaba nunca: un equipo que nadie cerraba quedaba abierto para
+   siempre, y quien lo tomara escribia con el nombre del dueno. Ahora se anota
+   cuando se uso por ultima vez y a los 15 dias se pide la clave otra vez. */
+const DIAS_SESION = 15;
+function sesionVigente(s){
+  if(!s) return null;
+  if(s.visto && (Date.now() - s.visto) > DIAS_SESION*86400000) return null;
+  return s;
+}
+function marcarUso(){
+  try{
+    if(!ses) return;
+    ses.visto = Date.now();
+    LLAVES_SESION.forEach(function(k){
+      if(localStorage.getItem(k)) localStorage.setItem(k, JSON.stringify(ses));
+    });
+  }catch(e){}
+}
+
+/* La app del tecnico tiene su PROPIA llave. Antes compartia md_ses con
+   entregables, asi que heredaba la sesion de quien hubiera entrado antes en ese
+   equipo: se abria "Mi dia" con la cuenta de una estacion, y como la lista no
+   filtra por tecnico —confia en las politicas de la base— una cuenta con
+   coord TODAS veia y podia editar la programacion de todos. */
+let ses = sesionVigente(JSON.parse(localStorage.getItem("md_tec") || "null"));
 function HDRb(){
   return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)};
 }
@@ -461,7 +488,8 @@ function guardarSesion(j){
   ses = {token:j.access_token, refresh:j.refresh_token,
          nombre:md.nombre||"", rol:md.rol||"TECNICO",
          usuario:(j.user&&j.user.email||"").split("@")[0]};
-  localStorage.setItem("md_ses", JSON.stringify(ses));
+  ses.visto = Date.now();
+  localStorage.setItem("md_tec", JSON.stringify(ses));
 }
 
 async function renovar(){
@@ -525,7 +553,7 @@ async function entrar(){
 function pedirTecnico(){                  // ahora es cerrar sesion / cambiar de usuario
   if(ses && !confirm("¿Salir de la cuenta de "+(ses.nombre||ses.usuario)+"?")) return;
   ses=null; tecnico=""; variantes=[]; semana=[]; datos=[];
-  localStorage.removeItem("md_ses");
+  localStorage.removeItem("md_tec");
   localStorage.removeItem("md_tecnico");
   localStorage.removeItem("md_variantes");
   document.getElementById("mTec").style.display="flex";
@@ -1940,6 +1968,14 @@ async function arrancarSesion(){
     return;
   }
   if(ses.rol==="ADMINISTRATIVO"){ location.href="entregables.html"; return }
+  /* Esta pantalla es de tecnicos. Si la sesion es de otra cosa —una estacion,
+     ventas— no se entra prestado: se pide la clave del tecnico. */
+  if(ses.rol!=="TECNICO"){
+    ses=null; localStorage.removeItem("md_tec");
+    document.getElementById("mTec").style.display="flex";
+    llenarUsuarios();
+    return;
+  }
   tecnico = ses.nombre || tecnico;
   await renovar();            // el token guardado casi siempre ya vencio
   await arrancarSesion();
