@@ -53,6 +53,10 @@
   .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt2);
     text-transform:none;letter-spacing:0;cursor:pointer;white-space:nowrap}
   .chk input{width:auto;margin:0}
+  .avisoProg{background:rgba(232,163,61,.10);border:1px solid rgba(232,163,61,.45);
+    border-radius:13px;padding:12px 14px;margin-bottom:13px;font-size:13px}
+  .avisoProg b{color:#F0BE6E}
+  .avisoProg input[type=date]{font-size:12px;padding:5px 7px}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -121,6 +125,7 @@
   </div>
 
   <div class="resumen" id="resumen"></div>
+  <div id="porProgramar"></div>
   <div id="lista"><div class="load">Entra para programar.</div></div>
 </div>
 
@@ -196,7 +201,7 @@ function marcarUso(){
 
 let ses=sesionVigente(JSON.parse(localStorage.getItem("md_prog")||
   localStorage.getItem("md_web")||"null"))   /* la sesion es una sola: ver md_web abajo */;
-let filas=[], CAT={}, EJEC={};
+let filas=[], sinFecha=[], viejosSinFecha=0, recientesSinFecha=0, CAT={}, EJEC={};
 
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
   Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
@@ -330,6 +335,31 @@ async function cargar(){
       "obs_captura,dias_est,dia_n"+
       "&fecha_servicio=eq."+dia+(co?"&coord=eq."+co:"")+
       "&order=horario_atencion,tkt&limit=400");
+    /* Lo que se acaba de capturar todavia no tiene fecha, y esta pantalla
+       filtraba por dia: no aparecia NUNCA, en ningun dia. En la estacion de
+       Excel si se veia porque alla la cola se arma por etapa, no por fecha, y
+       de ahi la confusion de "lo registre y no se ve en la web".
+       Y es justo aqui donde hay que darle fecha, asi que aqui se muestran. */
+    sinFecha = await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
+      "fecha_servicio,horario_atencion,status,tecnico,auxiliar,vehiculo,cita_confirmada,"+
+      "personal_atiende,telefono,ejecutivo,tipo_servicio,requerimientos,obs_prog,obs_coord,"+
+      "obs_captura,dias_est,dia_n,dia_creacion,jen_user"+
+      "&fecha_servicio=is.null&status=is.null&dia_creacion=gte."+isoDe(-30)+
+      (co?"&coord=eq."+co:"")+
+      "&order=dia_creacion.desc,id.desc&limit=25");
+    /* Solo lo capturado en los ultimos 30 dias. Sin fecha hay 888 servicios,
+       casi todos de la carga historica de junio y julio: si salieran todos, el
+       aviso seria un muro y nadie lo leeria. Los viejos se cuentan aparte. */
+    /* La lista se corta en 25 para que se pueda leer, pero el numero que se
+       anuncia tiene que ser el de verdad, no el tope de la consulta. */
+    try{
+      const rec=await api("servicios?select=id&fecha_servicio=is.null&status=is.null"+
+        "&dia_creacion=gte."+isoDe(-30)+(co?"&coord=eq."+co:"")+"&limit=2000");
+      recientesSinFecha = rec ? rec.length : sinFecha.length;
+      const v=await api("servicios?select=id&fecha_servicio=is.null&status=is.null"+
+        "&dia_creacion=lt."+isoDe(-30)+(co?"&coord=eq."+co:"")+"&limit=2000");
+      viejosSinFecha = v ? v.length : 0;
+    }catch(e){ recientesSinFecha = sinFecha.length; viejosSinFecha = 0 }
     pintar();
   }catch(e){
     document.getElementById("lista").innerHTML=
@@ -386,7 +416,48 @@ function verTodos(){
   else if(typeof pintar==="function") pintar();
 }
 
-function pintar(){ setTimeout(filtrarVista,0);
+/* los capturados sin fecha: un bloque aparte, arriba, porque son los que
+   estan esperando que alguien los programe */
+function pintarSinFecha(){
+  const c=document.getElementById("porProgramar");
+  if(!c) return;
+  if(!sinFecha.length){ c.innerHTML=""; return }
+  const n=recientesSinFecha||sinFecha.length;
+  c.innerHTML='<div class="avisoProg"><b>'+n+
+    ' servicio'+(n>1?"s":"")+' del último mes capturado'+(n>1?"s":"")+
+    ' sin fecha</b> — no salen en ningún día hasta que se les ponga una.'+
+    (viejosSinFecha ? '<div class="sub" style="margin-top:4px">Y '+viejosSinFecha+
+      ' más de hace más de un mes, de la carga histórica, que no se listan aquí.</div>' : "")+
+    '<div class="tabla" style="margin-top:9px"><table><thead><tr>'+
+    '<th>Servicio</th><th>Capturó</th><th>Ponerle fecha</th></tr></thead><tbody>'+
+    sinFecha.map(function(x,i){
+      return '<tr><td><div class="sitio">'+esc(x.nombre||"")+'</div>'+
+        '<div class="sub"><span class="tag">'+esc(x.coord)+'</span>'+
+        (x.tkt?" TKT "+esc(x.tkt):"")+
+        (limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):"")+'</div></td>'+
+        '<td class="sub">'+esc(x.jen_user||"")+'<br>'+esc(x.dia_creacion||"")+'</td>'+
+        '<td><input type="date" onchange="ponerFecha('+i+',this.value)">'+
+        '<span id="pf'+i+'"></span></td></tr>';
+    }).join("")+'</tbody></table></div>'+
+    (n>sinFecha.length ? '<div class="sub" style="margin-top:7px">Se listan los '+
+      sinFecha.length+' más recientes.</div>' : "")+'</div>';
+}
+async function ponerFecha(i, valor){
+  if(!valor) return;
+  const x=sinFecha[i], av=document.getElementById("pf"+i);
+  av.innerHTML='<span class="sub">guardando…</span>';
+  try{
+    const d=await api("servicios?coord=eq."+encodeURIComponent(x.coord)+"&id=eq."+x.id,
+      {method:"PATCH", headers:{Prefer:"return=representation"},
+       body:JSON.stringify({fecha_servicio:valor, etapa_actual:2})});
+    if(!d||!d.length) throw new Error("no se guardó");
+    anotar("GUARDAR", "ID="+x.id+" · fecha_servicio = "+valor, x);
+    av.innerHTML='<span class="guardado">✓</span>';
+    cargar();
+  }catch(e){ av.innerHTML='<span class="fallo">no se guardó</span>' }
+}
+
+function pintar(){ setTimeout(filtrarVista,0); pintarSinFecha();
   const cont=document.getElementById("lista");
   const conTec=filas.filter(x=>limpio(x.tecnico)).length;
   const brig=new Set(filas.filter(x=>limpio(x.tecnico)).map(x=>limpio(x.tecnico))).size;
