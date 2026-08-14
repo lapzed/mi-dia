@@ -68,6 +68,12 @@
   .cinta .det{color:var(--txt2);font-size:12px}
   .cinta a{margin-left:auto;color:inherit;font-weight:700;text-decoration:none;
     border-bottom:1px dotted currentColor;font-size:12.5px}
+  .hallados{background:var(--card);border:1px solid var(--acc);border-radius:13px;
+    padding:12px 14px;margin-bottom:13px}
+  .hallados h3{margin:0 0 8px;font-size:13px;color:var(--acc);
+    text-transform:uppercase;letter-spacing:.05em}
+  .hallados table{min-width:640px}
+  .hallados .ir{cursor:pointer;color:var(--acc);font-weight:700}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -100,8 +106,6 @@
   .box input,.box select{width:100%;margin-bottom:11px}
   .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
     border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
-  #msg{width:100%;height:46vh;font-family:ui-monospace,Consolas,monospace;font-size:12px;
-    line-height:1.5;white-space:pre;resize:vertical}
 </style>
 </head>
 <body>
@@ -127,16 +131,18 @@
       </select></div>
     <button onclick="mover(-1)">◀ Día anterior</button>
     <button onclick="mover(1)">Día siguiente ▶</button>
-    <button class="pri" onclick="verMensaje()">Generar mensaje</button>
     <button onclick="location.href='demanda.html'">📊 Demanda de técnicos</button>
     <div class="f"><label>Buscar TKT o sitio</label>
       <input id="fTkt" placeholder="11998, WALMART…" oninput="filtrarVista()"
+             onkeydown="if(event.key==='Enter')buscarEnBase()"
              style="min-width:170px"></div>
+    <button class="pri" onclick="buscarEnBase()">🔎 Buscar</button>
     <label class="chk"><input type="checkbox" id="fTodos" onchange="verTodos()">
       Ver todos</label>
   </div>
 
   <div class="resumen" id="resumen"></div>
+  <div id="hallados"></div>
   <div id="porProgramar"></div>
   <div id="lista"><div class="load">Entra para programar.</div></div>
 </div>
@@ -164,21 +170,7 @@
   </div>
 </div>
 
-<div class="modal" id="mMsg" style="display:none">
-  <div class="box">
-    <h2>Mensaje de programación</h2>
-    <p id="msgSub"></p>
-    <textarea id="msg" spellcheck="false"></textarea>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:11px">
-      <button class="pri" onclick="copiar()">Copiar</button>
-      <button onclick="mandarWhats()">Abrir WhatsApp</button>
-      <button onclick="guardarMensaje()" id="btnGuardaMsg">Guardar en el historial</button>
-      <button onclick="document.getElementById('mMsg').style.display='none'"
-              style="margin-left:auto">Cerrar</button>
-    </div>
-    <div id="msgEstado" style="font-size:12px;color:var(--txt2);margin-top:9px"></div>
-  </div>
-</div>
+
 
 <script>
 const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
@@ -561,6 +553,71 @@ async function ponerFecha(i, valor){
   }catch(e){ av.innerHTML='<span class="fallo">no se guardó</span>' }
 }
 
+/* ---------- buscar en toda la base, no solo en lo pintado ----------
+   El recuadro filtraba los renglones que ya estaban en pantalla. Si el servicio
+   era de otro dia o quedaba fuera del rango, no aparecia y parecia que el
+   buscador no servia. Ahora se le pregunta a la base.
+
+   Se busca por PALABRAS: cada una tiene que aparecer en el TKT, el nombre o la
+   dependencia, sin importar el orden ni las mayusculas. Los patrones van entre
+   comillas para que una coma no tumbe la consulta. */
+function filtroPalabras(q, campos){
+  const pal=String(q||"").trim().split(/[\s,;\-\/.]+/)
+    .map(function(w){ return w.replace(/["\\(),]/g,"") })
+    .filter(function(w){ return w.length>=2 });
+  if(!pal.length) return "";
+  const bloques=pal.map(function(w){
+    return "or("+campos.map(function(c){ return c+'.ilike."*'+w+'*"' }).join(",")+")";
+  });
+  return "&and=("+bloques.join(",")+")";
+}
+async function buscarEnBase(){
+  const e=document.getElementById("fTkt");
+  const cont=document.getElementById("hallados");
+  const q=(e?e.value:"").trim();
+  if(!cont) return;
+  if(q.length<2){ cont.innerHTML=""; filtrarVista(); return }
+  cont.innerHTML='<div class="hallados"><h3>Buscando…</h3></div>';
+  const co=document.getElementById("fCoord") ? document.getElementById("fCoord").value : "";
+  try{
+    const f=await api("servicios?select=coord,id,tkt,nombre,dependencia,fecha_servicio,"+
+      "status,tecnico"+filtroPalabras(q,["tkt","nombre","dependencia"])+
+      (co?"&coord=eq."+co:"")+"&order=fecha_servicio.desc.nullslast&limit=40");
+    if(!f.length){
+      cont.innerHTML='<div class="hallados"><h3>Sin coincidencias</h3>'+
+        '<div class="sub">Nada con «'+esc(q)+'» en TKT, nombre o dependencia.</div></div>';
+      return;
+    }
+    cont.innerHTML='<div class="hallados"><h3>'+f.length+
+      (f.length===40?"+":"")+' coincidencia'+(f.length===1?"":"s")+' en toda la base</h3>'+
+      '<div class="tabla"><table><thead><tr><th>Fecha</th><th>Servicio</th>'+
+      '<th>Técnico</th><th>Estatus</th><th></th></tr></thead><tbody>'+
+      f.map(function(x){
+        return '<tr><td class="sub">'+esc(x.fecha_servicio||"sin fecha")+'</td>'+
+          '<td><div class="sitio">'+esc((x.nombre||"").slice(0,44))+'</div>'+
+          '<div class="sub"><span class="tag">'+esc(x.coord)+'</span>'+
+          (x.tkt?" TKT "+esc(x.tkt):"")+
+          (limpio(x.dependencia)?" · "+esc(x.dependencia):"")+'</div></td>'+
+          '<td class="sub">'+esc(limpio(x.tecnico)||"—")+'</td>'+
+          '<td class="sub">'+esc(x.status||"sin estatus")+'</td>'+
+          '<td>'+(x.fecha_servicio
+            ? '<span class="ir" onclick="irAlDia(\''+x.fecha_servicio+'\')">ver ese día ▸</span>'
+            : '<span class="sub">sin fecha: está en programación</span>')+'</td></tr>';
+      }).join("")+'</tbody></table></div></div>';
+  }catch(err){
+    cont.innerHTML='<div class="hallados"><h3>No se pudo buscar</h3>'+
+      '<div class="sub">'+esc(String(err).slice(0,120))+'</div></div>';
+  }
+}
+/* lleva la pantalla al dia del servicio encontrado */
+function irAlDia(f){
+  const d=document.getElementById("fDia");
+  if(d){ d.value=f; cargar(); return }
+  const de=document.getElementById("fDe"), a=document.getElementById("fA");
+  if(de&&a){ de.value=f; a.value=f; cargar(); }
+}
+
+
 function pintar(){ setTimeout(filtrarVista,0); pintarSinFecha(); pintarCinta();
   const cont=document.getElementById("lista");
   const conTec=filas.filter(x=>limpio(x.tecnico)).length;
@@ -661,101 +718,12 @@ function pintarResumen(){
 const DIAS=["DOMINGO","LUNES","MARTES","MIÉRCOLES","JUEVES","VIERNES","SÁBADO"];
 const MESES=["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO",
              "SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
-function titulo(iso){
-  const d=new Date(iso+"T12:00:00");
-  return "PROGRAMACION "+DIAS[d.getDay()]+" "+d.getDate()+" DE "+MESES[d.getMonth()]+
-         " DE "+d.getFullYear();
-}
-function entraAlMensaje(x){
-  const st=(x.status||"").toUpperCase().trim();
-  return (x.cita_confirmada||"").toUpperCase()==="SI" || st==="PROGRAMADO" ||
-         (st==="" && !!limpio(x.tecnico));
-}
 function ejecutivoTexto(x){
   const crudo=limpio(x.ejecutivo);
   if(!crudo) return "";
   const e=EJEC[crudo.toUpperCase()];
   const nom=(e&&e.nombre)||crudo, tel=e&&limpio(e.telefono);
   return nom+(tel?"  Tel: "+tel:"");
-}
-function armarMensaje(){
-  const dia=document.getElementById("fDia").value;
-  const v=filas.filter(entraAlMensaje);
-  if(!v.length) return {texto:"", n:0};
-  const brigadas={};
-  v.forEach(x=>{
-    const k=[limpio(x.tecnico),limpio(x.auxiliar),limpio(x.vehiculo)].join("|");
-    (brigadas[k]=brigadas[k]||[]).push(x);
-  });
-  let s=titulo(dia)+"\n\n", num=0, b=0;
-  Object.keys(brigadas).sort().forEach(k=>{
-    const [tec,aux,veh]=k.split("|");
-    const lista=brigadas[k].slice().sort((a,c)=>hhmm(a.horario_atencion).localeCompare(hhmm(c.horario_atencion)));
-    b++;
-    s+="BRIGADA "+b+" - "+(tec||"POR ASIGNAR").toUpperCase()+
-       (aux?" | "+aux.toUpperCase():"")+(veh?" ("+veh+")":"")+"\n";
-    lista.forEach(x=>{
-      num++;
-      const dep=limpio(x.dependencia), nom=(x.nombre||"").trim();
-      const conDep = dep && nom.toUpperCase().indexOf(dep.toUpperCase())<0
-                   ? nom+" ("+dep+")" : nom;
-      s+=num+". "+(hhmm(x.horario_atencion)||"--:--")+"  "+conDep+
-         (limpio(x.tkt)?" - TKT "+x.tkt:"")+
-         (limpio(x.tipo_servicio)?" - "+x.tipo_servicio:"")+"\n";
-      if(limpio(x.direccion)) s+="   Dir: "+x.direccion.trim()+"\n";
-      const la=parseFloat(x.lat), lo=parseFloat(x.long);
-      if(la&&lo&&la>=14&&la<=33&&lo>=-118&&lo<=-86)
-        s+="   Ubicacion: https://www.google.com/maps?q="+la+","+lo+"\n";
-      const pe=limpio(x.personal_atiende), te=limpio(x.telefono);
-      if(pe||te) s+="   Contacto: "+pe+(pe&&te?"  Tel: ":(te?"Tel: ":""))+te+"\n";
-      const ej=ejecutivoTexto(x);
-      if(ej) s+="   Ejecutivo: "+ej+"\n";
-      const nota=[x.requerimientos,x.obs_prog,x.obs_coord,x.obs_captura]
-        .map(limpio).filter(Boolean).join(" · ");
-      if(nota) s+="   Nota: "+nota+"\n";
-    });
-    s+="\n";
-  });
-  return {texto:s, n:num};
-}
-function verMensaje(){
-  const {texto,n}=armarMensaje();
-  const fuera=filas.length-filas.filter(entraAlMensaje).length;
-  document.getElementById("msgSub").innerHTML= n
-    ? `${n} servicio${n===1?"":"s"} en el mensaje.` +
-      (fuera?` <b style="color:#F0BE6E">${fuera} se quedaron fuera</b>: entran los que
-        tienen cita confirmada, los que están en PROGRAMADO, y los que ya traen
-        brigada aunque no tengan estatus.`:"")
-    : "Ningún servicio del día entra al mensaje: falta confirmar cita, ponerlos en PROGRAMADO o asignarles brigada.";
-  document.getElementById("msg").value=texto;
-  document.getElementById("msgEstado").textContent="";
-  document.getElementById("mMsg").style.display="flex";
-}
-async function copiar(){
-  const t=document.getElementById("msg");
-  try{ await navigator.clipboard.writeText(t.value) }
-  catch(e){ t.select(); document.execCommand("copy") }
-  document.getElementById("msgEstado").textContent="Copiado. Pégalo en el grupo.";
-}
-function mandarWhats(){
-  const t=document.getElementById("msg").value;
-  window.open("https://wa.me/?text="+encodeURIComponent(t), "_blank");
-}
-async function guardarMensaje(){
-  const b=document.getElementById("btnGuardaMsg");
-  const e=document.getElementById("msgEstado");
-  b.disabled=true;
-  try{
-    await api("programacion",{method:"POST",body:JSON.stringify({
-      ts:new Date().toISOString().slice(0,19).replace("T"," "),
-      usuario:nombreDe(ses.usuario),
-      coord:document.getElementById("fCoord").value||null,
-      fecha:document.getElementById("fDia").value,
-      nsvc:armarMensaje().n,
-      texto:document.getElementById("msg").value})});
-    e.textContent="Guardado en el historial.";
-  }catch(x){ e.textContent="No se pudo guardar en el historial: "+String(x).slice(0,90) }
-  b.disabled=false;
 }
 
 /* ---------- barra de etapas, como en la estacion de Excel ----------

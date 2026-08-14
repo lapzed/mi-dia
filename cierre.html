@@ -74,6 +74,12 @@
   .av b{font-variant-numeric:tabular-nums}
   .av .atras{color:#F0A9A5} .av .bien{color:#7BE0AE}
   .av input{width:62px;padding:4px 6px;font-size:12px}
+  .hallados{background:var(--card);border:1px solid var(--acc);border-radius:13px;
+    padding:12px 14px;margin-bottom:13px}
+  .hallados h3{margin:0 0 8px;font-size:13px;color:var(--acc);
+    text-transform:uppercase;letter-spacing:.05em}
+  .hallados table{min-width:640px}
+  .hallados .ir{cursor:pointer;color:var(--acc);font-weight:700}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -143,12 +149,15 @@
     <button onclick="rango(120)">Últimos 4 meses</button>
     <div class="f"><label>Buscar TKT o sitio</label>
       <input id="fTkt" placeholder="11998, WALMART…" oninput="filtrarVista()"
+             onkeydown="if(event.key==='Enter')buscarEnBase()"
              style="min-width:170px"></div>
+    <button class="pri" onclick="buscarEnBase()">🔎 Buscar</button>
     <label class="chk"><input type="checkbox" id="fTodos" onchange="verTodos()">
       Ver todos</label>
   </div>
 
   <div class="resumen" id="resumen"></div>
+  <div id="hallados"></div>
   <div id="atorados"></div>
   <div id="lista"><div class="load">Entra para cerrar tus servicios.</div></div>
 </div>
@@ -563,6 +572,71 @@ function pintarAtorados(){
       ? '<div class="sub" style="margin-top:7px">Se listan los '+atorados.length+
         ' más viejos.</div>' : "")+'</div>';
 }
+
+/* ---------- buscar en toda la base, no solo en lo pintado ----------
+   El recuadro filtraba los renglones que ya estaban en pantalla. Si el servicio
+   era de otro dia o quedaba fuera del rango, no aparecia y parecia que el
+   buscador no servia. Ahora se le pregunta a la base.
+
+   Se busca por PALABRAS: cada una tiene que aparecer en el TKT, el nombre o la
+   dependencia, sin importar el orden ni las mayusculas. Los patrones van entre
+   comillas para que una coma no tumbe la consulta. */
+function filtroPalabras(q, campos){
+  const pal=String(q||"").trim().split(/[\s,;\-\/.]+/)
+    .map(function(w){ return w.replace(/["\\(),]/g,"") })
+    .filter(function(w){ return w.length>=2 });
+  if(!pal.length) return "";
+  const bloques=pal.map(function(w){
+    return "or("+campos.map(function(c){ return c+'.ilike."*'+w+'*"' }).join(",")+")";
+  });
+  return "&and=("+bloques.join(",")+")";
+}
+async function buscarEnBase(){
+  const e=document.getElementById("fTkt");
+  const cont=document.getElementById("hallados");
+  const q=(e?e.value:"").trim();
+  if(!cont) return;
+  if(q.length<2){ cont.innerHTML=""; filtrarVista(); return }
+  cont.innerHTML='<div class="hallados"><h3>Buscando…</h3></div>';
+  const co=document.getElementById("fCoord") ? document.getElementById("fCoord").value : "";
+  try{
+    const f=await api("servicios?select=coord,id,tkt,nombre,dependencia,fecha_servicio,"+
+      "status,tecnico"+filtroPalabras(q,["tkt","nombre","dependencia"])+
+      (co?"&coord=eq."+co:"")+"&order=fecha_servicio.desc.nullslast&limit=40");
+    if(!f.length){
+      cont.innerHTML='<div class="hallados"><h3>Sin coincidencias</h3>'+
+        '<div class="sub">Nada con «'+esc(q)+'» en TKT, nombre o dependencia.</div></div>';
+      return;
+    }
+    cont.innerHTML='<div class="hallados"><h3>'+f.length+
+      (f.length===40?"+":"")+' coincidencia'+(f.length===1?"":"s")+' en toda la base</h3>'+
+      '<div class="tabla"><table><thead><tr><th>Fecha</th><th>Servicio</th>'+
+      '<th>Técnico</th><th>Estatus</th><th></th></tr></thead><tbody>'+
+      f.map(function(x){
+        return '<tr><td class="sub">'+esc(x.fecha_servicio||"sin fecha")+'</td>'+
+          '<td><div class="sitio">'+esc((x.nombre||"").slice(0,44))+'</div>'+
+          '<div class="sub"><span class="tag">'+esc(x.coord)+'</span>'+
+          (x.tkt?" TKT "+esc(x.tkt):"")+
+          (limpio(x.dependencia)?" · "+esc(x.dependencia):"")+'</div></td>'+
+          '<td class="sub">'+esc(limpio(x.tecnico)||"—")+'</td>'+
+          '<td class="sub">'+esc(x.status||"sin estatus")+'</td>'+
+          '<td>'+(x.fecha_servicio
+            ? '<span class="ir" onclick="irAlDia(\''+x.fecha_servicio+'\')">ver ese día ▸</span>'
+            : '<span class="sub">sin fecha: está en programación</span>')+'</td></tr>';
+      }).join("")+'</tbody></table></div></div>';
+  }catch(err){
+    cont.innerHTML='<div class="hallados"><h3>No se pudo buscar</h3>'+
+      '<div class="sub">'+esc(String(err).slice(0,120))+'</div></div>';
+  }
+}
+/* lleva la pantalla al dia del servicio encontrado */
+function irAlDia(f){
+  const d=document.getElementById("fDia");
+  if(d){ d.value=f; cargar(); return }
+  const de=document.getElementById("fDe"), a=document.getElementById("fA");
+  if(de&&a){ de.value=f; a.value=f; cargar(); }
+}
+
 
 function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
   const v=vistas(), cont=document.getElementById("lista");
