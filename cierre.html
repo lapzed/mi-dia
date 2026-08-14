@@ -80,6 +80,9 @@
     text-transform:uppercase;letter-spacing:.05em}
   .hallados table{min-width:640px}
   .hallados .ir{cursor:pointer;color:var(--acc);font-weight:700}
+  .corregir{display:inline-block;color:var(--acc);text-decoration:none;
+    font-size:11.5px;font-weight:700;white-space:nowrap}
+  .corregir:hover{text-decoration:underline}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -670,7 +673,9 @@ function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
       return `<tr class="${viejo?"viejo":""}">
       <td><span class="dias">${esc(x.fecha_servicio||"")}</span>
         ${abierto(x)&&d>0?`<div class="sub">${d} días</div>`:""}</td>
-      <td><div class="sitio">${esc(x.nombre||"")}</div>
+      <td><div class="sitio">${esc(x.nombre||"")}
+            <a class="corregir" href="captura.html?corregir=${esc(x.coord)}-${x.id}"
+               title="Corregir los datos capturados">✏ corregir</a></div>
         <div class="sub"><span class="tag">${esc(x.coord)}</span>
           ${x.tkt?" TKT "+esc(x.tkt):""}
           ${limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):""}</div>

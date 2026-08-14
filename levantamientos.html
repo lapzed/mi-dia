@@ -479,14 +479,24 @@ function pintar(){ pintarCinta();
         <div>
           <h3>${esc(x.nombre||"(sin nombre)")}</h3>
           <div class="lev-sub">${esc(limpio(x.dependencia))}
-            ${x.tkt?" · "+esc(x.tkt):""} · ${esc(x.fecha_atencion||x.fecha_servicio||"")}
-            ${limpio(x.tecnico)?" · "+esc(x.tecnico):""}</div>
+            ${x.tkt?" · TKT "+esc(x.tkt):""} · ${esc(x.fecha_atencion||x.fecha_servicio||"")}
+            ${limpio(x.tecnico)?" · "+esc(x.tecnico):""}
+            ${limpio(x.status)?" · "+esc(x.status):""}</div>
+          ${limpio(x.direccion)?`<div class="lev-sub">${esc(x.direccion)}</div>`:""}
+          ${[limpio(x.tipo_inmueble)&&"Inmueble: "+x.tipo_inmueble,
+             limpio(x.tiempo_inst_est)&&"Tiempo estimado: "+x.tiempo_inst_est,
+             limpio(x.segurista_vigia)&&"Segurista/vigía: "+x.segurista_vigia,
+             limpio(x.requerimientos)&&"Requiere: "+x.requerimientos,
+             limpio(x.obs_coord)&&"Nota: "+x.obs_coord]
+            .filter(Boolean).map(t=>`<div class="lev-sub">${esc(t)}</div>`).join("")}
         </div>
         <div class="der">
           ${ps.length?`<span class="tag">${ps.length} equipo${ps.length>1?"s":""}</span>`
                      :`<span class="tag no">sin capturar</span>`}
           <button class="mini" onclick="abrirSubir('${x.coord}',${x.id})">+ fotos</button>
-          <button class="mini" onclick="editar('${x.coord}',${x.id})">✎ Editar</button>
+          <button class="mini" onclick="editar('${x.coord}',${x.id})">✎ Propuesta</button>
+          <a class="mini" href="captura.html?corregir=${x.coord}-${x.id}"
+             style="text-decoration:none" title="Corregir los datos capturados">✏ Datos</a>
           ${ps.length?`<button class="mini" onclick="ficha('${x.coord}',${x.id})">Ficha</button>`:""}
         </div>
       </div>

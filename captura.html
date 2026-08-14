@@ -1328,6 +1328,16 @@ async function arrancar(){
   document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
   document.getElementById("todo").style.display="block";
   ponerBarra();
+  /* Se puede llegar desde cualquier etapa con ?corregir=COORD-ID: se abre ese
+     servicio para arreglarlo. Asi las demas pantallas no tienen que repetir
+     este formulario, que es largo y cambia segun la coordinacion. */
+  try{
+    const q=new URLSearchParams(location.search).get("corregir");
+    if(q){
+      const i=q.lastIndexOf("-");
+      if(i>0) setTimeout(function(){ abrirParaEditar(q.slice(0,i), Number(q.slice(i+1))) }, 400);
+    }
+  }catch(e){}
   pintarCinta();
   try{
     const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
