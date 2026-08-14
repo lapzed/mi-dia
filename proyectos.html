@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2038">
+<title>MD Control · Proyectos especiales</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
+    --txt:#EAF2FB; --txt2:#9DB6D2; --txt3:#6E8CAD;
+    --acc:#63B3FF; --ok:#1E8E5A; --warn:#E8A33D; --bad:#C6413B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);line-height:1.45;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 16px 70px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B2038,#0E2A47);
+    border-bottom:1px solid var(--line);padding:12px 16px;margin:0 -16px 14px}
+  .brand{display:flex;align-items:center;gap:11px;max-width:1200px;margin:0 auto}
+  .bt{font-size:17px;font-weight:800}
+  .bs{font-size:11px;color:var(--acc);font-weight:600;letter-spacing:.05em}
+  .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
+  .who b{display:block;color:var(--txt);font-size:12px}
+
+  .barra{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+  .f{display:flex;flex-direction:column;gap:4px}
+  .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+  select,input{padding:8px 9px;border-radius:9px;background:#0F2C4A;color:var(--txt);
+    border:1px solid var(--line);font:inherit;font-size:13px}
+  button{font:inherit;border:none;border-radius:10px;padding:9px 14px;font-size:13px;
+    font-weight:700;cursor:pointer;background:#17456E;color:var(--acc)}
+  button.pri{background:var(--acc);color:#07203a}
+
+  .etapas{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 14px;font-size:12.5px}
+  .etapas a{text-decoration:none;color:var(--txt2);background:#0F2C4A;
+    border:1px solid var(--line);border-radius:10px;padding:7px 11px}
+  .etapas a:hover{color:var(--txt);background:#17456E}
+  .etapas .ini{margin-left:auto}
+
+  .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:7px 13px;font-size:12px}
+  .pill b{font-size:18px;display:block}
+
+  .obra{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;margin-bottom:11px}
+  .obra.atras{border-left:4px solid var(--bad)}
+  .obra.fin{border-left:4px solid var(--ok)}
+  .cab{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .cab h3{margin:0;font-size:15.5px}
+  .cab .der{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  .sub{font-size:12px;color:var(--txt3)}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:#17456E;color:var(--acc);white-space:nowrap}
+  .tag.mal{background:rgba(198,65,59,.3);color:#F3B0AC}
+  .tag.ok{background:rgba(30,142,90,.3);color:#9EE7C2}
+  .corregir{color:var(--acc);text-decoration:none;font-size:11.5px;font-weight:700}
+  .corregir:hover{text-decoration:underline}
+
+  .avance{display:flex;align-items:center;gap:11px;margin-top:11px}
+  .barrita{flex:1;height:12px;border-radius:7px;background:#0F2C4A;overflow:hidden;
+    position:relative}
+  .barrita i{display:block;height:100%;border-radius:7px;background:var(--acc)}
+  .barrita u{position:absolute;top:-3px;bottom:-3px;width:2px;background:#F0BE6E}
+  .pct{font-weight:800;font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+  .pct.mal{color:#F3B0AC} .pct.bien{color:#7BE0AE}
+  .leyenda{font-size:11.5px;color:var(--txt3);margin-top:6px}
+
+  .dias{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
+  .dia{font-size:10.5px;padding:3px 7px;border-radius:7px;background:#0F2C4A;
+    border:1px solid var(--line);color:var(--txt2);white-space:nowrap}
+  .dia.at{background:rgba(30,142,90,.22);color:#9EE7C2}
+  .dia.pr{background:rgba(232,163,61,.18);color:#F5CE93}
+
+  .vacio{text-align:center;color:var(--txt2);padding:46px}
+  .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+    padding:20px;max-width:390px;width:100%}
+  .box h2{margin:0 0 3px;font-size:17px}
+  .box p{margin:0 0 12px;font-size:12.5px;color:var(--txt2)}
+  .box input,.box select{width:100%;margin-bottom:11px}
+  .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
+    border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
+      <div><div class="bt">MD Control</div><div class="bs">PROYECTOS ESPECIALES</div></div>
+      <div class="who" id="who" onclick="salir()"></div>
+    </div>
+  </header>
+
+  <div class="etapas">
+    <a href="captura.html">📝 Captura</a>
+    <a href="programacion.html">📅 Programación</a>
+    <a href="coordinacion.html">📞 Coordinación</a>
+    <a href="cierre.html">✅ Cierre</a>
+    <a href="inicio.html" class="ini">☰ Inicio</a>
+  </div>
+
+  <div class="barra" id="barra" style="display:none">
+    <div class="f"><label>Ver</label>
+      <select id="fVer" onchange="pintar()">
+        <option value="abiertas">Obras abiertas</option>
+        <option value="atrasadas">Solo las atrasadas</option>
+        <option value="">Todas</option>
+      </select></div>
+    <div class="f"><label>Cliente</label>
+      <select id="fCli" onchange="pintar()"><option value="">Todos</option></select></div>
+    <div class="f"><label>Buscar</label>
+      <input id="fBus" placeholder="TKT, sitio…" oninput="pintar()"></div>
+    <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
+    <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargar()"></div>
+    <button onclick="cargar()">Actualizar</button>
+  </div>
+
+  <div class="resumen" id="resumen"></div>
+  <div id="lista"><div class="load">Entra para ver las obras.</div></div>
+</div>
+
+<div class="modal" id="mLogin">
+  <div class="box">
+    <h2>Proyectos especiales</h2>
+    <p>Las obras de la coordinación, con su avance.</p>
+    <select id="inUsr">
+      <option value="est.proyectos">Karina · Proyectos especiales</option>
+      <option value="est.gerencia">Gerencia</option>
+      <option value="est.subgerencia">Subgerencia</option>
+      <option value="est.gloria">Montserrat · Aux administrativo</option>
+    </select>
+    <input id="inPwd" type="password" placeholder="clave"
+           onkeydown="if(event.key==='Enter')entrar()">
+    <div class="aviso" id="err" style="display:none"></div>
+    <button class="pri" style="width:100%" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<script>
+  /* Se esconde el recuadro de la clave ANTES del primer pintado, cuando ya hay
+     sesion guardada, para que no parpadee al llegar de otra etapa. */
+  try{
+    if(localStorage.getItem("md_pry") || localStorage.getItem("md_web"))
+      document.getElementById("mLogin").style.display = "none";
+  }catch(e){}
+</script>
+
+<script>
+const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
+const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
+const DOMINIO="mdcontrol.local";
+
+const LLAVES_SESION=["md_capt","md_prog","md_coord","md_cierre","md_cat","md_lev",
+  "md_sup","md_ventas","md_demanda","md_ses","md_web","md_tec","md_tablero","md_pry"];
+const DIAS_SESION = 15;
+function sesionVigente(s){
+  if(!s) return null;
+  if(s.visto && (Date.now() - s.visto) > DIAS_SESION*86400000) return null;
+  return s;
+}
+let ses=sesionVigente(JSON.parse(localStorage.getItem("md_pry")||
+  localStorage.getItem("md_web")||"null"));
+let filas=[], obras=[];
+
+function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
+  Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d|por asignar)$/i.test(s)?"":s}
+function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+
+  String(d.getDate()).padStart(2,"0")}
+function isoDe(n){const d=new Date();d.setDate(d.getDate()+n);return iso(d)}
+function hoyISO(){return iso(new Date())}
+function dias(f){ return Math.round((new Date(hoyISO())-new Date(f))/86400000) }
+
+async function api(path,opts,reint){
+  const o=Object.assign({},opts||{});
+  o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
+  const t=await r.text();
+  if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,140));
+  return t?JSON.parse(t):null;
+}
+async function auth(cuerpo,tipo){
+  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+    {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},
+     body:JSON.stringify(cuerpo)});
+  if(!r.ok) throw new Error("no entró");
+  return r.json();
+}
+function guardar(j){
+  ses={token:j.access_token, refresh:j.refresh_token,
+       usuario:(j.user&&j.user.email||"").split("@")[0],
+       rol:(j.user&&j.user.user_metadata&&j.user.user_metadata.rol)||"",
+       coord:(j.user&&j.user.user_metadata&&j.user.user_metadata.coord)||"",
+       visto:Date.now()};
+  localStorage.setItem("md_pry",JSON.stringify(ses));
+  localStorage.setItem("md_web",JSON.stringify(ses));
+}
+async function renovar(){
+  if(!ses||!ses.refresh) return false;
+  try{ guardar(await auth({refresh_token:ses.refresh},"refresh_token")); return true }catch(e){ return false }
+}
+function salir(){
+  LLAVES_SESION.forEach(function(k){ localStorage.removeItem(k) });
+  location.reload();
+}
+function nombreDe(u){
+  return ({"est.proyectos":"Karina","est.gerencia":"Gerencia",
+           "est.subgerencia":"Subgerencia","est.gloria":"Montserrat"})[u] || u;
+}
+async function entrar(){
+  const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
+  const e=document.getElementById("err");
+  try{
+    guardar(await auth({email:u+"@"+DOMINIO,password:p},"password"));
+    localStorage.setItem("md_quien", u);
+    document.getElementById("mLogin").style.display="none";
+    arrancar();
+  }catch(x){ e.textContent="No se pudo entrar. Revisa tu clave."; e.style.display="block" }
+}
+
+/* ---------- de dias sueltos a obras ----------
+   Una obra de varios dias se guarda como un renglon por dia. Vistos de uno en
+   uno no se entiende nada: hay que juntarlos. Se agrupa por los DIGITOS del
+   TKT, porque el mismo proyecto viene como "2260" y como "PRY2260"; si no hay
+   TKT, por el nombre del sitio. */
+function llaveObra(x){
+  const t=String(x.tkt||"").replace(/\D/g,"");
+  return t || (limpio(x.nombre)||"").toUpperCase();
+}
+const CERRADO=["ATENDIDO","CANCELADO","PROSPECTO","ATENCION VENTAS"];
+function agrupar(f){
+  const g={};
+  f.forEach(function(x){
+    const k=llaveObra(x);
+    if(!k) return;
+    (g[k]=g[k]||[]).push(x);
+  });
+  return Object.keys(g).map(function(k){
+    const ds=g[k].slice().sort(function(a,b){
+      return String(a.fecha_servicio||"").localeCompare(String(b.fecha_servicio||"")) });
+    const ult=ds[ds.length-1];
+    const gente=new Set();
+    ds.forEach(function(x){
+      if(limpio(x.tecnico)) gente.add(limpio(x.tecnico));
+      String(x.auxiliar||"").split(/[,\/;]| y | Y /).forEach(function(a){
+        if(limpio(a)) gente.add(limpio(a)) });
+    });
+    /* el avance vale el que confirmo coordinacion; si no lo reviso, el que
+       declaro el instalador */
+    let av=null, avTec=null, avCoord=null;
+    ds.forEach(function(x){
+      if(x.avance_tec!=null) avTec=x.avance_tec;
+      if(x.avance_coord!=null) avCoord=x.avance_coord;
+    });
+    av = (avCoord!=null) ? avCoord : avTec;
+    const abierta = CERRADO.indexOf(String(ult.status||"").toUpperCase())<0;
+    const diasEst = Math.max.apply(null, ds.map(function(x){ return Number(x.dias_est)||0 }));
+    const diaN    = Math.max.apply(null, ds.map(function(x){ return Number(x.dia_n)||0 }));
+    /* lo planeado a estas alturas: si no declararon dias, se usa cuantos dias
+       lleva registrados contra lo estimado */
+    const esperado = diasEst>1 ? Math.min(100, Math.round(100*(diaN||ds.length)/diasEst)) : null;
+    return {
+      llave:k, ds:ds, ult:ult,
+      nombre: limpio(ult.nombre)||limpio(ds[0].nombre)||"(sin nombre)",
+      dependencia: limpio(ult.dependencia),
+      tkt: limpio(ult.tkt),
+      desde: ds[0].fecha_servicio, hasta: ult.fecha_servicio,
+      ndias: ds.length, diasEst:diasEst, diaN:diaN,
+      gente:[...gente], avance:av, avTec:avTec, avCoord:avCoord,
+      esperado:esperado, abierta:abierta,
+      atrasada: abierta && esperado!=null && av!=null && (av-esperado) < -10,
+      status: ult.status||""
+    };
+  }).sort(function(a,b){ return String(b.hasta||"").localeCompare(String(a.hasta||"")) });
+}
+
+async function cargar(){
+  const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
+  document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
+  try{
+    let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,fecha_servicio,"+
+      "fecha_atencion,status,tecnico,auxiliar,vehiculo,tipo_servicio,obra,dias_est,dia_n,"+
+      "avance_tec,avance_coord,avance_ts,avance_nota,obs_coord,obs_prog,ejecutivo"+
+      "&coord=eq.PRY_ESP&order=fecha_servicio&limit=1000";
+    if(de) q+="&fecha_servicio=gte."+de;
+    if(a)  q+="&fecha_servicio=lte."+a;
+    filas=await api(q);
+    obras=agrupar(filas);
+    const cli=document.getElementById("fCli");
+    const hay=[...new Set(filas.map(x=>limpio(x.dependencia)).filter(Boolean))].sort();
+    cli.innerHTML='<option value="">Todos</option>'+
+      hay.map(c=>`<option${cli.value===c?" selected":""}>${esc(c)}</option>`).join("");
+    pintar();
+  }catch(e){
+    document.getElementById("lista").innerHTML=
+      '<div class="vacio">No se pudo consultar.<br><span class="sub">'+esc(String(e).slice(0,140))+'</span></div>';
+  }
+}
+
+function pintar(){
+  const ver=document.getElementById("fVer").value;
+  const cli=document.getElementById("fCli").value;
+  const bus=(document.getElementById("fBus").value||"").trim().toUpperCase();
+  let v=obras.slice();
+  if(ver==="abiertas")  v=v.filter(o=>o.abierta);
+  if(ver==="atrasadas") v=v.filter(o=>o.atrasada);
+  if(cli) v=v.filter(o=>o.dependencia===cli);
+  if(bus) v=v.filter(o=>((o.nombre+" "+o.dependencia+" "+o.tkt).toUpperCase().indexOf(bus)>=0));
+
+  const abiertas=obras.filter(o=>o.abierta).length;
+  const atras=obras.filter(o=>o.atrasada).length;
+  const sinAvance=obras.filter(o=>o.abierta && o.avance==null).length;
+  document.getElementById("resumen").innerHTML=
+    `<div class="pill"><b>${obras.length}</b>obras en el periodo</div>
+     <div class="pill"><b style="color:#F0BE6E">${abiertas}</b>abiertas</div>
+     <div class="pill"><b style="color:${atras?"#F3B0AC":"#7BE0AE"}">${atras}</b>atrasadas</div>
+     <div class="pill"><b style="color:${sinAvance?"#F0BE6E":"#7BE0AE"}">${sinAvance}</b>sin avance declarado</div>`;
+
+  if(!v.length){
+    document.getElementById("lista").innerHTML='<div class="vacio">Nada con esos filtros.</div>';
+    return;
+  }
+  document.getElementById("lista").innerHTML=v.map(function(o){
+    const av=o.avance, esp=o.esperado;
+    const clase = !o.abierta ? "fin" : (o.atrasada ? "atras" : "");
+    return `<div class="obra ${clase}">
+      <div class="cab">
+        <div>
+          <h3>${esc(o.nombre)}
+            <a class="corregir" href="captura.html?corregir=PRY_ESP-${o.ult.id}"
+               title="Corregir los datos capturados">✏ corregir</a></h3>
+          <div class="sub">${esc(o.dependencia)}${o.tkt?" · TKT "+esc(o.tkt):""}
+            ${limpio(o.ult.tipo_servicio)?" · "+esc(o.ult.tipo_servicio):""}</div>
+          <div class="sub">${esc(o.desde||"")} al ${esc(o.hasta||"")} ·
+            ${o.ndias} día${o.ndias===1?"":"s"} registrado${o.ndias===1?"":"s"}${
+              o.diasEst>1?" de "+o.diasEst+" estimados":""}</div>
+          <div class="sub">${o.gente.length?esc(o.gente.join(" · ")):"sin brigada asignada"}</div>
+        </div>
+        <div class="der">
+          <span class="tag ${o.abierta?"":"ok"}">${esc(o.status||"sin estatus")}</span>
+          ${o.atrasada?'<span class="tag mal">atrasada</span>':""}
+          ${o.abierta&&o.hasta?`<span class="sub">${
+            dias(o.hasta)>0 ? dias(o.hasta)+" días sin tocarla"
+            : dias(o.hasta)===0 ? "trabajándose hoy"
+            : "le quedan "+Math.abs(dias(o.hasta))+" días programados"}</span>`:""}
+        </div>
+      </div>
+      ${esp===null && av===null ? `<div class="leyenda">Sin días estimados ni avance declarado:
+         no hay contra qué medirla. Se ponen los días en la carga o en captura.</div>`
+      : `<div class="avance">
+          <div class="barrita">
+            <i style="width:${av||0}%"></i>
+            ${esp!==null?`<u style="left:${esp}%" title="lo planeado: ${esp}%"></u>`:""}
+          </div>
+          <span class="pct ${o.atrasada?"mal":(av!=null?"bien":"")}">${av!=null?av+"%":"—"}</span>
+        </div>
+        <div class="leyenda">
+          ${av!=null?"Avance "+av+"%":"Sin avance declarado"}${
+            esp!==null?" · lo planeado al día "+(o.diaN||o.ndias)+" de "+o.diasEst+" es "+esp+"%":""}${
+            o.avTec!=null&&o.avCoord!=null&&o.avTec!==o.avCoord
+              ? " · el instalador declaró "+o.avTec+"% y coordinación confirmó "+o.avCoord+"%"
+              : (o.avTec!=null&&o.avCoord==null?" · lo declaró el instalador, falta confirmarlo":"")}
+        </div>`}
+      <div class="dias">
+        ${o.ds.slice(-14).map(function(d){
+          const st=String(d.status||"").toUpperCase();
+          const c = st==="ATENDIDO"?"at":(st==="CONTINUIDAD"||st==="PROGRAMADO"?"pr":"");
+          return `<span class="dia ${c}" title="${esc(d.status||"sin estatus")}">${
+            esc((d.fecha_servicio||"").slice(5))}</span>`;
+        }).join("")}
+        ${o.ds.length>14?`<span class="dia">y ${o.ds.length-14} más</span>`:""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function arrancar(){
+  document.getElementById("barra").style.display="flex";
+  document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
+  if(!document.getElementById("fDe").value){
+    document.getElementById("fDe").value=isoDe(-180);
+    document.getElementById("fA").value=isoDe(60);
+  }
+  cargar();
+}
+(async function(){
+  const sel=document.getElementById("inUsr");
+  const u=localStorage.getItem("md_quien");
+  if(u && sel.querySelector('option[value="'+u+'"]')) sel.value=u;
+  if(!ses) return;
+  let sirve=await renovar();
+  if(!sirve){
+    try{ await api("servicios?select=id&limit=1"); sirve=true }catch(e){ sirve=false }
+  }
+  if(sirve){ document.getElementById("mLogin").style.display="none"; arrancar(); return }
+  localStorage.removeItem("md_pry"); localStorage.removeItem("md_web"); ses=null;
+  document.getElementById("mLogin").style.display="flex";
+  const e=document.getElementById("err");
+  if(e){ e.textContent="Tu sesión venció. Vuelve a entrar con tu clave."; e.style.display="block" }
+})();
+</script>
+</body>
+</html>
