@@ -226,11 +226,12 @@ async function cargar(){
     const sem=await api("servicios?select=coord,id,tkt,nombre,dependencia,lat,long,"+
       "fecha_servicio,status,tecnico,auxiliar,tipo_servicio"+
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+"&limit=1000");
-    const FUERA="(ATENDIDO,CANCELADO,PROSPECTO,\"ATENCION VENTAS\")";
+    /* El rezago —lo parado y lo que nunca se programo— NO se consulta aqui.
+       Este tablero se comparte y se descarga para mandarlo; lo que se pinte
+       acaba en manos de direccion. Ese seguimiento vive en las estaciones del
+       area: la cinta de cumplimiento, el aviso de cierre y supervision. */
     D={
       semana: sem,
-      atorados: await cuantos("&status=not.in."+FUERA+"&fecha_servicio=lt."+isoDe(-30)),
-      sinProgramar: await cuantos("&status=is.null&fecha_servicio=is.null"),
       monitoreo: await api("monitoreo?select=*&order=semana_ini.desc&limit=8")
     };
     pintar();
@@ -265,8 +266,6 @@ function pintar(){
     tarjeta(atendidos,"ya atendidos","ok")+
     tarjeta(abiertos,"sin cerrar", abiertos?"ojo":"ok")+
     tarjeta(brigadas.size,"brigadas en campo","")+
-    tarjeta(D.atorados,"parados más de un mes", D.atorados?"mal":"ok")+
-    tarjeta(D.sinProgramar,"capturados sin fecha", D.sinProgramar?"ojo":"ok")+
     '</div>';
 
   /* por coordinacion */
