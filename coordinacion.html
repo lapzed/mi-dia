@@ -52,6 +52,17 @@
   .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt2);
     text-transform:none;letter-spacing:0;cursor:pointer;white-space:nowrap}
   .chk input{width:auto;margin:0}
+  /* ---- cinta de cumplimiento ---- */
+  .cinta{display:flex;align-items:center;gap:11px;flex-wrap:wrap;border-radius:12px;
+    padding:10px 14px;margin-bottom:13px;font-size:13px;border:1px solid}
+  .cinta.verde{background:rgba(30,142,90,.13);border-color:rgba(30,142,90,.45);color:#9EE7C2}
+  .cinta.ambar{background:rgba(232,163,61,.11);border-color:rgba(232,163,61,.45);color:#F5CE93}
+  .cinta.rojo{background:rgba(198,65,59,.12);border-color:rgba(198,65,59,.45);color:#F3B0AC}
+  .cinta .foco{font-size:19px;line-height:1}
+  .cinta b{font-weight:800}
+  .cinta .det{color:var(--txt2);font-size:12px}
+  .cinta a{margin-left:auto;color:inherit;font-weight:700;text-decoration:none;
+    border-bottom:1px dotted currentColor;font-size:12.5px}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -100,6 +111,7 @@
   </header>
 
   <div id="etapas"></div>
+  <div id="cinta"></div>
 
   <div class="barra" id="barra" style="display:none">
     <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
@@ -284,6 +296,63 @@ function semanaCampos(){
 }
 function semana(){ semanaCampos(); cargar() }
 
+/* ---------- cinta de cumplimiento: lo comprometido que ya vencio ----------
+   La meta que la base si registra es la FECHA DE SERVICIO. Un servicio con la
+   fecha pasada y sin cerrar es una meta no cumplida, y eso es lo que se mide.
+   No se usa `dias_est` porque casi nadie lo llena: 79 servicios de 5,925, y
+   ninguno rebasa su plazo. Un semaforo sobre ese campo saldria verde siempre.
+
+   El color lo decide la ANTIGUEDAD, no la cantidad: diez servicios de ayer se
+   recuperan; uno de hace tres meses ya se perdio.
+       verde  nada vencido
+       ambar  hay vencidos, ninguno pasa de 30 dias
+       rojo   alguno pasa de 30 dias
+*/
+const CIERRE_FUERA='(ATENDIDO,CANCELADO,PROSPECTO,"ATENCION VENTAS")';
+async function _cuantosAtraso(filtro){
+  try{
+    const r=await fetch(SUPA_URL+"/rest/v1/servicios?select=id"+filtro+"&limit=1",
+      {headers:hdr({Prefer:"count=exact"})});
+    const n=Number(String(r.headers.get("Content-Range")||"").split("/")[1]);
+    return isNaN(n)?0:n;
+  }catch(e){ return 0 }
+}
+function _hoyIso(){const d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function _haceDias(n){const d=new Date(); d.setDate(d.getDate()-n);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+
+async function pintarCinta(){
+  const c=document.getElementById("cinta");
+  if(!c) return;
+  const sel=document.getElementById("fCoord");
+  const co=sel?sel.value:"";
+  const dond=(co?"&coord=eq."+encodeURIComponent(co):"");
+  const base="&status=not.in."+CIERRE_FUERA+dond;
+  const vencidos=await _cuantosAtraso(base+"&fecha_servicio=lt."+_hoyIso());
+  if(!vencidos){
+    c.className="cinta verde";
+    c.innerHTML='<span class="foco">●</span><b>Al día</b>'+
+      '<span class="det">No hay servicios'+(co?" de "+esc(co):"")+
+      ' con la fecha vencida y sin cerrar.</span>';
+    return;
+  }
+  const graves=await _cuantosAtraso(base+"&fecha_servicio=lt."+_haceDias(30));
+  const viejo =await api("servicios?select=fecha_servicio,nombre&status=not.in."+CIERRE_FUERA+
+    dond+"&fecha_servicio=lt."+_hoyIso()+"&order=fecha_servicio.asc&limit=1");
+  let dd=0, nom="";
+  if(viejo && viejo.length){
+    dd=Math.round((new Date(_hoyIso())-new Date(viejo[0].fecha_servicio))/86400000);
+    nom=viejo[0].nombre||"";
+  }
+  c.className="cinta "+(graves?"rojo":"ambar");
+  c.innerHTML='<span class="foco">●</span>'+
+    '<b>'+vencidos+' servicio'+(vencidos>1?"s":"")+' con la fecha vencida</b>'+
+    '<span class="det">'+(graves?graves+" con más de un mes. ":"")+
+    (dd?"El más viejo lleva "+dd+" días: "+esc(nom.slice(0,34))+".":"")+'</span>'+
+    '<a href="cierre.html">Ver y cerrar →</a>';
+}
+
 async function cargar(){
   const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
   const co=document.getElementById("fCoord").value;
@@ -371,7 +440,7 @@ function verTodos(){
   else if(typeof pintar==="function") pintar();
 }
 
-function pintar(){ setTimeout(filtrarVista,0);
+function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
   const v=vistas(), cont=document.getElementById("lista");
   const pend=filas.filter(porConfirmar).length;
   const conf=filas.filter(x=>cita(x)==="SI").length;

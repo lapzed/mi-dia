@@ -66,6 +66,17 @@
     white-space:pre;margin-top:10px}
   .cuenta{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px;font-size:12px}
   .cuenta span{background:#0F2C4A;border:1px solid var(--line);border-radius:9px;padding:5px 10px}
+  /* ---- cinta de cumplimiento ---- */
+  .cinta{display:flex;align-items:center;gap:11px;flex-wrap:wrap;border-radius:12px;
+    padding:10px 14px;margin-bottom:13px;font-size:13px;border:1px solid}
+  .cinta.verde{background:rgba(30,142,90,.13);border-color:rgba(30,142,90,.45);color:#9EE7C2}
+  .cinta.ambar{background:rgba(232,163,61,.11);border-color:rgba(232,163,61,.45);color:#F5CE93}
+  .cinta.rojo{background:rgba(198,65,59,.12);border-color:rgba(198,65,59,.45);color:#F3B0AC}
+  .cinta .foco{font-size:19px;line-height:1}
+  .cinta b{font-weight:800}
+  .cinta .det{color:var(--txt2);font-size:12px}
+  .cinta a{margin-left:auto;color:inherit;font-weight:700;text-decoration:none;
+    border-bottom:1px dotted currentColor;font-size:12.5px}
   .caja{background:var(--card);border:1px solid var(--line);border-radius:14px;
     padding:16px;margin-bottom:14px}
   .caja h2{margin:0 0 3px;font-size:15px}
@@ -90,6 +101,13 @@
   .tramo{border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:12px}
   .tramo h3{margin:0 0 10px;font-size:13px;color:var(--acc);text-transform:uppercase;
     letter-spacing:.06em}
+  .crono{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end;width:100%;
+    background:#0F2C4A;border:1px solid var(--line);border-radius:11px;
+    padding:10px 12px;margin-bottom:11px}
+  .crono label{display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:4px}
+  .crono input{width:auto}
+  .crono .q{flex:1;min-width:200px;font-size:11.5px;color:var(--txt3);margin:0}
   .kitq{font-size:11.5px;color:var(--txt3);margin-top:-4px}
   .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
     background:#17456E;color:var(--acc);white-space:nowrap}
@@ -123,6 +141,7 @@
   </header>
 
   <div id="etapas"></div>
+  <div id="cinta"></div>
 
   <div id="todo" style="display:none">
     <div class="caja">
@@ -143,7 +162,7 @@
       <div class="q" id="qSel">Elige la coordinación: cambia lo que hay que capturar.</div>
       <div class="rej" style="margin-bottom:14px">
         <div class="campo req"><label>Coordinación</label>
-          <select id="fCoord" onchange="pintarCampos()">
+          <select id="fCoord" onchange="pintarCampos();pintarCinta()">
             <option>MANT</option><option>LEV</option><option>INST</option>
             <option>PRY_ESP</option><option>CAT</option>
           </select></div>
@@ -180,7 +199,18 @@
     <div class="tramo">
       <h3>2 &middot; Los sitios a visitar</h3>
       <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="mini" onclick="plantilla()">&darr; Bajar plantilla de sitios</button>
+        <div class="crono">
+        <div><label>Inicio del cronograma</label>
+          <input type="date" id="cgIni" onchange="analizar()"></div>
+        <div><label>Término</label>
+          <input type="date" id="cgFin" onchange="analizar()"></div>
+        <div id="cgDiasObra" style="display:none"><label>Días de obra estimados</label>
+          <input type="number" id="cgDias" min="1" step="1" style="width:110px"
+                 oninput="analizar()"></div>
+        <div class="q" id="cgCronoQ">Las fechas del archivo tienen que caer dentro
+          de este periodo. Si una se sale, casi siempre es un error de dedo.</div>
+      </div>
+      <button class="mini" onclick="plantilla()">&darr; Bajar plantilla de sitios</button>
         <button class="mini" onclick="document.getElementById('cgFile').click()">Elegir archivo</button>
         <input type="file" id="cgFile" accept=".csv,.txt,.tsv" style="display:none"
                onchange="leerArchivo(this.files[0])">
@@ -380,6 +410,63 @@ function control(id, etq, tipo, oblig){
     CAT[tipo].map(v=>`<option>${esc(v)}</option>`).join("")+`</select>`;
   else ctrl=`<input id="c_${id}">`;
   return `<div class="campo${ancho}${oblig?" req":""}"><label>${esc(etq)}</label>${ctrl}</div>`;
+}
+
+/* ---------- cinta de cumplimiento: lo comprometido que ya vencio ----------
+   La meta que la base si registra es la FECHA DE SERVICIO. Un servicio con la
+   fecha pasada y sin cerrar es una meta no cumplida, y eso es lo que se mide.
+   No se usa `dias_est` porque casi nadie lo llena: 79 servicios de 5,925, y
+   ninguno rebasa su plazo. Un semaforo sobre ese campo saldria verde siempre.
+
+   El color lo decide la ANTIGUEDAD, no la cantidad: diez servicios de ayer se
+   recuperan; uno de hace tres meses ya se perdio.
+       verde  nada vencido
+       ambar  hay vencidos, ninguno pasa de 30 dias
+       rojo   alguno pasa de 30 dias
+*/
+const CIERRE_FUERA='(ATENDIDO,CANCELADO,PROSPECTO,"ATENCION VENTAS")';
+async function _cuantosAtraso(filtro){
+  try{
+    const r=await fetch(SUPA_URL+"/rest/v1/servicios?select=id"+filtro+"&limit=1",
+      {headers:hdr({Prefer:"count=exact"})});
+    const n=Number(String(r.headers.get("Content-Range")||"").split("/")[1]);
+    return isNaN(n)?0:n;
+  }catch(e){ return 0 }
+}
+function _hoyIso(){const d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function _haceDias(n){const d=new Date(); d.setDate(d.getDate()-n);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+
+async function pintarCinta(){
+  const c=document.getElementById("cinta");
+  if(!c) return;
+  const sel=document.getElementById("fCoord");
+  const co=sel?sel.value:"";
+  const dond=(co?"&coord=eq."+encodeURIComponent(co):"");
+  const base="&status=not.in."+CIERRE_FUERA+dond;
+  const vencidos=await _cuantosAtraso(base+"&fecha_servicio=lt."+_hoyIso());
+  if(!vencidos){
+    c.className="cinta verde";
+    c.innerHTML='<span class="foco">●</span><b>Al día</b>'+
+      '<span class="det">No hay servicios'+(co?" de "+esc(co):"")+
+      ' con la fecha vencida y sin cerrar.</span>';
+    return;
+  }
+  const graves=await _cuantosAtraso(base+"&fecha_servicio=lt."+_haceDias(30));
+  const viejo =await api("servicios?select=fecha_servicio,nombre&status=not.in."+CIERRE_FUERA+
+    dond+"&fecha_servicio=lt."+_hoyIso()+"&order=fecha_servicio.asc&limit=1");
+  let dd=0, nom="";
+  if(viejo && viejo.length){
+    dd=Math.round((new Date(_hoyIso())-new Date(viejo[0].fecha_servicio))/86400000);
+    nom=viejo[0].nombre||"";
+  }
+  c.className="cinta "+(graves?"rojo":"ambar");
+  c.innerHTML='<span class="foco">●</span>'+
+    '<b>'+vencidos+' servicio'+(vencidos>1?"s":"")+' con la fecha vencida</b>'+
+    '<span class="det">'+(graves?graves+" con más de un mes. ":"")+
+    (dd?"El más viejo lleva "+dd+" días: "+esc(nom.slice(0,34))+".":"")+'</span>'+
+    '<a href="cierre.html">Ver y cerrar →</a>';
 }
 
 function pintarCampos(){
@@ -831,6 +918,35 @@ function analizar(){
     if(txt.trim()) msg.innerHTML='<div class="aviso">Hace falta el renglon de encabezados y al menos un sitio abajo.</div>';
     return;
   }
+  /* El periodo del cronograma. Se pide siempre: una carga masiva es, casi
+     por definicion, un calendario acordado con el cliente. Sirve para dos
+     cosas: cachar la fecha que se escribio mal —un 2025 en vez de 2026, un mes
+     cambiado— y dejar dicho de que periodo es esta carga. */
+  var ini=(document.getElementById("cgIni")||{}).value||"";
+  var fin=(document.getElementById("cgFin")||{}).value||"";
+  var qc=document.getElementById("cgCronoQ");
+  /* Mantenimiento es un calendario de visitas: basta el periodo. Instalaciones
+     es una obra que dura dias, y ese numero es el que reparte la carga en la
+     pantalla de demanda; hoy casi nadie lo llena, asi que se pide aqui. */
+  var esObra = (co==="INST");
+  var cd=document.getElementById("cgDiasObra");
+  if(cd) cd.style.display = esObra ? "" : "none";
+  var diasObra = esObra ? (Number((document.getElementById("cgDias")||{}).value)||0) : 0;
+  if(ini && fin && fin < ini){
+    msg.innerHTML='<div class="aviso">El término del cronograma es anterior al inicio.</div>';
+    return;
+  }
+  if(qc){
+    if(ini && fin){
+      var nd=Math.round((new Date(fin)-new Date(ini))/86400000)+1;
+      qc.innerHTML='Cronograma del <b>'+esc(ini)+'</b> al <b>'+esc(fin)+'</b> · '+nd+
+        ' día'+(nd>1?"s":"")+'. Las fechas del archivo tienen que caer ahí dentro.';
+    }else{
+      qc.textContent="Las fechas del archivo tienen que caer dentro de este periodo. "+
+        "Si una se sale, casi siempre es un error de dedo.";
+    }
+  }
+
   var mapa=mapaSitio();
   var enc=filas[0].map(function(h){ return mapa[llaveEnc(h)]||null });
   var noReconocidos=filas[0].filter(function(h,i){ return !enc[i] && String(h).trim()!=="" });
@@ -842,11 +958,23 @@ function analizar(){
            ["tipo_servicio","tipo de servicio"],["telefono","telefono"]];
   if(co==="CAT") req=req.concat([["fecha_atencion","fecha de atencion"],
     ["cat_tipo","tipo de atencion"],["cat_estatus","estatus"],["cat_descripcion","descripcion"]]);
+  var faltaCrono = (!ini || !fin) || (esObra && !diasObra);
   var arriba=req.filter(function(a){ return !com[a[0]] && !trae(a[0]) });
   if(arriba.length){
     msg.innerHTML='<div class="aviso">Arriba te falta llenar: <b>'+
       arriba.map(function(a){return esc(a[1])}).join(", ")+
       '</b>. O traelo como columna en el archivo, si cambia por sitio.</div>';
+  }
+  /* cada falta con su propio aviso: decir "faltan las fechas" cuando lo que
+     falta son los dias manda a buscar en el lugar equivocado */
+  if(!ini || !fin){
+    msg.innerHTML+='<div class="aviso">Falta el <b>inicio y el término del cronograma</b>. '+
+      'Se piden para verificar que las fechas del archivo sean las acordadas.</div>';
+  }
+  if(esObra && !diasObra){
+    msg.innerHTML+='<div class="aviso">Falta cuántos <b>días de obra</b> se estiman. '+
+      'Con ese número la carga de la brigada se reparte entre los días; sin él, '+
+      'cada día aparece con la duración de toda la obra.</div>';
   }
   if(!trae("nombre")){
     msg.innerHTML+='<div class="aviso">El archivo no trae la columna del <b>sitio</b>. '+
@@ -861,6 +989,10 @@ function analizar(){
     /* el orden importa: lo del sitio pisa lo del kit, y el kit pisa lo comun */
     var x=Object.assign({}, com, kit, sitio);
     delete x.__kit;
+    /* Los días de obra viajan a cada sitio: es el número con el que la pantalla
+       de demanda reparte la carga entre los días. Sin él, cada día de la obra
+       aparece cargando la duración completa. */
+    if(esObra && diasObra){ x.obra=true; x.dias_est=diasObra; }
     if(!x.nombre) falla.push("falta el nombre del sitio");
     ["dia_creacion","fecha_atencion","fecha_servicio"].forEach(function(id){
       if(x[id]){ var d=aFecha(x[id]);
@@ -868,6 +1000,13 @@ function analizar(){
         else x[id]=d; }
     });
     req.forEach(function(a){ if(!x[a[0]]) falla.push("falta "+a[1]) });
+    /* la fecha de la visita, contra el cronograma */
+    if(x.fecha_servicio && ini && fin){
+      if(x.fecha_servicio < ini || x.fecha_servicio > fin)
+        falla.push("la fecha "+x.fecha_servicio+" queda fuera del cronograma ("+ini+" al "+fin+")");
+    }else if(!x.fecha_servicio){
+      ojo.push("sin fecha: entra a captura, no al cronograma");
+    }
     if(x.cp && !/^\d{5}$/.test(x.cp)) ojo.push("el CP no trae 5 digitos");
     if(x.telefono && x.telefono.replace(/\D/g,"").length<10) ojo.push("el telefono no llega a 10 digitos");
     if(!x.direccion) ojo.push("va sin direccion");
@@ -882,7 +1021,8 @@ function analizar(){
     (dudas?'<span>Entran pero revisalos: <b style="color:#F0BE6E">'+dudas+'</b></span>':"")+
     '<span>Cliente: <b>'+esc(com.dependencia||"(sin nombre)")+'</b></span>'+
     '<span>Coordinacion: <b>'+esc(co)+'</b></span>'+
-    (conFecha?'<span>Con fecha de cronograma: <b>'+conFecha+'</b></span>':"");
+    (conFecha?'<span>Con fecha de cronograma: <b>'+conFecha+'</b></span>':"")+
+    (ini&&fin?'<span>Periodo: <b>'+esc(ini)+'</b> al <b>'+esc(fin)+'</b></span>':"");
   if(noReconocidos.length)
     msg.innerHTML+='<div class="aviso">Estas columnas no las conozco y las voy a ignorar: <b>'+
       noReconocidos.map(esc).join(", ")+'</b>.</div>';
@@ -900,7 +1040,7 @@ function analizar(){
       '</td></tr>';
     }).join("")+'</table>';
 
-  if(LOTE.length){
+  if(LOTE.length && !faltaCrono){
     btn.disabled=false;
     btn.textContent="Dar de alta "+LOTE.length+" sitio"+(LOTE.length>1?"s":"");
   }
@@ -961,7 +1101,10 @@ async function subirLote(){
   var elKit=document.getElementById("cg_kit"), kitUsado=elKit?elKit.value:"";
   if(hechos) anotar("ALTA MASIVA",
         hechos+" sitios desde archivo (cliente: "+(listos[0].dependencia||"sin nombre")+
-        (kitUsado?", kit: "+kitUsado:"")+")", listos[0]);
+        (kitUsado?", kit: "+kitUsado:"")+
+        ((document.getElementById("cgIni")||{}).value
+          ? ", cronograma "+document.getElementById("cgIni").value+
+            " al "+document.getElementById("cgFin").value : "")+")", listos[0]);
   msg.innerHTML='<div class="'+(fallos.length?"aviso":"bien")+'">Se dieron de alta <b>'+
     hechos+'</b> de '+listos.length+' sitios en '+esc(co)+'. Ya los ve programacion.'+
     (fallos.length?'<br>No entraron: '+esc(fallos.join(" | ").slice(0,400)):"")+'</div>';
@@ -1014,6 +1157,7 @@ async function arrancar(){
   document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses.usuario))+"</b>salir";
   document.getElementById("todo").style.display="block";
   ponerBarra();
+  pintarCinta();
   try{
     const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
     CAT={}; c.forEach(x=>(CAT[x.catalogo]=CAT[x.catalogo]||[]).push(x.valor));
