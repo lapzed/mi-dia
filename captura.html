@@ -151,7 +151,7 @@
       <div class="buscar">
         <input id="qSitio" placeholder="WALMART LOMAS VERDES, PROGELA, Av. Revolución…"
                onkeydown="if(event.key==='Enter')buscarSitio()">
-        <button class="pri mini" onclick="buscarSitio()">Buscar</button>
+        <button class="pri mini" onclick="buscarSitio()">🔎 Buscar</button>
         <button class="mini" onclick="limpiarSitio()">Empezar en blanco</button>
       </div>
       <div id="hallazgos"></div>
@@ -284,6 +284,7 @@ function marcarUso(){
   }catch(e){}
 }
 
+let EJECUTIVOS_CAT=[];
 let ses=sesionVigente(JSON.parse(localStorage.getItem("md_capt")||
   localStorage.getItem("md_web")||"null"))   /* la sesion es una sola: ver md_web abajo */;
 let CAT={}, sitioSel=null;
@@ -363,7 +364,7 @@ const GENERAL = [
   ["nombre",          "Nombre / Referencia",     "text",  1],
   ["dependencia",     "Dependencia / Cliente",   "text",  0],
   ["tipo_servicio",   "Tipo de servicio",        "TIPO_SERVICIO", 1],
-  ["ejecutivo",       "Ejecutivo de cuenta",     "text",  0],
+  ["ejecutivo",       "Ejecutivo de cuenta",     "EJECUTIVOS", 0],
   ["direccion",       "Dirección",               "ancho", 0],
   ["cp",              "CP",                      "text",  0],
   ["localidad",       "Localidad (colonia)",     "text",  0],
@@ -377,7 +378,7 @@ const GENERAL = [
   ["obs_captura",     "Comentarios",             "area",  0]
 ];
 const EQUIPO = [
-  ["equipo","Equipo","text"], ["serie","# Serie","text"],
+  ["equipo","Equipo","EQUIPOS"], ["serie","# Serie","text"],
   ["plasticas","Plásticas","text"], ["aluminio","Aluminio","text"],
   ["eliptica","Elíptica","text"], ["bocina_plafon","Bocina plafón","text"],
   ["estrobo","Estrobo","text"], ["ups","UPS","text"],
@@ -386,7 +387,7 @@ const EQUIPO = [
   ["antena","Antena","text"], ["coaxial","Cable coaxial (3m)","text"],
   ["pot","Cable POT (3m)","text"], ["ur","Cable UR (3m)","text"],
   ["p_gruesa","Tubería gruesa (3m)","text"], ["p_delgada","Tubería delgada (3m)","text"],
-  ["f_zapa","Fijación zapa","text"], ["eq_especializado","Eq. especializado","text"],
+  ["f_zapa","Fijación zapa","text"], ["eq_especializado","Eq. especializado","EQ_ESPECIALIZADO"],
   ["tipo","Tipo","text"], ["altura","Altura","text"],
   ["materiales","Materiales","area"]
 ];
@@ -494,13 +495,41 @@ function pintarCampos(){
 
 /* El CP y las coordenadas no son un campo más: son los dos que, mal puestos,
    mandan a la brigada a otra dirección. Se les cuelga su ayuda. */
+
+/* ---------- el contacto del ejecutivo ----------
+   El nombre no basta: quien programa necesita marcarle. Se muestra debajo del
+   combo en cuanto se elige, y sale de la tabla de ejecutivos, no de teclearlo. */
+function contactoEjecutivo(){
+  const e=document.getElementById("c_ejecutivo");
+  const av=document.getElementById("avisoEjec");
+  if(!e || !av) return;
+  const x=EJECUTIVOS_CAT.filter(function(q){ return q.alias===e.value })[0];
+  if(!x){ av.textContent=""; return }
+  const t=limpio(x.telefono), c=limpio(x.correo);
+  av.innerHTML = (t||c)
+    ? (t?'📞 '+esc(t):"") + (t&&c?' · ':"") + (c?'✉️ '+esc(c):"")
+    : '<span style="color:#F0BE6E">sin teléfono ni correo en el catálogo</span>';
+}
+
 function ayudasDeDireccion(){
+  const ej=document.getElementById("c_ejecutivo");
+  if(ej){
+    ej.insertAdjacentHTML("afterend",
+      '<div id="avisoEjec" class="q" style="margin:4px 0 0"></div>');
+    ej.addEventListener("change", contactoEjecutivo);
+    contactoEjecutivo();
+  }
   const cp=document.getElementById("c_cp");
   if(cp){
     cp.setAttribute("inputmode","numeric");
     cp.setAttribute("maxlength","5");
     cp.addEventListener("change", resolverCP);
     cp.addEventListener("blur", resolverCP);
+    /* y tambien al teclear el quinto digito: esperar a que salga del campo
+       hacia parecer que no servia */
+    cp.addEventListener("input", function(){
+      if(/^\d{5}$/.test(cp.value.trim())) resolverCP();
+    });
     cp.insertAdjacentHTML("afterend",
       '<div id="avisoCP" class="q" style="margin:4px 0 0"></div>');
   }
@@ -580,15 +609,37 @@ async function buscarCoords(){
 }
 
 /* ---------- sitios ---------- */
+/* ---------- buscar por coincidencias ----------
+   Cada palabra tiene que aparecer en alguno de los campos; el orden no importa
+   y las mayusculas tampoco. Se arma con `and=(or(...),or(...))`, y cada patron
+   va entre comillas: sin ellas, una coma o un parentesis en lo que se teclea
+   rompe la consulta. */
+function filtroPalabras(q, campos){
+  /* separa tambien por guion, diagonal y punto: "walmart-lomas" o
+     "walmart/lomas" son dos palabras, no una */
+  const pal=String(q||"").trim().split(/[\s,;\-\/.]+/)
+    .map(function(w){ return w.replace(/["\\(),]/g,"") })
+    .filter(function(w){ return w.length>=2 });
+  if(!pal.length) return "";
+  const bloques=pal.map(function(w){
+    return "or("+campos.map(function(c){ return c+'.ilike."*'+w+'*"' }).join(",")+")";
+  });
+  return "&and=("+bloques.join(",")+")";
+}
+
 async function buscarSitio(){
   const q=document.getElementById("qSitio").value.trim();
   const cont=document.getElementById("hallazgos");
   if(q.length<3){ cont.innerHTML='<div class="q">Escribe al menos tres letras.</div>'; return }
   cont.innerHTML='<div class="load">Buscando…</div>';
   try{
-    const t=encodeURIComponent("*"+q+"*");
-    const f=await api("sitios?select=*&or=(nombre.ilike."+t+",dependencia.ilike."+t+
-                      ",direccion.ilike."+t+")&order=nombre&limit=25");
+    /* Se busca por PALABRAS, no por la frase entera. "walmart lomas" antes no
+       encontraba nada porque exigia que las dos fueran juntas y en ese orden;
+       ahora basta con que las dos aparezcan, aunque sea en campos distintos.
+       Las comillas alrededor del patron son las que evitan que una coma en lo
+       tecleado rompa la consulta con un error 400. */
+    const f=await api("sitios?select=*"+filtroPalabras(q,
+      ["nombre","dependencia","direccion"])+"&order=nombre&limit=25");
     if(!f.length){ cont.innerHTML='<div class="q">Nada con eso. Captúralo en blanco.</div>'; return }
     cont.innerHTML='<div class="hallazgos">'+f.map((s,i)=>`
       <div class="hallazgo" onclick="tomarSitio(${i})">
@@ -1160,7 +1211,16 @@ async function arrancar(){
   pintarCinta();
   try{
     const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
+    /* Los ejecutivos viven en su propia tabla, con telefono y correo. Se arma
+       con ella la lista del combo y, de paso, se guarda el contacto para
+       poder enseñarlo en cuanto se elija a alguien. */
+    try{
+      EJECUTIVOS_CAT = await api("ejecutivos?select=alias,nombre,telefono,correo"+
+                                 "&activo=is.true&order=alias") || [];
+    }catch(e){ EJECUTIVOS_CAT = [] }
     CAT={}; c.forEach(x=>(CAT[x.catalogo]=CAT[x.catalogo]||[]).push(x.valor));
+    /* despues de armar CAT, no antes: la linea de arriba lo reemplaza entero */
+    CAT.EJECUTIVOS = EJECUTIVOS_CAT.map(function(x){ return x.alias });
   }catch(e){ CAT={} }
   pintarCampos();
   ultimos();
