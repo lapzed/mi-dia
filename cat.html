@@ -512,9 +512,16 @@ function pintarAt(){ setTimeout(filtrarVista,0); pintarCinta();
     ${v.map(x=>{ const i=filas.indexOf(x), ej=ejecutivoDe(x); return `<tr>
       <td>${esc(x.fecha_servicio||"")}
         ${limpio(x.fecha_atencion)?`<div class="sub">at. ${esc(x.fecha_atencion)}</div>`:""}</td>
-      <td><div class="sitio">${esc(x.nombre||"")}</div>
+      <td><div class="sitio">${esc(x.nombre||"")}
+          <a class="corregir" href="captura.html?corregir=${esc(x.coord)}-${x.id}"
+             title="Corregir los datos capturados">✏ corregir</a></div>
         <div class="sub">${esc(limpio(x.dependencia)||"")}${x.tkt?" · TKT "+esc(x.tkt):""}</div>
-        <div class="sub">${esc(limpio(x.tecnico)||"sin técnico")}</div></td>
+        <div class="sub">${esc(limpio(x.tecnico)||"sin técnico")}
+          ${limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):""}
+          ${limpio(x.status)?" · "+esc(x.status):""}</div>
+        ${limpio(x.personal_atiende)||limpio(x.telefono)
+          ? `<div class="sub">${esc(limpio(x.personal_atiende))}${
+              limpio(x.telefono)?" · "+esc(x.telefono):""}</div>` : ""}</td>
       <td>${ej?esc(ej.nombre):"—"}${ej&&ej.tel?`<div class="sub">${esc(ej.tel)}</div>`:""}</td>
       <td><select onchange="editarAt(${i},'cat_tipo',this.value)">
         <option value=""></option>
