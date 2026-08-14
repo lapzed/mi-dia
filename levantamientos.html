@@ -205,6 +205,19 @@
 </div>
 
 <script>
+  /* Se esconde el recuadro de la clave ANTES del primer pintado, cuando ya hay
+     sesion guardada. Comprobar si sirve es un viaje a la red, y mientras tanto
+     se alcanzaba a ver la pantalla de entrar al saltar de una etapa a otra.
+     Si al comprobarla resulta que ya no vale, el arranque la vuelve a mostrar
+     con su aviso. */
+  try{
+    if(localStorage.getItem("md_lev") || localStorage.getItem("md_web"))
+      document.getElementById("mLogin").style.display = "none";
+  }catch(e){}
+</script>
+
+
+<script>
 const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
 const DOMINIO="mdcontrol.local";
