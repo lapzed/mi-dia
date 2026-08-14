@@ -68,6 +68,12 @@
   .cinta .det{color:var(--txt2);font-size:12px}
   .cinta a{margin-left:auto;color:inherit;font-weight:700;text-decoration:none;
     border-bottom:1px dotted currentColor;font-size:12.5px}
+  /* avance de obra: lo del instalador y lo que confirma coordinacion */
+  .av{display:flex;align-items:center;gap:7px;white-space:nowrap}
+  .av .pl{font-size:11px;color:var(--txt3)}
+  .av b{font-variant-numeric:tabular-nums}
+  .av .atras{color:#F0A9A5} .av .bien{color:#7BE0AE}
+  .av input{width:62px;padding:4px 6px;font-size:12px}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -386,7 +392,8 @@ async function cargar(){
   document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
   try{
     filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,fecha_servicio,"+
-      "fecha_atencion,status,tecnico,auxiliar,obs_coord,obs_prog,tipo_servicio,obra,dias_est,dia_n"+
+      "fecha_atencion,status,tecnico,auxiliar,obs_coord,obs_prog,tipo_servicio,obra,dias_est,dia_n,"+
+      "avance_tec,avance_coord,avance_ts,avance_nota"+
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+(co?"&coord=eq."+co:"")+
       "&order=fecha_servicio&limit=800");
     await cargarEvidencias();
@@ -485,6 +492,51 @@ function verTodos(){
   else if(typeof pintar==="function") pintar();
 }
 
+/* ---------- avance de obra contra lo planeado ----------
+   Lo planeado sale del calendario: dia 4 de 10 son 40%. Se compara con lo que
+   vale de verdad —lo que confirmo coordinacion si ya lo reviso, y si no lo que
+   declaro el instalador— y se marca atrasado cuando queda mas de diez puntos
+   abajo. Diez puntos es el ruido normal de estimar a ojo; avisar por menos
+   convierte el semaforo en adorno. */
+function esperadoDe(x){
+  if(!x.obra || !x.dias_est) return null;
+  return Math.min(100, Math.round(100*(x.dia_n||1)/x.dias_est));
+}
+function avanceReal(x){
+  return (x.avance_coord!=null) ? x.avance_coord
+       : (x.avance_tec!=null)   ? x.avance_tec : null;
+}
+function celdaAvance(x, i){
+  const esp=esperadoDe(x);
+  if(esp===null) return '<span class="sub">—</span>';
+  const real=avanceReal(x);
+  const atras = (real!=null) && (real-esp < -10);
+  return '<div class="av">'+
+    '<input type="number" min="0" max="100" step="5" value="'+(real!=null?real:"")+'"'+
+      ' title="Confirma o corrige el avance"'+
+      ' onchange="ponAvanceCoord('+i+',this.value)">'+
+    '<span class="'+(atras?"atras":(real!=null?"bien":""))+'">%</span>'+
+    '<span class="pl">plan '+esp+'% · día '+(x.dia_n||1)+' de '+x.dias_est+
+      (x.avance_tec!=null?' · instalador '+x.avance_tec+'%':'')+'</span>'+
+    '<span id="av'+i+'"></span></div>';
+}
+async function ponAvanceCoord(i, valor){
+  const x=filas[i], av=document.getElementById("av"+i);
+  const v=Math.max(0, Math.min(100, Number(valor)||0));
+  if(av) av.innerHTML='<span class="sub">…</span>';
+  try{
+    const d=await api("servicios?coord=eq."+encodeURIComponent(x.coord)+"&id=eq."+x.id,
+      {method:"PATCH", headers:{Prefer:"return=representation"},
+       body:JSON.stringify({avance_coord:v,
+         avance_ts:new Date().toISOString().slice(0,16).replace("T"," ")})});
+    if(!d||!d.length) throw new Error("no se guardó");
+    x.avance_coord=v;
+    anotar("AVANCE", "ID="+x.id+" · coordinación confirma "+v+"%", x);
+    if(av) av.innerHTML='<span class="guardado">✓</span>';
+    pintar();
+  }catch(e){ if(av) av.innerHTML='<span class="fallo">no se guardó</span>' }
+}
+
 /* lo atorado: los mas viejos primero, que son los que peor se ven */
 function pintarAtorados(){
   const c=document.getElementById("atorados");
@@ -523,7 +575,7 @@ function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
   if(!v.length){ cont.innerHTML='<div class="vacio">Nada pendiente aquí.</div>'; return }
   cont.innerHTML=`<div class="tabla"><table><thead><tr>
     <th>Fecha</th><th>Servicio</th><th>Brigada</th><th>Estatus</th>
-    <th>Atendido el</th><th>Evidencia</th><th>Nota de cierre</th>
+    <th>Atendido el</th><th>Avance de obra</th><th>Evidencia</th><th>Nota de cierre</th>
     <th>Informe final</th><th></th>
     </tr></thead><tbody>
     ${v.map(x=>{
@@ -543,6 +595,7 @@ function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
       </select></td>
       <td><input type="date" value="${esc(x.fecha_atencion||"")}"
             onchange="editar(${i},'fecha_atencion',this.value)"></td>
+      <td>${celdaAvance(x, i)}</td>
       <td class="ev">${evidencia(x).map(e=>
         `<div class="${e.ok?"si":"no"}">${e.ok?"✓":"○"} ${esc(e.t.toLowerCase())}</div>`).join("")}</td>
       <td><textarea class="nota" onchange="editar(${i},'obs_coord',this.value)"

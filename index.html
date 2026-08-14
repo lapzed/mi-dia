@@ -105,6 +105,15 @@
   .logev.mal{color:#F0BE6E;background:rgba(232,163,61,.14);border-left:3px solid var(--warn)}
   .obra{margin:3px 0 0 6px;font-size:11.5px;color:var(--acc);font-weight:600}
   .obra b{color:#F0BE6E}
+  /* el avance del dia de obra */
+  .avance{background:#0F2C4A;border:1px solid var(--line);border-radius:12px;
+    padding:12px 13px;margin:12px 0}
+  .avance .fila{display:flex;align-items:center;gap:11px}
+  .avance input[type=range]{flex:1;accent-color:var(--acc)}
+  .avance .pct{font-size:23px;font-weight:800;min-width:62px;text-align:right;
+    font-variant-numeric:tabular-nums}
+  .avance .esp{font-size:12px;color:var(--txt2);margin-top:7px}
+  .avance .esp b.atras{color:#F0A9A5} .avance .esp b.bien{color:#7BE0AE}
   .ojo{background:rgba(99,179,255,.12);border:1px solid rgba(99,179,255,.35);
     color:#AFD6FF;border-radius:11px;padding:10px 12px;font-size:12px;margin-bottom:12px}
   button:active{transform:scale(.97)}
@@ -640,7 +649,8 @@ async function cargar(){
       "requerimientos,tipo_servicio,obra,dias_est,dia_n,"+
       "ejecutivo,correo,cita_confirmada,dia_creacion,tecnico,auxiliar,vehiculo,"+
       "cp,localidad,municipio,estado,equipo,serie,materiales,obs_captura,"+
-      "log_estado,log_saltos,log_ultimo,canal,senal_barras"+
+      "log_estado,log_saltos,log_ultimo,canal,senal_barras,"+
+      "avance_tec,avance_coord,avance_ts"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
     guardarSemanaLocal();
@@ -1260,6 +1270,28 @@ function cubierto(b){
             ? PARTIDAS.reduce((n,p)=>n+cie.partidas[b.tipo][p.id].length, 0) : 0;
   return ya + cie[b.campo].length + inv > 0;
 }
+/* Lo planeado a estas alturas: dia 4 de 10 son 40%. Si lo declarado queda mas
+   de diez puntos abajo, se dice; diez puntos es el ruido normal de estimar a
+   ojo, y avisar por menos que eso convierte el aviso en adorno. */
+function textoAvance(v){
+  const sv=cie.srv;
+  if(!sv || !sv.dias_est) return "";
+  const esperado=Math.min(100, Math.round(100*(sv.dia_n||1)/sv.dias_est));
+  const dif=v-esperado;
+  return dif < -10
+    ? '<b class="atras">Vas '+Math.abs(dif)+' puntos abajo de lo planeado ('+
+      esperado+'% al dia '+(sv.dia_n||1)+' de '+sv.dias_est+').</b>'
+    : '<b class="bien">Al corriente</b> · lo planeado al dia '+(sv.dia_n||1)+
+      ' de '+sv.dias_est+' es '+esperado+'%.';
+}
+function ponAvance(v){
+  cie.avancePct=Number(v);
+  const e=document.getElementById("pctAvance");
+  if(e) e.textContent=cie.avancePct+"%";
+  const c=document.getElementById("espAvance");
+  if(c) c.innerHTML=textoAvance(cie.avancePct);
+}
+
 function cerrarHoja(){
   document.getElementById("mCierre").style.display="none"; cie=null;
 }
@@ -1340,6 +1372,33 @@ function pintarCierre(){
       <label class="pc" style="width:100%"><span>Notas de esta propuesta</span>
         <textarea rows="2" oninput="propCampo(${i},'notas',this.value)">${esc(p.notas||"")}</textarea></label>
     </div>`;
+
+  /* ---------- avance de la obra ----------
+     Lo declara quien esta parado ahi. Se compara con lo esperado por calendario
+     y se le avisa en el momento si va abajo, que es cuando sirve saberlo.
+
+     No bloquea el cierre a proposito: dejar a un tecnico atorado en obra por
+     una barra sin mover es peor que un avance sin declarar. */
+  const seccionAvance = () => {
+    const sv=cie.srv;
+    if(!esObra(sv)) return "";
+    if(cie.estatus!=="CONTINUIDAD" && cie.estatus!=="FIN_OBRA") return "";
+    const fin = cie.estatus==="FIN_OBRA";
+    const v = fin ? 100 : (cie.avancePct!=null ? cie.avancePct
+                          : (sv.avance_tec!=null ? sv.avance_tec : 0));
+    cie.avancePct = v;
+    return `<div class="lbl">Avance de la obra</div>
+      <div class="avance">
+        ${fin?`<div class="fila"><span class="pct">100%</span>
+               <span class="esp">La obra queda concluida.</span></div>`
+             :`<div class="fila">
+                <input type="range" min="0" max="100" step="5" value="${v}"
+                       oninput="ponAvance(this.value)">
+                <span class="pct" id="pctAvance">${v}%</span>
+               </div>
+               <div class="esp" id="espAvance">${textoAvance(v)}</div>`}
+      </div>`;
+  };
 
   const seccionProp = () => !cie.propuestas ? "" : `
     <div class="lbl">Sonorizaciones del inmueble
@@ -1442,6 +1501,7 @@ function pintarCierre(){
       ${cie.log?seccionLog():""}
       ${cie._bloques.map(bloque).join("")}
       ${seccionProp()}
+      ${seccionAvance()}
     `}
 
     <div class="lbl">${esRep?"":(cie._bloques.length+1)+" · "}Comentarios ${
@@ -1813,6 +1873,12 @@ async function guardarCierre(s, modo, com){
     body.status=modo;
   }
   if(com) body.obs_coord=com;
+  /* el avance que declara el instalador, con el sello de cuando lo dijo */
+  if(esObra(cie.srv) && (modo==="CONTINUIDAD" || modo==="FIN_OBRA")){
+    body.avance_tec = (modo==="FIN_OBRA") ? 100 : Number(cie.avancePct||0);
+    body.avance_ts  = new Date().toISOString().slice(0,16).replace("T"," ");
+    if(com) body.avance_nota = com;
+  }
   if(cie.log && cie.log.estado){
     body.log_estado = cie.log.estado;
     body.log_saltos = cie.log.estado==="SALTEADO" ? (cie.log.saltos||"") : "";
