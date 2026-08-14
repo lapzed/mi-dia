@@ -360,7 +360,7 @@ async function cargar(){
   document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
   try{
     filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
-      "fecha_servicio,horario_atencion,status,tecnico,auxiliar,cita_confirmada,"+
+      "fecha_servicio,horario_atencion,status,tecnico,auxiliar,cita_confirmada,cita_requerida,"+
       "fecha_confirmacion,medio_contacto,segurista,obs_coord,obs_prog,requerimientos,"+
       "personal_atiende,telefono,correo,ejecutivo,tipo_servicio"+
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+(co?"&coord=eq."+co:"")+
@@ -471,7 +471,11 @@ function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
       <td>${esc(limpio(x.personal_atiende)||"—")}
           ${tel?`<div class="sub"><a class="tel" href="tel:${esc(tel)}">${esc(limpio(x.telefono))}</a></div>`:""}
           ${eje?`<div class="sub">Ej: ${esc(eje.nombre)}${eje.tel?" · "+esc(eje.tel):""}</div>`:""}</td>
-      <td><select onchange="editar(${i},'cita_confirmada',this.value)">
+      <td>${(x.cita_requerida||"")==="SI"
+              ? '<div class="sub" style="color:#F0BE6E">programación pidió cita</div>'
+              : ((x.cita_requerida||"")==="NO"
+                 ? '<div class="sub">no lleva cita</div>' : "")}
+        <select onchange="editar(${i},'cita_confirmada',this.value)">
             <option value=""></option>
             <option${cita(x)==="SI"?" selected":""}>SI</option>
             <option${cita(x)==="NO"?" selected":""}>NO</option></select>

@@ -66,6 +66,8 @@
   td{padding:8px 9px;border-bottom:1px solid rgba(29,66,103,.5);vertical-align:top}
   .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
     background:#17456E;color:var(--acc);white-space:nowrap}
+  .cerrar{display:flex;gap:6px;align-items:center;white-space:nowrap}
+  .cerrar select{padding:4px 6px;font-size:11.5px}
   .dias{font-weight:800;font-variant-numeric:tabular-nums}
   .dias.rojo{color:#F0A9A5} .dias.ambar{color:#F0BE6E}
 
@@ -186,7 +188,8 @@ let ses=sesionVigente(JSON.parse(localStorage.getItem("md_sup")||
   localStorage.getItem("md_web")||"null"))   /* la sesion es una sola: ver md_web abajo */;
 let todos=[], sinProgramar=[], vista="hoy", mapa=null, capa=null;
 
-function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
+function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
+  Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
 function isoDe(n){const d=new Date();d.setDate(d.getDate()+n);
@@ -195,10 +198,16 @@ function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMont
 function dias(f){ return Math.round((new Date(hoyISO())-new Date(f))/86400000) }
 
 async function api(path,opts,reint){
-  const r=await fetch(SUPA_URL+"/rest/v1/"+path,Object.assign({},opts||{},{headers:hdr()}));
+  /* Antes esta pantalla solo leia, asi que armaba las cabeceras y tiraba las
+     que le pasaran. Desde que puede cerrar un servicio tiene que respetarlas:
+     sin Content-Type el servidor rechaza la escritura con "Content-Type not
+     acceptable: text/plain", que no se parece en nada al problema real. */
+  const o=Object.assign({},opts||{});
+  o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
   const t=await r.text();
   if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
-  if(!r.ok) throw new Error("HTTP "+r.status);
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,120));
   return t?JSON.parse(t):null;
 }
 async function auth(c,tipo){
@@ -376,6 +385,75 @@ function pintarHoy(){
      mapa${malas?` — ${malas} de ellos tienen la coordenada mal capturada`:" por no tener coordenadas"}.</p>`);
 }
 
+
+const ETAPA_AQUI=4;
+function nombreDe(u){
+  return ({"est.gerencia":"Gerencia","est.subgerencia":"Subgerencia",
+           "est.gloria":"Montserrat","est.jenifer":"Jenifer","est.ivan":"Iván",
+           "est.patricia":"Patricia","est.jair":"Jair","est.alin":"Alin",
+           "est.ariana":"Ariana","est.proyectos":"Karina"})[u] || u || "";
+}
+/* ---------- bitacora ----------
+   Supervision solo miraba, asi que no anotaba nada. Desde que puede cerrar un
+   servicio a mano si tiene que dejar rastro: un cierre hecho aqui no es lo
+   mismo que uno hecho en campo por el tecnico, y quien revise despues necesita
+   poder distinguirlos. */
+function anotar(accion, detalle, x){
+  try{
+    const t=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    api("log",{method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({
+      timestamp:t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" "+
+                p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()),
+      usuario:nombreDe(ses&&ses.usuario), win_user:"web",
+      coord:(x&&x.coord)||(ses&&ses.coord)||"", rol:(ses&&ses.rol)||"",
+      etapa:String(ETAPA_AQUI), tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
+    })}).catch(function(){});
+  }catch(e){}
+}
+
+/* ---------- cerrar desde supervision ----------
+   El tecnico cierra desde su app, pero cuando no lo hace —o el servicio es
+   viejo y ya nadie va a volver— alguien tiene que poder cerrarlo aqui, que es
+   donde se ve el atoron. Queda anotado en la bitacora con el nombre de quien
+   lo cerro, para que se distinga de un cierre hecho en campo. */
+const CIERRES_SUP = ["ATENDIDO", "CANCELADO", "REPROGRAMADO"];
+function celdaCerrar(x){
+  return '<div class="cerrar"><select onchange="cerrarDesdeSup(\''+
+    encodeURIComponent(x.coord)+'\','+x.id+',this.value,this)">'+
+    '<option value="">— dejar así —</option>'+
+    CIERRES_SUP.map(function(e){ return '<option>'+e+'</option>' }).join("")+
+    '</select><span id="cs'+x.coord+x.id+'"></span></div>';
+}
+async function cerrarDesdeSup(coord, id, valor, sel){
+  coord=decodeURIComponent(coord);
+  if(!valor) return;
+  const x=todos.filter(function(q){ return q.coord===coord && q.id===id })[0];
+  const av=document.getElementById("cs"+coord+id);
+  if(!confirm("¿Marcar este servicio como "+valor+"?\n\n"+((x&&x.nombre)||"")+
+              "\n\nQueda registrado que lo cerraste tú desde supervisión.")){
+    sel.value=""; return;
+  }
+  if(av) av.innerHTML='<span class="sub">…</span>';
+  try{
+    const cuerpo={status:valor};
+    /* cerrar sin decir cuando deja el servicio sin fecha real, y de ahi salen
+       los conteos que no cuadran */
+    if(valor==="ATENDIDO" && !limpio(x&&x.fecha_atencion))
+      cuerpo.fecha_atencion = x&&x.fecha_servicio ? x.fecha_servicio : hoyISO();
+    const d=await api("servicios?coord=eq."+encodeURIComponent(coord)+"&id=eq."+id,
+      {method:"PATCH", headers:{Prefer:"return=representation"}, body:JSON.stringify(cuerpo)});
+    if(!d||!d.length) throw new Error("no se guardó");
+    if(x) Object.assign(x, cuerpo);
+    anotar("CIERRE EN SUPERVISION", "ID="+id+" · status = "+valor, x||{coord:coord});
+    if(av) av.innerHTML='<span style="color:#5BD79B">✓</span>';
+    setTimeout(function(){ ver("atoro") }, 600);
+  }catch(e){
+    if(av) av.innerHTML='<span style="color:#F0A9A5">no se guardó</span>';
+    sel.value="";
+  }
+}
+
 /* ================= 2. lo que se está atorando ================= */
 const DIAS_OBRA_VIEJA=30;   // más de un mes "en proceso" ya no es una obra en curso
 
@@ -426,7 +504,7 @@ function pintarAtoro(){
            <span class="num">${n}</span><h3>${esc(c)}</h3></div>`).join("")}
     </div>
     <table><thead><tr><th>Días parado</th><th>Fecha</th><th>Coord</th><th>Sitio</th>
-      <th>Técnico</th><th>Estatus</th></tr></thead><tbody>
+      <th>Técnico</th><th>Estatus</th><th>Cerrar</th></tr></thead><tbody>
       ${v.slice(0,150).map(x=>{
         const d=dias(x.fecha_servicio);
         const cl=d>180?"rojo":(d>60?"ambar":"");
@@ -438,7 +516,8 @@ function pintarAtoro(){
               <span style="color:var(--txt3);font-size:11.5px">${esc(limpio(x.dependencia))}</span></td>
           <td>${esc(limpio(x.tecnico)||"—")}</td>
           <td>${esc(x.status||"sin estatus")}${enProceso(x)
-            ? '<br><span style="color:var(--txt3);font-size:11px">obra sin concluir</span>':""}</td></tr>`;
+            ? '<br><span style="color:var(--txt3);font-size:11px">obra sin concluir</span>':""}</td>
+          <td>${celdaCerrar(x)}</td></tr>`;
       }).join("")}
     </tbody></table>
     ${v.length>150?`<p class="sub" style="margin-top:12px">Se muestran los 150 más viejos
