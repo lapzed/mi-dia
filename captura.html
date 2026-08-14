@@ -77,6 +77,13 @@
   .cinta .det{color:var(--txt2);font-size:12px}
   .cinta a{margin-left:auto;color:inherit;font-weight:700;text-decoration:none;
     border-bottom:1px dotted currentColor;font-size:12.5px}
+  /* la lista de lo capturado, cuando se puede tocar */
+  #ultimos tbody tr{cursor:pointer}
+  #ultimos tbody tr:hover{background:rgba(99,179,255,.09)}
+  #ultimos tbody tr.edit{background:rgba(99,179,255,.16)}
+  .editando{background:rgba(99,179,255,.10);border:1px solid var(--acc);
+    border-radius:11px;padding:10px 12px;font-size:12.5px;margin-bottom:12px}
+  .editando b{color:var(--acc)}
   .caja{background:var(--card);border:1px solid var(--line);border-radius:14px;
     padding:16px;margin-bottom:14px}
   .caja h2{margin:0 0 3px;font-size:15px}
@@ -167,6 +174,7 @@
             <option>PRY_ESP</option><option>CAT</option>
           </select></div>
       </div>
+      <div id="avisoEdit"></div>
       <div id="campos"></div>
       <div id="msg"></div>
       <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px">
@@ -178,7 +186,7 @@
 
     <div class="caja">
       <h2>Lo que llevas capturado</h2>
-      <div class="q">Los últimos servicios dados de alta, para confirmar que quedaron.</div>
+      <div class="q">Los últimos servicios dados de alta. <b>Toca uno para corregirlo</b>: se abre arriba con sus datos y se guardan los cambios sobre el mismo servicio, sin crear otro.</div>
       <div id="ultimos"><div class="load">Cargando…</div></div>
     </div>
   </div>
@@ -693,6 +701,72 @@ async function siguienteId(){
   const d=await api("servicios?select=id&order=id.desc&limit=1");
   return (d && d.length ? Number(d[0].id) : 0) + 1;
 }
+/* ---------- corregir un servicio ya capturado ----------
+   Se abre en el MISMO formulario del alta, para no tener dos pantallas que
+   pidan lo mismo. Mientras se edita, el boton guarda sobre ese servicio en vez
+   de crear otro; es la unica diferencia. */
+let editando = null;
+
+async function abrirParaEditar(coord, id){
+  const msg=document.getElementById("msg");
+  msg.innerHTML='<div class="q">Trayendo el servicio…</div>';
+  try{
+    const d=await api("servicios?select=*&coord=eq."+encodeURIComponent(coord)+"&id=eq."+id);
+    if(!d || !d.length) throw new Error("ya no está");
+    const x=d[0];
+    editando={coord:coord, id:id};
+    /* la coordinacion manda que campos se piden, asi que primero se pone esa y
+       se repintan los campos; si no, se llenarian casillas que no existen */
+    document.getElementById("fCoord").value=x.coord;
+    pintarCampos();
+    /* Si el valor guardado no esta en el catalogo, el desplegable no puede
+       tomarlo y se queda vacio: al guardar se borraria el dato sin avisar. Se
+       le agrega como opcion para que se conserve tal cual esta. */
+    const pon=(k,v)=>{
+      const e=document.getElementById("c_"+k);
+      if(!e) return;
+      const val=(v==null?"":String(v));
+      if(e.tagName==="SELECT" && val &&
+         ![...e.options].some(function(o){ return o.value===val })){
+        const o=document.createElement("option");
+        o.value=val; o.textContent=val+"  (no está en el catálogo)";
+        e.insertBefore(o, e.firstChild);
+      }
+      e.value=val;
+    };
+    GENERAL.forEach(([k])=>pon(k,x[k]));
+    CATF.forEach(([k])=>pon(k,x[k]));
+    EQUIPO.forEach(([k])=>pon(k,x[k]));
+    pintarAvisoEdit(x);
+    msg.innerHTML="";
+    document.getElementById("btnAlta").textContent="Guardar los cambios";
+    [...document.querySelectorAll("#ultimos tbody tr")].forEach(function(tr){
+      tr.classList.toggle("edit", tr.innerText.indexOf(String(id))>=0);
+    });
+    document.getElementById("qSel").scrollIntoView({behavior:"smooth", block:"center"});
+  }catch(e){
+    msg.innerHTML='<div class="aviso">No se pudo abrir: '+esc(String(e).slice(0,120))+'</div>';
+  }
+}
+function pintarAvisoEdit(x){
+  document.getElementById("avisoEdit").innerHTML=
+    '<div class="editando">Estás corrigiendo <b>'+esc(x.coord)+' · id '+esc(x.id)+'</b>'+
+    (limpio(x.tkt)?' · TKT '+esc(x.tkt):"")+
+    (limpio(x.nombre)?' · '+esc(x.nombre):"")+
+    '. Los cambios se guardan sobre este servicio.'+
+    ' <a href="#" onclick="salirDeEdicion();return false" style="color:var(--acc)">'+
+    'cancelar y dar de alta uno nuevo</a></div>';
+}
+function salirDeEdicion(){
+  editando=null;
+  document.getElementById("avisoEdit").innerHTML="";
+  document.getElementById("btnAlta").textContent="Dar de alta el servicio";
+  [...document.querySelectorAll("#ultimos tbody tr")].forEach(function(tr){
+    tr.classList.remove("edit") });
+  limpiarSitio();
+}
+
+
 async function guardar(){
   const co=document.getElementById("fCoord").value;
   const msg=document.getElementById("msg"), btn=document.getElementById("btnAlta");
@@ -704,13 +778,45 @@ async function guardar(){
     msg.innerHTML='<div class="aviso">Falta '+faltan.map(([,e])=>esc(e)).join(", ")+'.</div>';
     return;
   }
-  const fila={coord:co, etapa_actual:1, jen_user:nombreDe(ses.usuario),
-              jen_ts:new Date().toISOString().slice(0,16).replace("T"," ")};
-  GENERAL.forEach(([id])=>{ if(document.getElementById("c_"+id)) fila[id]=leer(id) });
-  if(co==="CAT") CATF.forEach(([id])=>{ if(document.getElementById("c_"+id)) fila[id]=leer(id) });
-  if(CON_EQUIPO.indexOf(co)>=0) EQUIPO.forEach(([id])=>{ if(document.getElementById("c_"+id)) fila[id]=leer(id) });
+  const fila = editando
+    ? {}                       /* al corregir no se reescribe quien capturo ni cuando */
+    : {coord:co, etapa_actual:1, jen_user:nombreDe(ses.usuario),
+       jen_ts:new Date().toISOString().slice(0,16).replace("T"," ")};
+  /* Un campo vacio se manda como NULO, no como texto vacio: la latitud y la
+     longitud son numeros en la base y "" les revienta con "invalid input syntax
+     for type double precision". Lo mismo aplicaria a cualquier fecha. */
+  const ponCampo=(id)=>{
+    if(!document.getElementById("c_"+id)) return;
+    const v=leer(id);
+    fila[id] = (v==="" ? null : v);
+  };
+  GENERAL.forEach(([id])=>ponCampo(id));
+  if(co==="CAT") CATF.forEach(([id])=>ponCampo(id));
+  if(CON_EQUIPO.indexOf(co)>=0) EQUIPO.forEach(([id])=>ponCampo(id));
 
   btn.disabled=true; btn.textContent="Guardando…";
+
+  /* corrigiendo: se escribe sobre el servicio que ya existe */
+  if(editando){
+    try{
+      const d=await api("servicios?coord=eq."+encodeURIComponent(editando.coord)+
+                        "&id=eq."+editando.id,
+        {method:"PATCH", headers:{Prefer:"return=representation"},
+         body:JSON.stringify(fila)});
+      if(!d || !d.length) throw new Error("no se guardó");
+      anotar("CORRIGE", "ID="+editando.id, Object.assign({coord:editando.coord}, fila));
+      msg.innerHTML='<div class="bien">Corregido <b>'+esc(editando.coord)+' · id '+
+        esc(editando.id)+'</b>.</div>';
+      salirDeEdicion();
+      ultimos();
+    }catch(e){
+      msg.innerHTML='<div class="aviso">No se pudo corregir: '+esc(String(e).slice(0,160))+'</div>';
+    }
+    btn.disabled=false;
+    btn.textContent = editando ? "Guardar los cambios" : "Dar de alta el servicio";
+    return;
+  }
+
   try{
     /* El id es el mayor de la tabla más uno, como en la estación. Si dos altas
        coinciden en el mismo segundo, la segunda choca con la llave y se
@@ -1208,7 +1314,8 @@ async function ultimos(){
                       "dia_creacion,jen_user,jen_ts&order=id.desc&limit=12");
     c.innerHTML=`<table><thead><tr><th>Coord</th><th>Id</th><th>TKT</th><th>Sitio</th>
       <th>Creado</th><th>Capturó</th></tr></thead><tbody>
-      ${f.map(x=>`<tr><td><span class="tag">${esc(x.coord)}</span></td>
+      ${f.map(x=>`<tr onclick="abrirParaEditar('${esc(x.coord)}',${x.id})"
+        title="Tócalo para corregirlo"><td><span class="tag">${esc(x.coord)}</span></td>
         <td>${esc(x.id)}</td><td>${esc(limpio(x.tkt)||"—")}</td>
         <td>${esc((x.nombre||"").slice(0,44))}</td>
         <td>${esc(x.dia_creacion||"")}</td>
