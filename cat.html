@@ -607,14 +607,16 @@ function lunesDe(iso){
 function pantallaMonitoreo(){
   document.getElementById("cuerpo").innerHTML=`
     <div class="barra">
-      <div class="f"><label>Semana que inicia</label>
+      <div class="f"><label>Semana de</label>
         <input type="date" id="mSem" onchange="cargarMon()"></div>
       <button onclick="semanaMon(-7)">◀ Semana anterior</button>
       <button onclick="semanaMon(7)">Semana siguiente ▶</button>
     </div>
     <div id="monAviso"></div>
     <div id="zonas"><div class="load">Cargando…</div></div>`;
-  document.getElementById("mSem").value=lunesDe(hoyISO());
+  /* cualquier dia de la semana sirve: abajo se busca la captura que lo
+     contenga, sin exigir que empiece en lunes */
+  document.getElementById("mSem").value=hoyISO();
   cargarMon();
 }
 function semanaMon(n){
@@ -623,11 +625,34 @@ function semanaMon(n){
   i.value=d.toISOString().slice(0,10);
   cargarMon();
 }
+/* el ancla de la captura que se esta viendo: se guarda sobre ella */
+let MON_INI=null, MON_FIN=null;
+
 async function cargarMon(){
-  const ini=document.getElementById("mSem").value;
+  const dia=document.getElementById("mSem").value;
   try{
-    const f=await api("monitoreo?select=*&semana_ini=eq."+ini);
+    /* la captura cuyo periodo contiene ese dia, sin importar en que dia de la
+       semana la hayan anclado */
+    const f=await api("monitoreo?select=*&semana_ini=lte."+dia+
+                      "&semana_fin=gte."+dia+"&order=semana_ini.desc");
     MON={}; f.forEach(z=>{ MON[(z.zona||"").toUpperCase()]=z });
+    if(f.length){ MON_INI=f[0].semana_ini; MON_FIN=f[0].semana_fin; }
+    else {
+      /* semana nueva: se ancla en el mismo dia de la semana que la ultima
+         captura, para no romper la costumbre de quien la lleva */
+      MON_INI=dia; MON_FIN=null;
+      try{
+        const u=await api("monitoreo?select=semana_ini&order=semana_ini.desc&limit=1");
+        if(u && u.length){
+          const d0=new Date(u[0].semana_ini+"T12:00:00").getDay();
+          const d=new Date(dia+"T12:00:00");
+          d.setDate(d.getDate()-((d.getDay()-d0+7)%7));
+          MON_INI=d.toISOString().slice(0,10);
+        }
+      }catch(e){}
+      MON_FIN=new Date(new Date(MON_INI+"T12:00:00").getTime()+6*86400000)
+                .toISOString().slice(0,10);
+    }
     pintarMon();
   }catch(e){
     document.getElementById("zonas").innerHTML=
@@ -640,8 +665,11 @@ function pct(z){
 }
 function colorPct(p){ return p==null?"#6E8CAD":(p>=80?"#5BD79B":(p>=50?"#F0BE6E":"#F0A9A5")) }
 function pintarMon(){
-  const ini=document.getElementById("mSem").value;
-  const fin=new Date(new Date(ini+"T12:00:00").getTime()+6*86400000).toISOString().slice(0,10);
+  /* el periodo que se rotula es el de la captura encontrada, no la fecha de la
+     casilla: asi se lee "del 14 al 20" aunque se haya llegado eligiendo el 17 */
+  const ini=MON_INI||document.getElementById("mSem").value;
+  const fin=MON_FIN||new Date(new Date(ini+"T12:00:00").getTime()+6*86400000)
+              .toISOString().slice(0,10);
   document.getElementById("zonas").innerHTML=`<div class="zonas">${ZONAS.map(z=>{
     const d=MON[z]||{}, p=pct(d);
     return `<div class="zona">
@@ -661,8 +689,12 @@ function pintarMon(){
     </div>`}).join("")}</div>`;
 }
 async function guardarZona(z){
-  const ini=document.getElementById("mSem").value;
-  const fin=new Date(new Date(ini+"T12:00:00").getTime()+6*86400000).toISOString().slice(0,10);
+  /* se escribe sobre la captura que se esta viendo, no sobre la fecha de la
+     casilla: si no, elegir un miercoles crearia un renglon nuevo para una
+     semana que ya existe */
+  const ini=MON_INI||document.getElementById("mSem").value;
+  const fin=MON_FIN||new Date(new Date(ini+"T12:00:00").getTime()+6*86400000)
+              .toISOString().slice(0,10);
   const b=document.getElementById("b_"+z), e=document.getElementById("e_"+z);
   const fila={semana_ini:ini, semana_fin:fin, zona:z, capturo:nombreDe(ses.usuario)};
   CAMPOS.forEach(([k])=>{
