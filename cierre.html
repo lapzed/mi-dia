@@ -83,6 +83,19 @@
   .corregir{display:inline-block;color:var(--acc);text-decoration:none;
     font-size:11.5px;font-weight:700;white-space:nowrap}
   .corregir:hover{text-decoration:underline}
+  /* ---- cierre en lote ---- */
+  .selcol{width:34px;text-align:center}
+  .selcol input{width:16px;height:16px;cursor:pointer;accent-color:var(--acc)}
+  .lote{position:sticky;top:64px;z-index:15;display:none;gap:9px;flex-wrap:wrap;
+    align-items:flex-end;background:#14395C;border:1px solid var(--acc);
+    border-radius:13px;padding:11px 14px;margin-bottom:12px}
+  .lote.on{display:flex}
+  .lote .cuenta{font-size:14px;font-weight:800;align-self:center}
+  .lote .cuenta b{color:var(--acc);font-size:19px}
+  .lote textarea{min-width:230px;height:36px;padding:8px 9px;border-radius:9px;
+    background:#0F2C4A;color:var(--txt);border:1px solid var(--line);
+    font:inherit;font-size:13px;resize:vertical}
+  .lote .aviso{font-size:11.5px;color:var(--txt2);align-self:center}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -155,8 +168,22 @@
              onkeydown="if(event.key==='Enter')buscarEnBase()"
              style="min-width:170px"></div>
     <button class="pri" onclick="buscarEnBase()">🔎 Buscar</button>
+    <div class="f"><label>Brigada</label>
+      <select id="fTec" onchange="filtrarVista()">
+        <option value="">Todas</option></select></div>
     <label class="chk"><input type="checkbox" id="fTodos" onchange="verTodos()">
       Ver todos</label>
+  </div>
+
+  <div class="lote" id="lote">
+    <div class="cuenta"><b id="loteN">0</b> seleccionados</div>
+    <div class="f"><label>Marcarlos como</label>
+      <select id="loteEst"></select></div>
+    <div class="f"><label>Nota de cierre (opcional, para todos)</label>
+      <textarea id="loteNota" placeholder="se le pone la misma a los seleccionados"></textarea></div>
+    <button class="pri" onclick="aplicarLote()">Aplicar a los seleccionados</button>
+    <button onclick="selTodos(false)">Quitar selección</button>
+    <span class="aviso" id="loteAviso"></span>
   </div>
 
   <div class="resumen" id="resumen"></div>
@@ -487,13 +514,18 @@ function vistas(){
 function filtrarVista(){
   const e=document.getElementById("fTkt");
   const q=(e?e.value:"").trim().toUpperCase();
+  const t=document.getElementById("fTec");
+  const tec=(t?t.value:"");
   const trs=document.querySelectorAll("#lista tbody tr");
   let vistos=0;
   trs.forEach(function(tr){
-    const ok = !q || tr.textContent.toUpperCase().indexOf(q)>=0;
+    const x=filas[Number(tr.dataset.i)];
+    const okT = !tec || (x && (limpio(x.tecnico)||"—")===tec);
+    const ok = okT && (!q || tr.textContent.toUpperCase().indexOf(q)>=0);
     tr.style.display = ok ? "" : "none";
     if(ok) vistos++;
   });
+  pintarLote();
   const c=document.getElementById("cuentaTkt");
   if(c) c.textContent = q ? (vistos+" de "+trs.length+" con «"+e.value.trim()+"»") : "";
 }
@@ -655,6 +687,7 @@ function irAlDia(f){
 
 
 function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
+  llenarTecnicos(); pintarLote();
   const v=vistas(), cont=document.getElementById("lista");
   const ab=filas.filter(abierto).length;
   const sinEv=filas.filter(x=>cerrado(x)&&!completo(x)).length;
@@ -664,13 +697,17 @@ function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
     <div class="pill"><b style="color:${sinEv?"#F0BE6E":"#5BD79B"}">${sinEv}</b>cerrados sin evidencia</div>`;
   if(!v.length){ cont.innerHTML='<div class="vacio">Nada pendiente aquí.</div>'; return }
   cont.innerHTML=`<div class="tabla"><table><thead><tr>
+    <th class="selcol"><input type="checkbox" id="selTodo"
+        title="Marcar todo lo que se ve" onchange="selTodos(this.checked)"></th>
     <th>Fecha</th><th>Servicio</th><th>Brigada</th><th>Estatus</th>
     <th>Atendido el</th><th>Avance de obra</th><th>Evidencia</th><th>Nota de cierre</th>
     <th>Informe final</th><th></th>
     </tr></thead><tbody>
     ${v.map(x=>{
       const i=filas.indexOf(x), d=dias(x.fecha_servicio), viejo=abierto(x)&&d>30;
-      return `<tr class="${viejo?"viejo":""}">
+      return `<tr class="${viejo?"viejo":""}" data-i="${i}">
+      <td class="selcol"><input type="checkbox" ${SEL.has(claveDe(x))?"checked":""}
+          onchange="marcarUno(${i},this.checked)"></td>
       <td><span class="dias">${esc(x.fecha_servicio||"")}</span>
         ${abierto(x)&&d>0?`<div class="sub">${d} días</div>`:""}</td>
       <td><div class="sitio">${esc(x.nombre||"")}
@@ -696,6 +733,132 @@ function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
       <td>${informe(x,i)}</td>
       <td id="est${i}"></td></tr>`}).join("")}
   </tbody></table></div>`;
+}
+
+/* ---------- cerrar el dia en lote ----------
+   Calcado de frmCierre del Excel, que es lo que hace que quien cierra mucho no
+   quiera moverse de ahi: la lista del dia, un filtro por brigada, marcar varios
+   y aplicarles a todos el mismo estatus y la misma nota de una vez.
+
+   Lo seleccionado se guarda por clave (coordinacion + id) y no por posicion,
+   porque la tabla se vuelve a pintar sola despues de cada guardado y los indices
+   cambian de lugar. */
+let SEL = new Set();
+function claveDe(x){ return x.coord+"|"+x.id }
+
+function marcarUno(i, on){
+  const k=claveDe(filas[i]);
+  if(on) SEL.add(k); else SEL.delete(k);
+  pintarLote();
+}
+/* marca solo lo que se esta viendo: el "Todos" del VBA tambien respetaba el
+   filtro de tecnico, y marcar de golpe cosas escondidas es como se cierra por
+   error un servicio que ni sabias que estaba ahi */
+function selTodos(on){
+  document.querySelectorAll("#lista tbody tr").forEach(function(tr){
+    if(tr.style.display==="none") return;
+    const x=filas[Number(tr.dataset.i)];
+    if(!x) return;
+    if(on) SEL.add(claveDe(x)); else SEL.delete(claveDe(x));
+    const c=tr.querySelector(".selcol input");
+    if(c) c.checked=on;
+  });
+  const st=document.getElementById("selTodo");
+  if(st) st.checked=on;
+  pintarLote();
+}
+function seleccionados(){
+  return filas.filter(x=>SEL.has(claveDe(x)));
+}
+function pintarLote(){
+  const caja=document.getElementById("lote");
+  if(!caja) return;
+  const n=seleccionados().length;
+  document.getElementById("loteN").textContent=n;
+  caja.classList.toggle("on", n>0);
+  const est=document.getElementById("loteEst");
+  if(est && !est.options.length)
+    est.innerHTML=(CAT.STATUS||["ATENDIDO"]).map(x=>
+      `<option${x==="ATENDIDO"?" selected":""}>${esc(x)}</option>`).join("");
+}
+/* la lista de brigadas sale de lo que hay cargado, no de un catalogo: interesa
+   quien trabajo en el rango, no la plantilla completa */
+function llenarTecnicos(){
+  const sel=document.getElementById("fTec");
+  if(!sel) return;
+  const previo=sel.value;
+  const hay=[...new Set(filas.map(x=>limpio(x.tecnico)||"—"))].sort();
+  sel.innerHTML='<option value="">Todas</option>'+
+    hay.map(t=>`<option${t===previo?" selected":""}>${esc(t)}</option>`).join("");
+}
+
+async function aplicarLote(){
+  const v=seleccionados();
+  if(!v.length) return;
+  const est=document.getElementById("loteEst").value;
+  const nota=document.getElementById("loteNota").value.trim();
+  const aviso=document.getElementById("loteAviso");
+  const conNota=nota?"\n\nY se les pondrá esta nota a todos:\n"+nota:"";
+  if(!confirm("¿Marcar "+v.length+" servicio"+(v.length>1?"s":"")+" como "+est+"?"+conNota))
+    return;
+
+  /* Se agrupa para no hacer una peticion por servicio: misma coordinacion y
+     misma fecha que sellar van juntos. Cincuenta servicios acaban siendo dos o
+     tres peticiones. La fecha de atencion solo se pone si el servicio no la
+     tenia: pisarla borraria cuando se atendio de verdad. */
+  const grupos=new Map();
+  v.forEach(function(x){
+    const sella = (est==="ATENDIDO" && !limpio(x.fecha_atencion))
+                ? (x.fecha_servicio||hoyISO()) : "";
+    const k=x.coord+"|"+sella;
+    if(!grupos.has(k)) grupos.set(k,{coord:x.coord, sella:sella, xs:[]});
+    grupos.get(k).xs.push(x);
+  });
+
+  aviso.textContent="guardando…";
+  let ok=0, fallo=0;
+  for(const g of grupos.values()){
+    const cuerpo={status:est};
+    if(g.sella) cuerpo.fecha_atencion=g.sella;
+    if(nota)    cuerpo.obs_coord=nota;
+    const ids=g.xs.map(x=>x.id).join(",");
+    try{
+      const d=await api("servicios?coord=eq."+encodeURIComponent(g.coord)+
+                        "&id=in.("+ids+")",
+        {method:"PATCH", headers:{Prefer:"return=representation"},
+         body:JSON.stringify(cuerpo)});
+      if(!d) throw new Error("sin respuesta");
+      /* PostgREST devuelve los renglones que de verdad cambio: si una politica
+         bloquea alguno, vuelve con menos y hay que decirlo, no dar por hecho */
+      const tocados=new Set(d.map(r=>String(r.id)));
+      g.xs.forEach(function(x){
+        if(tocados.has(String(x.id))){ Object.assign(x, cuerpo); ok++; }
+        else fallo++;
+      });
+    }catch(e){ fallo+=g.xs.length }
+  }
+
+  /* la bitacora en una sola insercion, con la misma leyenda que el Excel
+     ("CIERRE DIA: ATENDIDO") para que el historial siga siendo comparable */
+  try{
+    const t=new Date(), p=n=>String(n).padStart(2,"0");
+    const cuando=t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" "+
+                 p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds());
+    const accion="CIERRE DIA: "+est+(nota?" + comentario":"");
+    api("log",{method:"POST", headers:{Prefer:"return=minimal"},
+      body:JSON.stringify(v.map(x=>({
+        timestamp:cuando, usuario:nombreDe(ses&&ses.usuario), win_user:"web",
+        coord:x.coord, rol:(ses&&ses.rol)||"", etapa:String(ETAPA_AQUI),
+        tkt:x.tkt||"", accion:accion, detalle:"ID="+x.id
+      })))}).catch(function(){});
+  }catch(e){}
+
+  SEL.clear();
+  document.getElementById("loteNota").value="";
+  aviso.textContent = fallo ? ("se guardaron "+ok+", fallaron "+fallo)
+                            : ("listo, "+ok+" guardados");
+  setTimeout(()=>{ aviso.textContent="" }, 6000);
+  pintar();
 }
 
 /* ---------- informe final ----------
