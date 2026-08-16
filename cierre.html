@@ -819,6 +819,7 @@ async function aplicarLote(){
   let ok=0, fallo=0;
   for(const g of grupos.values()){
     const cuerpo={status:est};
+    if(est==="ATENDIDO"||est==="CANCELADO") cuerpo.etapa_actual=4;
     if(g.sella) cuerpo.fecha_atencion=g.sella;
     if(nota)    cuerpo.obs_coord=nota;
     const ids=g.xs.map(x=>x.id).join(",");
@@ -944,6 +945,10 @@ async function editar(i, campo, valor){
      salen los conteos que no cuadran. Se sella con la fecha del servicio. */
   if(campo==="status" && valor==="ATENDIDO" && !limpio(x.fecha_atencion))
     cuerpo.fecha_atencion=x.fecha_servicio||hoyISO();
+  /* Cerrar aqui sin mover la etapa dejaba el servicio como pendiente para
+     siempre en las colas del Excel, que se arman por etapa y no por fecha. */
+  if(campo==="status" && (valor==="ATENDIDO"||valor==="CANCELADO"))
+    cuerpo.etapa_actual=4;
   x[campo]=valor;
   if(celda) celda.innerHTML='<span class="sub">guardando…</span>';
   try{

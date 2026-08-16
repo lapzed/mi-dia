@@ -74,6 +74,20 @@
   .corregir{display:inline-block;color:var(--acc);text-decoration:none;
     font-size:11.5px;font-weight:700;white-space:nowrap}
   .corregir:hover{text-decoration:underline}
+  /* ---- avanzar en lote ---- */
+  .selcol{width:34px;text-align:center}
+  .selcol input{width:16px;height:16px;cursor:pointer;accent-color:var(--acc)}
+  .lote{position:sticky;top:64px;z-index:15;display:none;gap:11px;flex-wrap:wrap;
+    align-items:center;background:#14395C;border:1px solid var(--acc);
+    border-radius:13px;padding:11px 14px;margin-bottom:12px}
+  .lote.on{display:flex}
+  .lote .cuenta{font-size:14px;font-weight:800}
+  .lote .cuenta b{color:var(--acc);font-size:19px}
+  .lote .aviso{font-size:11.5px;color:var(--txt2)}
+  .trabados{background:rgba(232,163,61,.14);border:1px solid rgba(232,163,61,.45);
+    color:#F5CE93;border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+  .trabados b{color:#F0BE6E}
+  .trabados ul{margin:6px 0 0;padding-left:18px}
   .resumen{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
   .pill{background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:7px 13px;font-size:12px}
@@ -151,6 +165,13 @@
     <label class="chk"><input type="checkbox" id="fTodos" onchange="verTodos()">
       Ver todos</label>
   </div>
+  <div class="lote" id="lote">
+    <div class="cuenta"><b id="loteN">0</b> seleccionados</div>
+    <button class="pri" onclick="avanzarLote()">Pasar a cierre →</button>
+    <button onclick="selTodos(false)">Quitar selección</button>
+    <span class="aviso" id="loteAviso"></span>
+  </div>
+  <div id="loteTrabados"></div>
 
   <div class="resumen" id="resumen"></div>
   <div id="hallados"></div>
@@ -414,7 +435,7 @@ async function cargar(){
     filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
       "fecha_servicio,horario_atencion,status,tecnico,auxiliar,cita_confirmada,cita_requerida,"+
       "fecha_confirmacion,medio_contacto,segurista,obs_coord,obs_prog,requerimientos,"+
-      "personal_atiende,telefono,correo,ejecutivo,tipo_servicio"+
+      "personal_atiende,telefono,correo,ejecutivo,tipo_servicio,etapa_actual"+
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+(co?"&coord=eq."+co:"")+
       "&order=fecha_servicio,horario_atencion&limit=600");
     pintar();
@@ -689,6 +710,7 @@ function irAlDia(f){
 
 
 function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
+  pintarLote();
   const v=vistas(), cont=document.getElementById("lista");
   const pend=filas.filter(porConfirmar).length;
   const conf=filas.filter(x=>cita(x)==="SI").length;
@@ -702,13 +724,17 @@ function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
   }
   const hoy=hoyISO();
   cont.innerHTML=`<div class="tabla"><table><thead><tr>
+    <th class="selcol"><input type="checkbox" id="selTodo"
+        title="Marcar todo lo que se ve" onchange="selTodos(this.checked)"></th>
     <th>Día</th><th>Servicio</th><th>Contacto</th><th>Cita</th><th>Medio</th>
     <th>Segurista</th><th>Estatus</th><th>Nota de coordinación</th><th></th>
     </tr></thead><tbody>
     ${v.map(x=>{
       const i=filas.indexOf(x), eje=ejecutivoDe(x);
       const tel=limpio(x.telefono).replace(/[^\d+]/g,"");
-      return `<tr class="${porConfirmar(x)?"sin":""}">
+      return `<tr class="${porConfirmar(x)?"sin":""}" data-i="${i}">
+      <td class="selcol"><input type="checkbox" ${SEL.has(claveDe(x))?"checked":""}
+          onchange="marcarUno(${i},this.checked)"></td>
       <td><span class="dia ${x.fecha_servicio===hoy?"hoy":""}">${esc(x.fecha_servicio||"")}</span>
           <div class="sub">${esc(hhmm(x.horario_atencion)||"sin hora")}</div></td>
       <td><div class="sitio">${esc(x.nombre||"")}
@@ -748,6 +774,140 @@ function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
 
 /* Se guarda campo por campo, en cuanto se cambia. */
 const ETAPA_AQUI=3;
+
+/* ---------- avanzar de etapa, y en lote ----------
+   La web arma sus colas por fecha, asi que nunca movio `etapa_actual` y esa
+   columna se quedo como cosa del Excel. Pero las estaciones de Excel SI arman
+   su cola por etapa: un servicio trabajado aqui y no avanzado se les queda
+   como pendiente para siempre. Mientras convivan las dos, esta pantalla tiene
+   que dejar la etapa donde el Excel espera encontrarla.
+
+   Lo seleccionado se guarda por clave (coordinacion + id) y no por posicion,
+   porque la tabla se vuelve a pintar despues de cada guardado. */
+const ETAPA_DESTINO = 4;
+let SEL = new Set();
+function claveDe(x){ return x.coord+"|"+x.id }
+
+function marcarUno(i, on){
+  const k=claveDe(filas[i]);
+  if(on) SEL.add(k); else SEL.delete(k);
+  pintarLote();
+}
+/* marca solo lo que se ve: el "Todos" del VBA tambien respetaba los filtros, y
+   arrastrar de golpe cosas escondidas es como se mueve algo que ni sabias que
+   estaba ahi */
+function selTodos(on){
+  document.querySelectorAll("#lista tbody tr").forEach(function(tr){
+    if(tr.style.display==="none") return;
+    const x=filas[Number(tr.dataset.i)];
+    if(!x) return;
+    if(on) SEL.add(claveDe(x)); else SEL.delete(claveDe(x));
+    const c=tr.querySelector(".selcol input");
+    if(c) c.checked=on;
+  });
+  const st=document.getElementById("selTodo");
+  if(st) st.checked=on;
+  pintarLote();
+}
+function seleccionados(){ return filas.filter(x=>SEL.has(claveDe(x))) }
+function pintarLote(){
+  const caja=document.getElementById("lote");
+  if(!caja) return;
+  const n=seleccionados().length;
+  const c=document.getElementById("loteN");
+  if(c) c.textContent=n;
+  caja.classList.toggle("on", n>0);
+}
+
+/* Lo que el VBA exige para salir de coordinacion: estatus y cita confirmada.
+   La segunda se traduce, no se copia: alla CITA_CONFIRMADA=SI era obligatoria
+   siempre porque no existia la casilla de "lleva cita". Aqui ya estan
+   separadas, asi que la confirmacion solo se exige cuando programacion pidio
+   cita. Con la regla del VBA tal cual, un servicio sin cita quedaria trabado
+   para siempre. */
+function faltaPara(x){
+  if(!limpio(x.status)) return "sin estatus";
+  if((x.cita_requerida||"").toUpperCase()==="SI" &&
+     (x.cita_confirmada||"").toUpperCase()!=="SI")
+    return "lleva cita y todavía no está confirmada";
+  return "";
+}
+
+async function avanzarLote(){
+  const v=seleccionados();
+  if(!v.length) return;
+  const aviso=document.getElementById("loteAviso");
+  const caja=document.getElementById("loteTrabados");
+
+  /* primero se revisa TODO, y despues se guarda: asi se ve de una vez que
+     falta, en lugar de ir descubriendolo servicio por servicio */
+  const listos=[], trabados=[];
+  v.forEach(function(x){
+    if(Number(x.etapa_actual||0) >= ETAPA_DESTINO) return;   // ya iba adelante
+    const falta=faltaPara(x);
+    if(falta) trabados.push({x:x, falta:falta}); else listos.push(x);
+  });
+
+  caja.innerHTML = trabados.length ? '<div class="trabados"><b>'+trabados.length+
+    (trabados.length>1?' no pueden avanzar':' no puede avanzar')+
+    '</b>, les falta algo:<ul>'+trabados.map(t=>'<li>'+
+      esc(t.x.tkt?("TKT "+t.x.tkt+" · "):"")+esc((t.x.nombre||"").slice(0,42))+
+      ' — '+esc(t.falta)+'</li>').join("")+'</ul></div>' : "";
+
+  if(!listos.length){
+    aviso.textContent = trabados.length ? "ninguno pudo avanzar" : "ya estaban adelante";
+    setTimeout(()=>{ aviso.textContent="" }, 6000);
+    return;
+  }
+  if(!confirm("¿Pasar "+listos.length+" servicio"+(listos.length>1?"s":"")+
+              " a la siguiente etapa?")) return;
+
+  /* se agrupa por coordinacion: veinte servicios son una o dos peticiones */
+  const grupos=new Map();
+  listos.forEach(function(x){
+    if(!grupos.has(x.coord)) grupos.set(x.coord, []);
+    grupos.get(x.coord).push(x);
+  });
+  aviso.textContent="guardando…";
+  let ok=0, fallo=0;
+  for(const [coord, xs] of grupos){
+    try{
+      const d=await api("servicios?coord=eq."+encodeURIComponent(coord)+
+                        "&id=in.("+xs.map(x=>x.id).join(",")+")",
+        {method:"PATCH", headers:{Prefer:"return=representation"},
+         body:JSON.stringify({etapa_actual:ETAPA_DESTINO})});
+      if(!d) throw new Error("sin respuesta");
+      /* PostgREST devuelve lo que de verdad cambio: si una politica bloquea
+         alguno vuelve con menos, y eso hay que decirlo, no darlo por hecho */
+      const tocados=new Set(d.map(r=>String(r.id)));
+      xs.forEach(function(x){
+        if(tocados.has(String(x.id))){ x.etapa_actual=ETAPA_DESTINO; ok++ }
+        else fallo++;
+      });
+    }catch(e){ fallo+=xs.length }
+  }
+
+  /* la bitacora en una sola insercion y con la leyenda del Excel, para que el
+     historial siga siendo comparable entre las dos herramientas */
+  try{
+    const t=new Date(), p=n=>String(n).padStart(2,"0");
+    const cuando=t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" "+
+                 p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds());
+    api("log",{method:"POST", headers:{Prefer:"return=minimal"},
+      body:JSON.stringify(listos.map(x=>({
+        timestamp:cuando, usuario:nombreDe(ses&&ses.usuario), win_user:"web",
+        coord:x.coord, rol:(ses&&ses.rol)||"", etapa:String(ETAPA_DESTINO),
+        tkt:x.tkt||"", accion:"AVANZA A ETAPA "+ETAPA_DESTINO,
+        detalle:"ID="+x.id
+      })))}).catch(function(){});
+  }catch(e){}
+
+  SEL.clear();
+  aviso.textContent = fallo ? ("avanzaron "+ok+", fallaron "+fallo)
+                            : ("listo, "+ok+" en la siguiente etapa");
+  setTimeout(()=>{ aviso.textContent="" }, 6000);
+  pintar();
+}
 
 /* ---------- bitacora: quien movio que ----------
    Es el mismo LOG que llevaba la estacion de Excel (LogSupa). Al pasar a web se
