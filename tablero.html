@@ -57,6 +57,14 @@
     background:#17456E;color:var(--acc);white-space:nowrap}
   .rojo{color:#F3B0AC} .ambar{color:#F0BE6E} .verde{color:#7BE0AE}
 
+  /* ---- comparativa de años ---- */
+  .anios td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+  .anios td.act{color:var(--acc)}
+  .dif{font-weight:800;font-variant-numeric:tabular-nums}
+  .dif.sube{color:#7BE0AE} .dif.baja{color:#F3B0AC}
+  .barras{display:flex;align-items:flex-end;gap:3px;height:34px}
+  .barras i{flex:1;background:#1D4267;border-radius:3px 3px 0 0;min-height:2px}
+  .barras i.hoy{background:var(--acc)}
   #mapa{height:380px;border-radius:15px;border:1px solid var(--line);overflow:hidden;z-index:1}
   .leaflet-popup-content-wrapper{background:#12314F;color:#EAF2FB;border-radius:11px}
   .leaflet-popup-tip{background:#12314F}
@@ -245,8 +253,15 @@ async function cargar(){
        area: la cinta de cumplimiento, el aviso de cierre y supervision. */
     D={
       semana: sem,
-      monitoreo: await api("monitoreo?select=*&order=semana_ini.desc&limit=8")
+      monitoreo: await api("monitoreo?select=*&order=semana_ini.desc&limit=8"),
+      historico: null
     };
+    /* La comparativa de años. Va aparte y con el error tragado: si la tabla
+       todavía no existe, el resto del tablero tiene que salir igual. */
+    try{
+      D.historico=await api("historico_mensual?select=anio,mes,serie,valor,parcial"+
+        "&order=anio.asc,mes.asc&limit=2000");
+    }catch(e){ D.historico=null }
     pintar();
   }catch(e){
     document.getElementById("cuerpo").innerHTML=
@@ -342,6 +357,8 @@ function pintar(){
   h+='</div></div></div>';
 
   /* mapa */
+  h+=seccionAnios();
+
   const conMapa=s.filter(x=>Number(x.lat)&&Number(x.long));
   h+='<h2>Dónde se trabajó esta semana</h2>'+
      (conMapa.length?'<div id="mapa"></div>'
@@ -349,6 +366,93 @@ function pintar(){
   document.getElementById("cuerpo").innerHTML=h;
   if(conMapa.length) pintarMapa(conMapa);
 }
+
+/* ---------- cómo vamos contra los años anteriores ----------
+   Los números salen de `historico_mensual`: es la cuenta que se ha venido
+   reportando a dirección, no un recálculo desde `servicios`. Se comparan
+   siempre los mismos meses de cada año —de enero al último mes cerrado que
+   exista en todos—, porque medir un año a medias contra dos completos hace
+   parecer que el área se desplomó. */
+const NOMBRE_SERIE={LEV:"Levantamientos", MANT_GARANTIA:"Mantto garantía",
+                    MANT_POLIZA:"Mantto póliza", INST:"Instalaciones"};
+const MESCORTO=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+function seccionAnios(){
+  const H=D.historico;
+  if(!H || !H.length) return "";
+  const anios=[...new Set(H.map(x=>x.anio))].sort();
+  if(anios.length<2) return "";
+  const ult=anios[anios.length-1];
+
+  /* Hasta qué mes se compara: el último COMPLETO del año en curso. El mes que
+     va corriendo llega a medias —el último reporte semanal corta a media
+     semana— y medirlo contra meses completos de otros años enseña una caída
+     que no ocurrió. */
+  const completos=H.filter(x=>x.anio===ult && !x.parcial).map(x=>x.mes);
+  if(!completos.length) return "";
+  const corte=Math.max(...completos);
+  const parciales=[...new Set(H.filter(x=>x.anio===ult&&x.parcial).map(x=>x.mes))];
+  const en=(a,m,s)=>{
+    const r=H.find(x=>x.anio===a&&x.mes===m&&x.serie===s);
+    return r?r.valor:null;
+  };
+  const suma=(a,s)=>{
+    let t=0,hay=false;
+    for(let m=1;m<=corte;m++){ const v=en(a,m,s); if(v!=null){ t+=v; hay=true } }
+    return hay?t:null;
+  };
+  const series=Object.keys(NOMBRE_SERIE).filter(s=>H.some(x=>x.serie===s));
+
+  let h='<h2>Cómo vamos contra los años anteriores</h2>'+
+    '<div class="caja"><div class="sub" style="margin-bottom:9px">'+
+    'De enero a '+MESCORTO[corte-1]+', los mismos meses en cada año. '+
+    'Es la cuenta que se reporta cada semana.'+
+    (parciales.length?' '+MESCORTO[Math.min(...parciales)-1]+' va incompleto y '+
+      'queda fuera para no comparar contra meses cerrados.':'')+'</div>'+
+    '<table class="anios"><thead><tr><th>Concepto</th>'+
+    anios.map(a=>'<th style="text-align:right">'+a+'</th>').join("")+
+    '<th style="text-align:right">'+ult+' vs '+anios[anios.length-2]+'</th>'+
+    '<th>Por mes en '+ult+'</th></tr></thead><tbody>';
+
+  const pinta=(etq,vals,mens)=>{
+    const a=vals[vals.length-2], b=vals[vals.length-1];
+    let dif='<span class="sub">—</span>';
+    if(a!=null && b!=null && a>0){
+      const p=Math.round(100*(b-a)/a);
+      dif='<span class="dif '+(p>=0?"sube":"baja")+'">'+(p>=0?"+":"")+p+'%</span>';
+    }
+    const tope=Math.max(1,...mens.filter(v=>v!=null));
+    const barras='<div class="barras">'+mens.map((v,i)=>
+      '<i class="'+(i===corte-1?"hoy":"")+'" style="height:'+
+      Math.round(100*(v||0)/tope)+'%" title="'+MESCORTO[i]+": "+(v==null?"—":v)+'"></i>'
+      ).join("")+'</div>';
+    return '<tr><td>'+etq+'</td>'+
+      vals.map((v,i)=>'<td class="n '+(i===vals.length-1?"act":"")+'">'+
+        (v==null?"—":v.toLocaleString("es-MX"))+'</td>').join("")+
+      '<td class="n">'+dif+'</td><td>'+barras+'</td></tr>';
+  };
+
+  series.forEach(s=>{
+    const mens=[]; for(let m=1;m<=corte;m++) mens.push(en(ult,m,s));
+    h+=pinta(NOMBRE_SERIE[s], anios.map(a=>suma(a,s)), mens);
+  });
+  /* el total */
+  const tot=a=>{
+    let t=0,hay=false;
+    series.forEach(s=>{ const v=suma(a,s); if(v!=null){ t+=v; hay=true } });
+    return hay?t:null;
+  };
+  const totMes=[];
+  for(let m=1;m<=corte;m++){
+    let t=0,hay=false;
+    series.forEach(s=>{ const v=en(ult,m,s); if(v!=null){ t+=v; hay=true } });
+    totMes.push(hay?t:null);
+  }
+  h+='<tr style="font-weight:800;border-top:2px solid var(--line)">'+
+     pinta("<b>Total del área</b>", anios.map(tot), totMes).slice(4);
+  return h+'</tbody></table></div>';
+}
+
 function tarjeta(n,q,cl){
   return '<div class="t '+(cl||"")+'"><div class="n">'+n+'</div><div class="q">'+q+'</div></div>';
 }
