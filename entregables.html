@@ -373,14 +373,16 @@ const ESTACIONES=[
   ["est.jenifer","Jenifer · Captura"], ["est.ivan","Iván · Mantenimientos"],
   ["est.patricia","Patricia · Mantenimientos"], ["est.jair","Jair · Levantamientos"],
   ["est.alin","Alin · Instalaciones"], ["est.proyectos","Karina · Proyectos especiales"],
-  ["est.ariana","Ariana · CAT"]
+  ["est.ariana","Ariana · CAT"],
+  ["est.ximena","Ximena · Aux administrativo · Mantenimientos"]
 ];
 /* los auxiliares y el mando van con el área administrativa, no con las
    coordinaciones */
 const ADMIN_FIJOS=[
   ["jesus.acosta","Jesús · Aux administrativo"],
   ["est.gloria","Montserrat · Aux administrativo"],
-  ["est.subgerencia","Subgerencia"], ["est.gerencia","Gerencia"]
+  ["est.subgerencia","Subgerencia"], ["est.gerencia","Gerencia"],
+  ["est.jocelyn","Jocelyn · Aux administrativo · Gerencia"]
 ];
 
 async function llenarUsuarios(){
@@ -437,7 +439,7 @@ async function arrancar(){
   const NOMBRES={"est.gerencia":"Gerencia","est.subgerencia":"Subgerencia",
     "est.gloria":"Montserrat","est.jenifer":"Jenifer","est.ivan":"Iván",
     "est.patricia":"Patricia","est.jair":"Jair","est.alin":"Alin",
-    "est.ariana":"Ariana","est.proyectos":"Karina",
+    "est.ariana":"Ariana","est.proyectos":"Karina","est.ximena":"Ximena","est.jocelyn":"Jocelyn",
     "jesus.acosta":"Jesús"};
   document.getElementById("who").innerHTML="Salir<b>"+
     esc(ses.nombre||NOMBRES[ses.usuario]||ses.usuario)+"</b>";
