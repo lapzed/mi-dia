@@ -25,6 +25,12 @@
   .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
   .who b{display:block;color:var(--txt);font-size:12px}
 
+  .yaEv{display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px;
+    background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:8px}
+  .yaEt{font-size:12px;font-weight:600;flex:1}
+  .yaSub{font-size:10.5px;color:var(--txt3)}
+  .mini.quita{background:rgba(198,65,59,.18);color:#F3B0AC;padding:3px 8px}
+  .mini.quita:hover{background:rgba(198,65,59,.32)}
   .filtros{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
   .f{display:flex;flex-direction:column;gap:4px}
   .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
@@ -197,6 +203,11 @@
         <option>LEV</option><option>CAT</option><option>PRY_ESP</option></select></div>
     <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
     <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargar()"></div>
+    <div class="f"><label>Buscar</label>
+      <input id="fBus" placeholder="TKT, sitio, cliente o técnico"
+             style="min-width:190px"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();pintar()}"></div>
+    <button onclick="pintar()">🔎 Buscar</button>
     <div class="f"><label>Evidencia</label>
       <select id="fEv" onchange="pintar()">
         <option value="">Todos</option>
@@ -243,6 +254,7 @@
     <p><b id="subSitio"></b><br><span id="subFecha"></span></p>
     <label class="lbl-min">¿De qué momento son?</label>
     <select id="subEtapa"></select>
+    <div id="subYa"></div>
     <label class="lbl-min">Fotos o reporte escaneado</label>
     <input id="subFile" type="file" accept="image/*,application/pdf" multiple>
     <div class="aviso" id="subErr" style="display:none"></div>
@@ -563,7 +575,8 @@ async function cargarEvidencias(){
   if(!filas.length) return;
   const ids=[...new Set(filas.map(f=>f.id))];
   for(let i=0;i<ids.length;i+=300){          // la consulta no admite una lista sin fin
-    const e=await api("evidencias?select=coord,servicio_id,tipo,ruta&servicio_id=in.("+
+    /* ev_id para poder borrar, y ts/tecnico para saber de quien es y de cuando */
+    const e=await api("evidencias?select=ev_id,coord,servicio_id,tipo,ruta,ts,tecnico&servicio_id=in.("+
                       ids.slice(i,i+300).join(",")+")&limit=5000");
     e.forEach(x=>{ const k=x.coord+"|"+x.servicio_id; (ev[k]=ev[k]||[]).push(x) });
   }
@@ -585,11 +598,26 @@ function piezaDe(t){
 function tiene(x,tipo){ return (ev[llave(x)]||[]).some(e=>etapaDe(e.tipo)===tipo) }
 function completo(x){ return etapasDe(x.coord).every(([t])=>tiene(x,t)) }
 
+/* Se compara sin acentos y en minusculas: "TACUBAYA" y "tacubayá" tienen que
+   encontrar lo mismo. Se piden TODAS las palabras, en cualquier orden y en
+   cualquiera de los campos, para poder escribir "banamex roma" y llegar. */
+function sinAcentos(t){
+  return String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+}
+function coincide(x, q){
+  if(!q) return true;
+  const heno = sinAcentos([x.tkt, x.nombre, x.dependencia, x.tecnico].join(" "));
+  return sinAcentos(q).split(/\s+/).filter(Boolean).every(p => heno.indexOf(p) >= 0);
+}
 function visibles(){
   const f=document.getElementById("fEv").value;
-  if(f==="completo") return filas.filter(x=>completo(x));
-  if(f==="falta")    return filas.filter(x=>!completo(x));
-  return filas;
+  const e=document.getElementById("fBus");
+  const q=e ? e.value.trim() : "";
+  let v = filas;
+  if(f==="completo") v = v.filter(x=>completo(x));
+  if(f==="falta")    v = v.filter(x=>!completo(x));
+  if(q)              v = v.filter(x=>coincide(x, q));
+  return v;
 }
 
 function pintar(){
@@ -601,7 +629,11 @@ function pintar(){
      <div class="pill"><b style="color:#E8A33D">${filas.length-comp}</b>les falta algo</div>
      <div class="pill"><b style="color:#63B3FF">${marcados.size}</b>marcados</div>`;
   if(!v.length){
-    document.getElementById("tabla").innerHTML='<div class="vacio">Nada con esos filtros.</div>';
+    const q=(document.getElementById("fBus")||{}).value||"";
+    document.getElementById("tabla").innerHTML='<div class="vacio">'+
+      (q.trim() ? 'Nada que diga «'+esc(q.trim())+'» en lo cargado.<br>'+
+                  '<span class="sub">Prueba con menos palabras, o abre el rango de fechas.</span>'
+                : 'Nada con esos filtros.')+'</div>';
     document.getElementById("btnGen").disabled=true; return;
   }
   document.getElementById("tabla").innerHTML=
@@ -670,7 +702,69 @@ function abrirSubir(coord, id){
   se.innerHTML = etapasDe(x.coord).map(([t,n])=>`<option value="${t}">${n}</option>`).join("");
   document.getElementById("subErr").style.display="none";
   document.getElementById("subFile").value="";
+  pintarYaSubidas();
   document.getElementById("mSubir").style.display="flex";
+}
+
+/* Lo que el servicio ya trae, para poder quitar lo que se subio mal. Antes no
+   habia por donde: la foto equivocada se quedaba pegada al servicio. */
+function pintarYaSubidas(){
+  const c = document.getElementById("subYa");
+  if(!c || !subir) return;
+  const lista = (ev[subir.coord+"|"+subir.id]||[]);
+  if(!lista.length){ c.innerHTML=""; return }
+  c.innerHTML = '<label class="lbl-min">Ya tiene ' + lista.length +
+    (lista.length===1?" archivo":" archivos") + '</label>' +
+    lista.map(function(e){
+      const pieza = piezaDe(e.tipo);
+      return '<div class="yaEv">'+
+        '<span class="yaEt">'+esc(etapaDe(e.tipo))+(pieza?" · "+esc(pieza):"")+'</span>'+
+        '<span class="yaSub">'+esc(String(e.ts||"").slice(0,10))+
+          (e.tecnico?" · "+esc(e.tecnico):"")+'</span>'+
+        '<button class="mini quita" title="Quitar esta evidencia" '+
+          'onclick="borrarEvidencia('+e.ev_id+',\''+esc(e.ruta)+'\')">🗑</button>'+
+      '</div>';
+    }).join("");
+}
+
+/* Quitar una evidencia: primero el archivo, luego el renglon.
+   OJO con el renglon: si la politica no deja borrar, PostgREST contesta 200
+   afectando CERO renglones. Mirar solo que no haya error hace que la pantalla
+   diga "listo" sin haber borrado nada, que es como se quedo un renglon de
+   prueba sin que nadie lo notara. Por eso se cuenta lo que vuelve. */
+async function borrarEvidencia(evId, ruta){
+  const err = document.getElementById("subErr");
+  if(!confirm("¿Quitar esta evidencia?\n\nSe borra el archivo y su registro. "+
+              "No se puede deshacer.")) return;
+  err.style.display="none";
+  try{
+    // 1 · el archivo del almacenamiento. Si ya no esta, el objetivo se
+    //     cumplio igual: no hay nada que avisar.
+    const ra = await fetch(SUPA_URL+"/storage/v1/object/"+BUCKET+"/"+ruta,
+                           {method:"DELETE", headers:hdr()});
+    const noEstaba = !ra.ok &&
+      (await ra.clone().text()).indexOf("not_found") >= 0;
+    // 2 · el renglon, contando cuantos se fueron de verdad
+    const d = await api("evidencias?ev_id=eq."+evId,
+                        {method:"DELETE", headers:{Prefer:"return=representation"}});
+    if(!d || !d.length){
+      err.textContent = "No se pudo quitar. Se puede borrar lo propio dentro de "+
+        "la semana, o lo de tu coordinación dentro del mes; después ya no.";
+      err.style.display="block";
+      return;
+    }
+    if(!ra.ok && !noEstaba){
+      err.textContent = "Se quitó del listado, pero el archivo quedó guardado "+
+                        "(HTTP "+ra.status+"). Avísale a sistemas.";
+      err.style.display="block";
+    }
+    await cargarEvidencias();
+    pintarYaSubidas();
+    pintar();
+  }catch(e){
+    err.textContent = String(e.message||e).slice(0,140);
+    err.style.display="block";
+  }
 }
 function cerrarSubir(){ document.getElementById("mSubir").style.display="none"; subir=null }
 
