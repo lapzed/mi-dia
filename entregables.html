@@ -1256,6 +1256,38 @@ async function informeDe(x, num, ident, conLog){
   return cuerpo.replace(HUECO, indice);
 }
 
+/* ---------- el envoltorio del informe final ----------
+   `informeDe()` arma UN informe -es la que produce el formato revisado-. Esto
+   es lo que faltaba alrededor: recorrer lo marcado, pedir el logo del cliente
+   la primera vez que hace falta, y pegar los informes uno tras otro.
+
+   El logo se pide por CLIENTE, no por servicio: diez sucursales de Walmart
+   llevan el mismo, y preguntarlo diez veces seria insufrible. Si el usuario
+   elige omitirlo, `pedirLogo` deja el hueco marcado y no vuelve a preguntar
+   en esa tanda. */
+async function generarInformes(sel){
+  const btn = document.getElementById("btnGen");
+  const num   = document.getElementById("iNum").value;
+  const ident = document.getElementById("iIdent").value;
+  const conLog = document.getElementById("iLog").value === "si";
+
+  /* 1 · los logos que falten, antes de ponerse a armar nada: si se preguntara
+        a media generacion, la ventana saldria encima del informe a medio hacer */
+  const clientes = [...new Set(sel.map(x => x.dependencia || ""))];
+  for(const c of clientes){
+    if(await logoDe(c) === null) await pedirLogo(c);
+  }
+
+  /* 2 · un informe por servicio, en el orden en que se ven en la lista */
+  const partes = [];
+  let hecho = 0;
+  for(const x of sel){
+    btn.textContent = "Armando " + (++hecho) + "/" + sel.length + "…";
+    partes.push(await informeDe(x, num, ident, conLog));
+  }
+  return partes.join("");
+}
+
 function verFormato(){
   const esInf=document.getElementById("fForm").value==="informe";
   document.getElementById("opsInforme").style.display=esInf?"flex":"none";
