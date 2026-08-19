@@ -215,7 +215,8 @@ let ses=sesionVigente(JSON.parse(localStorage.getItem("md_ventas")||
   localStorage.getItem("md_web")||"null"))   /* la sesion es una sola: ver md_web abajo */;
 let todos=[], vista="hoy", mapa=null, capa=null;
 
-function hdr(){ return {apikey:SUPA_KEY, Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)} }
+function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
+  Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
 function isoDe(n){const d=new Date();d.setDate(d.getDate()+n);
@@ -224,7 +225,12 @@ function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMont
 function dias(f){ return Math.round((new Date(hoyISO())-new Date(f))/86400000) }
 
 async function api(path,opts,reint){
-  const r=await fetch(SUPA_URL+"/rest/v1/"+path,Object.assign({},opts||{},{headers:hdr()}));
+  /* Esta pantalla solo lee, pero el Content-Type va igual que en las demas:
+     sin el, la primera escritura que alguien agregue aqui fallaria con
+     PGRST102, que es lo que paso en entregables. */
+  const o=Object.assign({},opts||{});
+  o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
+  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
   const t=await r.text();
   if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
   if(!r.ok) throw new Error("HTTP "+r.status);
