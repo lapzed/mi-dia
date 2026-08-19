@@ -228,6 +228,14 @@
     font-size:12.5px;font-weight:600;color:var(--txt2);text-decoration:underline;
     text-underline-offset:3px}
   .ya{font-size:11.5px;color:#5BD79B;margin:-4px 0 10px}
+  .yaLista{margin:-4px 0 10px}
+  .yaFila{display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px;
+    background:rgba(91,215,155,.10);border:1px solid rgba(91,215,155,.30);
+    border-radius:8px}
+  .yaTxt{flex:1;font-size:11.5px;color:#5BD79B}
+  .yaTxt i{display:block;font-style:normal;font-size:10px;color:var(--txt3)}
+  .yaX{background:rgba(198,65,59,.20);color:#F3B0AC;border:none;border-radius:7px;
+    padding:5px 9px;font-size:13px;cursor:pointer}
 
   /* la ayuda, a un toque desde donde sea */
   .ayuda{margin-left:auto;width:27px;height:27px;border-radius:50%;flex:0 0 auto;
@@ -729,11 +737,15 @@ async function marcarEquipo(){
 async function marcarEvidencias(){
   const ids=[...new Set(semana.map(s=>s.id))]; if(!ids.length) return;
   try{
-    const ev=await api("evidencias?select=coord,servicio_id,tipo&servicio_id=in.("+ids.join(",")+")");
-    const por={};
-    ev.forEach(e=>{ const k=e.coord+"|"+e.servicio_id; (por[k]=por[k]||{})[e.tipo]=true });
-    semana.forEach(s=>{ s._ev=por[llave(s)]||{} });
-  }catch(e){ semana.forEach(s=>{ s._ev=s._ev||{} }) }
+    /* ev_id y ruta para poder quitar una foto mal subida; ts para saber si
+       todavia cae en la ventana que la politica permite */
+    const ev=await api("evidencias?select=ev_id,coord,servicio_id,tipo,ruta,ts&servicio_id=in.("+ids.join(",")+")");
+    const por={}, lista={};
+    ev.forEach(e=>{ const k=e.coord+"|"+e.servicio_id;
+      (por[k]=por[k]||{})[e.tipo]=true;
+      (lista[k]=lista[k]||[]).push(e); });
+    semana.forEach(s=>{ s._ev=por[llave(s)]||{}; s._evLista=lista[llave(s)]||[] });
+  }catch(e){ semana.forEach(s=>{ s._ev=s._ev||{}; s._evLista=s._evLista||[] }) }
 }
 
 function claseEstatus(s){
@@ -1296,6 +1308,61 @@ function cerrarHoja(){
   document.getElementById("mCierre").style.display="none"; cie=null;
 }
 
+/* Lo que el servicio ya trae de esa etapa, para poder quitar lo que se subio
+   mal. El tipo puede venir compuesto ("ANTES|TROMPETA|PLASTICO"): la etapa es
+   lo de antes de la primera barra, asi que la foto de una trompeta se lista
+   dentro de "Antes", que es donde el tecnico la va a buscar. */
+function etapaDeTipo(t){ return String(t||"").split("|")[0] }
+function piezaDeTipo(t){
+  const p = String(t||"").split("|").slice(1);
+  return p.length ? p.join(" · ").toLowerCase() : "";
+}
+function listaYaSubido(tipo){
+  const l = (cie.srv._evLista||[]).filter(e => etapaDeTipo(e.tipo) === tipo);
+  if(!l.length) return "";
+  return '<div class="yaLista">' +
+    l.map(function(e){
+      const pz = piezaDeTipo(e.tipo);
+      return '<div class="yaFila">'+
+        '<span class="yaTxt">Ya cargado'+(pz?" · "+pz:"")+
+          '<i>'+String(e.ts||"").slice(0,10)+'</i></span>'+
+        '<button class="yaX" onclick="quitarEvidencia('+e.ev_id+
+          ',\''+String(e.ruta).replace(/'/g,"") +'\')">🗑</button>'+
+      '</div>';
+    }).join("") + '</div>';
+}
+
+/* Quitar una foto ya subida: primero el archivo, luego el renglon.
+   Se cuenta CUANTOS renglones volvieron: cuando la politica no deja -por
+   ejemplo si ya pasaron los siete dias- PostgREST contesta 200 afectando
+   cero, y dar eso por bueno haria que la pantalla dijera "listo" sin haber
+   borrado nada. */
+async function quitarEvidencia(evId, ruta){
+  if(!confirm("¿Quitar esta foto?\n\nSe borra el archivo y su registro. "+
+              "No se puede deshacer.")) return;
+  try{
+    const ra = await fetch(SUPA_URL+"/storage/v1/object/"+BUCKET+"/"+ruta,
+                           {method:"DELETE", headers:HDR});
+    // que el archivo ya no este es exito: puede haberse borrado antes
+    const noEstaba = !ra.ok && (await ra.clone().text()).indexOf("not_found") >= 0;
+    const d = await api("evidencias?ev_id=eq."+evId,
+                        {method:"DELETE", headers:{Prefer:"return=representation"}});
+    if(!d || !d.length){
+      toast("No se pudo quitar. Solo lo que tú subiste y dentro de la semana.", true);
+      return;
+    }
+    if(!ra.ok && !noEstaba) toast("Se quitó de la lista, pero el archivo quedó guardado.", true);
+    // se saca de lo que ya estaba cargado y se vuelve a pintar
+    cie.srv._evLista = (cie.srv._evLista||[]).filter(e => e.ev_id !== evId);
+    cie.srv._ev = {};
+    (cie.srv._evLista||[]).forEach(e => { cie.srv._ev[e.tipo] = true });
+    pintarCierre();
+    toast("Foto quitada");
+  }catch(e){
+    toast("No se pudo quitar: "+String(e.message||e).slice(0,60), true);
+  }
+}
+
 function pintarCierre(){
   const s=cie.srv, esRep=cie.estatus==="REPROGRAMADO";
   const m=MODOS[cie.estatus]||MODOS.ATENDIDO;
@@ -1418,7 +1485,7 @@ function pintarCierre(){
       ${seccionPartidas(b.tipo)}
       <button class="b-cam solo" onclick="abrirFoto('${b.campo}','${b.titulo.replace(/'/g,"")}','${(b.pista||"").replace(/'/g,"")}')">📷 Tomar foto</button>
       <button class="liga-gal" onclick="document.getElementById('in_${b.campo}_gal').click()">${b.pdf?"o subir de la galería / un PDF":"o subir de la galería"}</button>
-      ${ya?'<div class="ya">Ya tiene archivos cargados de esta etapa.</div>':""}
+      ${listaYaSubido(b.tipo)}
       <!-- sin "multiple": con el, el celular ignora la orden de abrir la camara
            y saca el menu de siempre. Una foto por toma, y se repite el boton. -->
       <input type="file" id="in_${b.campo}_cam" accept="image/*" capture="environment"
