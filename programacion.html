@@ -440,13 +440,24 @@ async function cargar(){
        Excel si se veia porque alla la cola se arma por etapa, no por fecha, y
        de ahi la confusion de "lo registre y no se ve en la web".
        Y es justo aqui donde hay que darle fecha, asi que aqui se muestran. */
+    /* El corte mira las DOS fechas. `dia_creacion` es el dia en que el
+       cliente abrio el TKT, no el dia en que alguien lo capturo: un ticket de
+       hace dos meses capturado hoy tiene `dia_creacion` viejo y se caia del
+       filtro, que es como seis altas de Ximena quedaron invisibles para todos.
+       `jen_ts` si es el sello de captura, y manda cuando existe. */
     sinFecha = await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
       "fecha_servicio,horario_atencion,status,tecnico,auxiliar,vehiculo,cita_confirmada,cita_requerida,"+
       "personal_atiende,telefono,ejecutivo,tipo_servicio,requerimientos,obs_prog,obs_coord,"+
-      "obs_captura,dias_est,dia_n,dia_creacion,jen_user"+
-      "&fecha_servicio=is.null&status=is.null&dia_creacion=gte."+isoDe(-30)+
+      "obs_captura,dias_est,dia_n,dia_creacion,jen_user,jen_ts"+
+      "&fecha_servicio=is.null&status=is.null"+
+      "&or=(jen_ts.gte."+isoDe(-30)+",dia_creacion.gte."+isoDe(-30)+")"+
       (co?"&coord=eq."+co:"")+
-      "&order=dia_creacion.desc,id.desc&limit=25");
+      "&order=id.desc&limit="+TOPE_SIN_FECHA);
+    /* Se ordena aqui y no en la consulta porque hay que comparar la mayor de
+       las dos fechas, y eso PostgREST no lo hace en un `order`. Lo mas
+       reciente CAPTURADO va arriba: es lo que la persona acaba de dar de alta
+       y viene a buscar. */
+    sinFecha.sort(function(a,b){ return capturadoEn(b).localeCompare(capturadoEn(a)) });
     /* Solo lo capturado en los ultimos 30 dias. Sin fecha hay 888 servicios,
        casi todos de la carga historica de junio y julio: si salieran todos, el
        aviso seria un muro y nadie lo leeria. Los viejos se cuentan aparte. */
@@ -454,10 +465,13 @@ async function cargar(){
        anuncia tiene que ser el de verdad, no el tope de la consulta. */
     try{
       const rec=await api("servicios?select=id&fecha_servicio=is.null&status=is.null"+
-        "&dia_creacion=gte."+isoDe(-30)+(co?"&coord=eq."+co:"")+"&limit=2000");
+        "&or=(jen_ts.gte."+isoDe(-30)+",dia_creacion.gte."+isoDe(-30)+")"+
+        (co?"&coord=eq."+co:"")+"&limit=2000");
       recientesSinFecha = rec ? rec.length : sinFecha.length;
+      /* los viejos son los que no entran por NINGUNA de las dos fechas */
       const v=await api("servicios?select=id&fecha_servicio=is.null&status=is.null"+
-        "&dia_creacion=lt."+isoDe(-30)+(co?"&coord=eq."+co:"")+"&limit=2000");
+        "&dia_creacion=lt."+isoDe(-30)+"&jen_ts=is.null"+
+        (co?"&coord=eq."+co:"")+"&limit=2000");
       viejosSinFecha = v ? v.length : 0;
     }catch(e){ recientesSinFecha = sinFecha.length; viejosSinFecha = 0 }
     pintar();
@@ -465,6 +479,16 @@ async function cargar(){
     document.getElementById("lista").innerHTML=
       '<div class="vacio">No se pudo consultar.<br><span class="sub">'+esc(String(e).slice(0,120))+'</span></div>';
   }
+}
+
+/* Cuantos renglones se listan de un jalon. Estaban en 25 y Ximena lo noto:
+   con 338 pendientes, veinticinco es una rendija. */
+const TOPE_SIN_FECHA = 150;
+
+/* La fecha que de verdad importa para "esto se acaba de dar de alta": el sello
+   de captura si existe, y si no la del TKT (la carga historica no trae sello). */
+function capturadoEn(x){
+  return String(x.jen_ts || x.dia_creacion || "");
 }
 
 function opciones(lista, valor){
@@ -524,7 +548,7 @@ function pintarSinFecha(){
   if(!sinFecha.length){ c.innerHTML=""; return }
   const n=recientesSinFecha||sinFecha.length;
   c.innerHTML='<div class="avisoProg"><b>'+n+
-    ' servicio'+(n>1?"s":"")+' del último mes capturado'+(n>1?"s":"")+
+    ' servicio'+(n>1?"s":"")+' capturado'+(n>1?"s":"")+' en el último mes'+
     ' sin fecha</b> — no salen en ningún día hasta que se les ponga una.'+
     (viejosSinFecha ? '<div class="sub" style="margin-top:4px">Y '+viejosSinFecha+
       ' más de hace más de un mes, de la carga histórica, que no se listan aquí.</div>' : "")+
@@ -540,7 +564,13 @@ function pintarSinFecha(){
         '<div class="sub"><span class="tag">'+esc(x.coord)+'</span>'+
         (x.tkt?" TKT "+esc(x.tkt):"")+
         (limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):"")+'</div></td>'+
-        '<td class="sub">'+esc(x.jen_user||"")+'<br>'+esc(x.dia_creacion||"")+'</td>'+
+        /* Debajo del nombre va CUANDO se capturo, no la fecha del TKT: ver la
+           fecha del ticket ahi hacia creer que el servicio era viejo. */
+        '<td class="sub">'+esc(x.jen_user||"")+'<br>'+
+          esc(capturadoEn(x).slice(0,16))+
+          (x.dia_creacion && x.jen_ts && x.dia_creacion!==x.jen_ts.slice(0,10)
+            ? '<br><span style="opacity:.7">TKT del '+esc(x.dia_creacion)+'</span>' : "")+
+        '</td>'+
         '<td><input type="date" onchange="ponerFecha('+i+',this.value)">'+
           '<span id="pf'+i+'"></span></td>'+
         '<td><select onchange="ponerCampo('+i+',\'tecnico\',this.value)">'+
