@@ -25,6 +25,14 @@
   .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
   .who b{display:block;color:var(--txt);font-size:12px}
 
+  .yaPza{flex:1;min-width:0;font-size:11px;padding:2px 4px}
+  .yaEv.yaSin{border-left:2px solid var(--mal,#C0564B)}
+  .ojo{color:var(--mal,#C0564B)}
+  .ya-det{margin:-2px 0 10px}
+  .ya-det summary{cursor:pointer;font-size:11px;color:var(--txt3);
+    text-transform:uppercase;letter-spacing:.05em}
+  .ya-caja{max-height:190px;overflow-y:auto;margin-top:6px;
+    border:1px solid var(--line);border-radius:8px;padding:6px}
   .pegar{border:1px dashed var(--line);border-radius:10px;padding:9px 11px;
     margin:-4px 0 10px;font-size:12px;color:var(--txt3);text-align:center}
   .pegar.lista{border-color:var(--acc);color:var(--acc)}
@@ -790,6 +798,24 @@ function pintarDatos(){
 
 /* Se guardan en el servicio, que es de donde los lee el informe. Se manda solo
    lo que trae algo: un campo vacio no debe borrar lo que el tecnico capturo. */
+/* La bitacora. Se manda sin esperar y con el error tragado a proposito: si el
+   log falla, lo que hizo el usuario ya quedo guardado y no tiene por que
+   enterarse. Faltaba en esta pantalla y por eso "anotar is not defined"
+   aparecia DESPUES de guardar bien: el dato si llegaba, el aviso mentia. */
+function anotar(accion, detalle, x){
+  try{
+    const t=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    api("log",{method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({
+      timestamp:t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" "+
+                p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()),
+      usuario:(ses&&ses.nombre)||"", win_user:"web",
+      coord:(x&&x.coord)||(ses&&ses.coord)||"", rol:(ses&&ses.rol)||"",
+      etapa:"ENTREGABLES", tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
+    })}).catch(function(){});
+  }catch(e){}
+}
+
 async function guardarDatos(){
   const b = document.getElementById("datBtn");
   const err = document.getElementById("subErr"), ok = document.getElementById("subOk");
@@ -893,18 +919,35 @@ function pintarYaSubidas(){
   const pie = otras ? '<div class="dat-nota">Y ' + otras +
       (otras===1?" archivo en otras etapas.":" archivos en otras etapas.") + '</div>' : "";
   if(!lista.length){ c.innerHTML = pie; return }
-  c.innerHTML = '<label class="lbl-min">Ya tiene ' + lista.length +
-    (lista.length===1?" archivo":" archivos") + ' en esta etapa</label>' +
+  /* Plegada y con scroll propio: con 23 fotos en una sola etapa la lista se
+     llevaba la pantalla y el boton de guardar quedaba fuera de la vista. */
+  const sinPza = lista.filter(e => !(String(e.tipo).split("|")[1]||"")).length;
+  c.innerHTML = '<details class="ya-det"><summary>Ya tiene ' + lista.length +
+    (lista.length===1?" archivo":" archivos") + ' en esta etapa' +
+    (sinPza ? ' · <b class="ojo">'+sinPza+' sin identificar</b>' : '') +
+    '</summary>' +
+    (sinPza ? '<div class="dat-nota">Lo que no dice de qué es va a parar a la '+
+      'cuadrícula del final del informe, no a la hoja de su componente. '+
+      'Se puede corregir aquí mismo, sin volver a subirlo.</div>' : '') +
+    '<div class="ya-caja">' +
     lista.map(function(e){
-      const pieza = piezaDe(e.tipo);
-      return '<div class="yaEv">'+
-        '<span class="yaEt">'+esc(etapaDe(e.tipo))+(pieza?" · "+esc(pieza):"")+'</span>'+
+      /* El desplegable no es adorno: es la unica forma de acomodar lo que ya
+         esta subido. Lo que no trae partida acaba en la cuadricula del final
+         del informe, y se marca en rojo para que se vea cual falta. */
+      const part = (String(e.tipo).split("|")[1]||"");
+      return '<div class="yaEv'+(part?"":" yaSin")+'">'+
+        '<select class="yaPza" onchange="reclasificar('+e.ev_id+',this.value)">'+
+          PIEZAS.filter(function(p){ return p[0]!=="__REPORTE__" })
+                .map(function(p){
+            return '<option value="'+p[0]+'"'+(p[0]===part?" selected":"")+'>'+
+                   esc(p[1])+'</option>' }).join("")+
+        '</select>'+
         '<span class="yaSub">'+esc(String(e.ts||"").slice(0,10))+
           (e.tecnico?" · "+esc(e.tecnico):"")+'</span>'+
         '<button class="mini quita" title="Quitar esta evidencia" '+
           'onclick="borrarEvidencia('+e.ev_id+',\''+esc(e.ruta)+'\')">🗑</button>'+
       '</div>';
-    }).join("") + pie;
+    }).join("") + '</div></details>' + pie;
 }
 
 /* Quitar una evidencia: primero el archivo, luego el renglon.
@@ -912,6 +955,37 @@ function pintarYaSubidas(){
    afectando CERO renglones. Mirar solo que no haya error hace que la pantalla
    diga "listo" sin haber borrado nada, que es como se quedo un renglon de
    prueba sin que nadie lo notara. Por eso se cuenta lo que vuelve. */
+/* Cambiar de que es una evidencia YA subida. Solo se toca la partida: la etapa
+   se respeta, porque la foto se tomo cuando se tomo. Igual que al borrar, se
+   cuenta lo que devuelve: si la politica no deja, PostgREST contesta 200 y
+   CERO renglones, y la pantalla diria "listo" sin haber cambiado nada. */
+async function reclasificar(evId, pieza){
+  const lista = (ev[subir.coord+"|"+subir.id]||[]);
+  const e = lista.find(z => z.ev_id === evId);
+  if(!e) return;
+  const etapa = etapaDe(e.tipo);
+  /* si es trompeta se conserva la variante que ya tuviera; no se inventa una */
+  const varia = (pieza === "TROMPETA") ? (String(e.tipo).split("|")[2]||"") : "";
+  const tipo = etapa + (pieza ? "|"+pieza : "") + (varia ? "|"+varia : "");
+  const err = document.getElementById("subErr"), ok = document.getElementById("subOk");
+  err.style.display = "none"; ok.style.display = "none";
+  try{
+    const d = await api("evidencias?ev_id=eq."+evId,
+      {method:"PATCH", headers:{Prefer:"return=representation"},
+       body:JSON.stringify({tipo:tipo})});
+    if(!d || !d.length) throw new Error("no se pudo cambiar (¿permisos sobre esta evidencia?)");
+    e.tipo = tipo;
+    anotar("RECLASIFICAR", "ev="+evId+" → "+tipo, subir.srv);
+    ok.textContent = "Listo: ya va a la hoja de " +
+                     (piezaDe(tipo) || "la galería") + ".";
+    ok.style.display = "block";
+    pintarYaSubidas(); pintar();
+  }catch(z){
+    err.textContent = String(z.message||z).slice(0,140); err.style.display = "block";
+    pintarYaSubidas();                       // deshacer el cambio en pantalla
+  }
+}
+
 async function borrarEvidencia(evId, ruta){
   const err = document.getElementById("subErr");
   if(!confirm("¿Quitar esta evidencia?\n\nSe borra el archivo y su registro. "+
