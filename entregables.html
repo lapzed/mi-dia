@@ -25,13 +25,18 @@
   .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
   .who b{display:block;color:var(--txt);font-size:12px}
 
+  .yaMini{width:44px;height:44px;object-fit:cover;border-radius:6px;flex:none;
+    background:rgba(255,255,255,.06);cursor:zoom-in;transition:.12s}
+  .yaMini.grande{width:150px;height:150px;cursor:zoom-out}
+  .yaMini.esPdf{display:flex;align-items:center;justify-content:center;
+    font-size:9px;color:var(--txt3)}
   .yaPza{flex:1;min-width:0;font-size:11px;padding:2px 4px}
   .yaEv.yaSin{border-left:2px solid var(--mal,#C0564B)}
   .ojo{color:var(--mal,#C0564B)}
   .ya-det{margin:-2px 0 10px}
   .ya-det summary{cursor:pointer;font-size:11px;color:var(--txt3);
     text-transform:uppercase;letter-spacing:.05em}
-  .ya-caja{max-height:190px;overflow-y:auto;margin-top:6px;
+  .ya-caja{max-height:260px;overflow-y:auto;margin-top:6px;
     border:1px solid var(--line);border-radius:8px;padding:6px}
   .pegar{border:1px dashed var(--line);border-radius:10px;padding:9px 11px;
     margin:-4px 0 10px;font-size:12px;color:var(--txt3);text-align:center}
@@ -914,7 +919,14 @@ function pintarYaSubidas(){
      el boton de guardar fuera de la pantalla; lo demas se cuenta al pie para
      que no parezca que se perdio. */
   const et = (document.getElementById("subEtapa")||{}).value || "";
-  const lista = todas.filter(e => etapaDe(e.tipo) === et);
+  /* Las que no dicen de que son van primero: son las que hay que atender, y
+     asi se avanza de arriba hacia abajo sin ir buscandolas. */
+  const lista = todas.filter(e => etapaDe(e.tipo) === et)
+    .slice().sort(function(a,b){
+      const sa = (String(a.tipo).split("|")[1]||"") ? 1 : 0;
+      const sb = (String(b.tipo).split("|")[1]||"") ? 1 : 0;
+      return sa - sb;
+    });
   const otras = todas.length - lista.length;
   const pie = otras ? '<div class="dat-nota">Y ' + otras +
       (otras===1?" archivo en otras etapas.":" archivos en otras etapas.") + '</div>' : "";
@@ -936,6 +948,8 @@ function pintarYaSubidas(){
          del informe, y se marca en rojo para que se vea cual falta. */
       const part = (String(e.tipo).split("|")[1]||"");
       return '<div class="yaEv'+(part?"":" yaSin")+'">'+
+        '<img class="yaMini" data-ruta="'+esc(e.ruta)+'" alt="" '+
+             'title="Clic para verla más grande" onclick="acercar(this)">'+
         '<select class="yaPza" onchange="reclasificar('+e.ev_id+',this.value)">'+
           PIEZAS.filter(function(p){ return p[0]!=="__REPORTE__" })
                 .map(function(p){
@@ -948,6 +962,60 @@ function pintarYaSubidas(){
           'onclick="borrarEvidencia('+e.ev_id+',\''+esc(e.ruta)+'\')">🗑</button>'+
       '</div>';
     }).join("") + '</div></details>' + pie;
+  verMiniaturas();
+}
+
+/* Las miniaturas se bajan cuando entran a la vista, no todas de golpe: son 23
+   fotos de camara y bajarlas juntas al abrir la ventana la dejaria pasmada.
+   Se quedan guardadas ya reducidas, asi que plegar y desplegar no vuelve a
+   pedirlas. */
+const miniCache = {};
+let miniObs = null;
+
+function verMiniaturas(){
+  if(miniObs) miniObs.disconnect();
+  miniObs = new IntersectionObserver(function(entradas){
+    entradas.forEach(function(en){
+      if(!en.isIntersecting) return;
+      const img = en.target;
+      miniObs.unobserve(img);
+      cargarMini(img);
+    });
+  }, {root: document.querySelector(".ya-caja"), rootMargin: "120px"});
+  document.querySelectorAll(".yaMini").forEach(function(img){
+    const r = img.getAttribute("data-ruta");
+    if(miniCache[r]){ img.src = miniCache[r]; return }
+    miniObs.observe(img);
+  });
+}
+
+async function cargarMini(img){
+  const r = img.getAttribute("data-ruta");
+  if(miniCache[r]){ img.src = miniCache[r]; return }
+  try{
+    const resp = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${r}`,
+                             {headers:hdr()});
+    if(!resp.ok) throw new Error("no se pudo bajar");
+    const b = await resp.blob();
+    if(/pdf/.test(b.type)){ img.classList.add("esPdf"); img.alt="PDF"; return }
+    /* se guarda reducida a proposito: una foto de celular son 4 MB y aqui
+       caben veintitantas en pantalla */
+    const bm = await createImageBitmap(b);
+    const L = 220, k = Math.min(L/bm.width, L/bm.height, 1);
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(bm.width*k); cv.height = Math.round(bm.height*k);
+    cv.getContext("2d").drawImage(bm, 0, 0, cv.width, cv.height);
+    bm.close();
+    miniCache[r] = cv.toDataURL("image/jpeg", 0.7);
+    img.src = miniCache[r];
+  }catch(e){ img.classList.add("esPdf"); img.alt="—" }
+}
+
+/* Agrandarla en su sitio. Con la miniatura de 44px se distingue una trompeta de
+   una antena, pero para el numero de serie o el canal hace falta verla. */
+function acercar(img){
+  if(!img.src) return;
+  img.classList.toggle("grande");
 }
 
 /* Quitar una evidencia: primero el archivo, luego el renglon.
