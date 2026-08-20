@@ -994,6 +994,30 @@ function aFecha(v){
   return aa+"-"+String(mm).padStart(2,"0")+"-"+String(dd).padStart(2,"0");
 }
 
+/* El archivo que se elige o se suelta se vuelca en el recuadro de pegar y se
+   analiza por la misma ruta de siempre: un solo camino que mantener.
+
+   La codificacion no se da por hecha. Un CSV salido de Excel en Windows suele
+   venir en windows-1252, y leerlo como UTF-8 deja los acentos hechos basura.
+   Se prueba UTF-8 estricto primero y se cae a windows-1252 si truena; al reves
+   no funcionaria, porque windows-1252 acepta cualquier byte y nunca avisa. */
+async function leerArchivo(f){
+  if(!f) return;
+  var msg = document.getElementById("cgMsg");
+  try{
+    var buf = await f.arrayBuffer();
+    var txt;
+    try{ txt = new TextDecoder("utf-8", {fatal:true}).decode(buf); }
+    catch(e){ txt = new TextDecoder("windows-1252").decode(buf); }
+    document.getElementById("pegar").value = txt;
+    analizar();
+  }catch(e){
+    if(msg) msg.innerHTML = '<div class="aviso">No se pudo leer el archivo: '+
+      esc(String(e.message||e).slice(0,90))+
+      '. Abrelo en Excel y pega el contenido en el recuadro de abajo.</div>';
+  }
+}
+
 async function abrirCarga(){
   document.getElementById("mCarga").style.display="flex";
   var z=document.getElementById("cgSuelta");
