@@ -25,6 +25,22 @@
   .who{margin-left:auto;text-align:right;font-size:11px;color:var(--txt2);cursor:pointer}
   .who b{display:block;color:var(--txt);font-size:12px}
 
+  .pegar{border:1px dashed var(--line);border-radius:10px;padding:9px 11px;
+    margin:-4px 0 10px;font-size:12px;color:var(--txt3);text-align:center}
+  .pegar.lista{border-color:var(--acc);color:var(--acc)}
+  #subPegadas{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+  #subPegadas img{width:46px;height:46px;object-fit:cover;border-radius:6px}
+  #subDatos{border:1px solid var(--line);border-radius:10px;padding:8px 11px;
+    margin-bottom:10px}
+  #subDatos summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--acc)}
+  .dat-nota{font-size:11px;color:var(--txt3);margin:7px 0 9px}
+  .dat-t{font-size:11px;font-weight:700;color:var(--txt2);margin:10px 0 5px;
+    text-transform:uppercase;letter-spacing:.05em}
+  .dat-g{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .dat-g label{font-size:10.5px;color:var(--txt3);display:flex;flex-direction:column;gap:2px}
+  .dat-g input,.dat-g select{width:100%}
+  .ok{background:rgba(30,142,90,.16);border:1px solid rgba(30,142,90,.45);
+    color:#9EE7C2;border-radius:10px;padding:8px 11px;font-size:12px;margin-bottom:10px}
   .yaEv{display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px;
     background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:8px}
   .yaEt{font-size:12px;font-weight:600;flex:1}
@@ -253,21 +269,44 @@
     <h2>Agregar evidencia</h2>
     <p><b id="subSitio"></b><br><span id="subFecha"></span></p>
     <label class="lbl-min">¿De qué momento son?</label>
-    <select id="subEtapa"></select>
-    <div id="subYa"></div>
+    <select id="subEtapa" onchange="pintarYaSubidas()"></select>
     <label class="lbl-min">¿De qué es la foto?</label>
-    <select id="subPieza" onchange="pintarVariante()"></select>
+    <select id="subPieza" onchange="cambioPieza()"></select>
     <div id="subVarWrap" style="display:none">
       <label class="lbl-min">¿Cuál?</label>
       <select id="subVariante"></select>
     </div>
     <label class="lbl-min">Fotos o reporte escaneado</label>
     <input id="subFile" type="file" accept="image/*,application/pdf" multiple>
+    <div class="pegar" id="subPegar">
+      o recorta del PDF y pega aquí con <b>Ctrl + V</b>
+      <div id="subPegadas"></div>
+    </div>
+    <div id="subYa"></div>
+
+    <!-- lo que el informe escribe en sus parrafos y en la tabla de inventario;
+         si esto queda vacio el informe sale trunco, por muchas fotos que tenga -->
+    <details id="subDatos">
+      <summary>Datos del servicio para el informe</summary>
+      <div class="dat-nota">Son los que el técnico captura en sitio. El informe
+        los escribe en sus párrafos y en la tabla de inventario.</div>
+      <div class="dat-g" id="datEquipo"></div>
+      <div class="dat-t">Mediciones</div>
+      <div class="dat-g" id="datMed"></div>
+      <div class="dat-t">Registro de eventos (log)</div>
+      <div class="dat-g" id="datLog"></div>
+      <div class="dat-t">Inventario del sitio</div>
+      <div class="dat-g" id="datInv"></div>
+      <button id="datBtn" style="width:100%;justify-content:center;margin-top:10px"
+              onclick="guardarDatos()">Guardar los datos del servicio</button>
+    </details>
+
     <div class="aviso" id="subErr" style="display:none"></div>
+    <div class="ok" id="subOk" style="display:none"></div>
     <button class="pri" id="subBtn" style="width:100%;justify-content:center"
             onclick="guardarSubida()">Guardar evidencia</button>
     <button style="width:100%;justify-content:center;margin-top:8px"
-            onclick="cerrarSubir()">Cancelar</button>
+            onclick="cerrarSubir()">Cerrar</button>
   </div>
 </div>
 
@@ -714,7 +753,76 @@ function abrirSubir(coord, id){
     VARIANTES_TROMPETA.map(v=>`<option>${esc(v)}</option>`).join("");
   pintarVariante();
   pintarYaSubidas();
+  pintarDatos();
+  pegadas = [];
+  document.getElementById("subPegadas").innerHTML = "";
+  document.getElementById("subOk").style.display = "none";
   document.getElementById("mSubir").style.display="flex";
+}
+
+/* ---------- los datos que el informe escribe en sus parrafos ----------
+   Se pintan con lo que el servicio ya tenga: si el tecnico los capturo en
+   sitio, aqui aparecen y no hay que volver a teclearlos. */
+function pintarDatos(){
+  const x = subir.srv;
+  const campo = (k, et, ph, tipo) =>
+    `<label>${esc(et)}<input id="dat_${k}" ${tipo||""} placeholder="${esc(ph||"")}"
+       value="${esc(x[k]==null?"":x[k])}"></label>`;
+  document.getElementById("datEquipo").innerHTML =
+    DATOS_EQUIPO.map(([k,et,ph]) => campo(k, et, ph,
+       k==="senal_barras" ? 'type="number" min="0" max="5"' : "")).join("");
+  document.getElementById("datMed").innerHTML =
+    DATOS_MED.map(([k,et,ph]) => campo(k, et, ph, 'inputmode="decimal"')).join("");
+  document.getElementById("datInv").innerHTML =
+    DATOS_INV.map(([k,et]) => campo(k, et, "", 'type="number" min="0"')).join("");
+  document.getElementById("datLog").innerHTML =
+    `<label>¿Cómo venía el log?
+       <select id="dat_log_estado">
+         <option value="">— sin revisar —</option>
+         <option value="CONTINUO"${x.log_estado==="CONTINUO"?" selected":""}>Continuo</option>
+         <option value="SALTEADO"${x.log_estado==="SALTEADO"?" selected":""}>Con saltos</option>
+       </select></label>` +
+    campo("log_ultimo", "Último registro (dd-mm hh:mm)", "12-jul 19:39") +
+    `<label style="grid-column:1/-1">¿Cuáles faltan? (si hubo saltos)
+       <input id="dat_log_saltos" placeholder="ej. 12-jul 04:39 y 07:39"
+              value="${esc(x.log_saltos||"")}"></label>`;
+}
+
+/* Se guardan en el servicio, que es de donde los lee el informe. Se manda solo
+   lo que trae algo: un campo vacio no debe borrar lo que el tecnico capturo. */
+async function guardarDatos(){
+  const b = document.getElementById("datBtn");
+  const err = document.getElementById("subErr"), ok = document.getElementById("subOk");
+  err.style.display = "none"; ok.style.display = "none";
+  b.disabled = true; const t0 = b.textContent; b.textContent = "Guardando…";
+  const cuerpo = {};
+  const claves = [].concat(DATOS_EQUIPO.map(a=>a[0]), DATOS_MED.map(a=>a[0]),
+                           DATOS_INV.map(a=>a[0]), ["log_ultimo","log_saltos"]);
+  claves.forEach(k => {
+    const e = document.getElementById("dat_"+k);
+    if(e && e.value.trim() !== "") cuerpo[k] = e.value.trim();
+  });
+  const le = document.getElementById("dat_log_estado");
+  if(le && le.value) cuerpo.log_estado = le.value;
+  if(!Object.keys(cuerpo).length){
+    err.textContent = "No hay nada que guardar: llena al menos un dato.";
+    err.style.display = "block"; b.disabled = false; b.textContent = t0; return;
+  }
+  try{
+    const x = subir.srv;
+    const d = await api(`servicios?coord=eq.${encodeURIComponent(x.coord)}&id=eq.${x.id}`,
+      {method:"PATCH", headers:{Prefer:"return=representation"},
+       body:JSON.stringify(cuerpo)});
+    if(!d || !d.length) throw new Error("no se guardó (¿permisos de esta coordinación?)");
+    Object.assign(x, cuerpo);                    // para que el informe ya los vea
+    const f = filas.find(y => y.coord===x.coord && y.id===x.id);
+    if(f) Object.assign(f, cuerpo);
+    anotar("GUARDAR", "ID="+x.id+" · datos para el informe", x);
+    ok.textContent = "Datos guardados. El informe ya los va a escribir.";
+    ok.style.display = "block";
+  }catch(e){
+    err.textContent = String(e.message||e).slice(0,140); err.style.display = "block";
+  }finally{ b.disabled = false; b.textContent = t0 }
 }
 
 /* Lo que el servicio ya trae, para poder quitar lo que se subio mal. Antes no
@@ -730,9 +838,29 @@ const PIEZAS = [
   ["ANTENA",       "Antena aérea dipolo"],
   ["AMPLIFICADOR", "Amplificador"],
   ["UPS",          "Respaldo de energía (UPS)"],
-  ["REFORZADOR",   "Reforzador"]
+  ["REFORZADOR",   "Reforzador"],
+  /* Reporte ya es una ETAPA, pero se busca aqui: al elegirlo se cambia la etapa
+     sola, para que no acabe subido como galeria y sin que el informe lo
+     reconozca, que es lo que pasaba. */
+  ["__REPORTE__",  "Reporte del servicio (documento)"]
 ];
 const VARIANTES_TROMPETA = ["Plástico", "Aluminio", "Plafón", "Dual elíptica"];
+
+/* Los campos que el informe escribe en sus parrafos. Son los mismos que captura
+   el tecnico en Mi dia, con los mismos nombres de columna: si aqui se llamaran
+   distinto, el informe seguiria sin encontrarlos. */
+const DATOS_EQUIPO = [["equipo","Equipo","texto"],["serie","# de serie","texto"],
+  ["canal","Canal","texto"],["senal_barras","Señal (barras)","0-5"]];
+const DATOS_MED = [["volt_bateria","Voltaje de batería (Vcd)","13.46"],
+  ["volt_linea","Voltaje de línea / salida (V)","11.54"],
+  ["amperaje","Amperaje de salida (A)","1.76"]];
+const DATOS_INV = [["plasticas","Trompetas de plástico"],["aluminio","Trompetas de aluminio"],
+  ["eliptica","Dual elíptica"],["bocina_plafon","Bocinas de plafón"],
+  ["estrobo","Luz estrobo"],["antena","Antena dipolo"],
+  ["amplificador","Amplificador"],["ups","Respaldo (UPS)"]];
+
+/* Las fotos pegadas del portapapeles viven aqui hasta que se guardan */
+let pegadas = [];
 
 /* la variante solo tiene sentido en la trompeta: en lo demas estorba */
 function pintarVariante(){
@@ -740,14 +868,33 @@ function pintarVariante(){
   const w = document.getElementById("subVarWrap");
   w.style.display = (p === "TROMPETA") ? "block" : "none";
 }
+/* elegir "Reporte del servicio" mueve la etapa por su cuenta: son la misma
+   cosa dicha en dos desplegables, y hacerlo a mano se presta a que no cuadren */
+function cambioPieza(){
+  const sp = document.getElementById("subPieza");
+  if(sp.value === "__REPORTE__"){
+    const se = document.getElementById("subEtapa");
+    if([...se.options].some(o=>o.value==="REPORTE")) se.value = "REPORTE";
+    pintarYaSubidas();
+  }
+  pintarVariante();
+}
 
 function pintarYaSubidas(){
   const c = document.getElementById("subYa");
   if(!c || !subir) return;
-  const lista = (ev[subir.coord+"|"+subir.id]||[]);
-  if(!lista.length){ c.innerHTML=""; return }
+  const todas = (ev[subir.coord+"|"+subir.id]||[]);
+  /* Solo lo de la etapa elegida. Con veinte fotos la lista crecia hasta empujar
+     el boton de guardar fuera de la pantalla; lo demas se cuenta al pie para
+     que no parezca que se perdio. */
+  const et = (document.getElementById("subEtapa")||{}).value || "";
+  const lista = todas.filter(e => etapaDe(e.tipo) === et);
+  const otras = todas.length - lista.length;
+  const pie = otras ? '<div class="dat-nota">Y ' + otras +
+      (otras===1?" archivo en otras etapas.":" archivos en otras etapas.") + '</div>' : "";
+  if(!lista.length){ c.innerHTML = pie; return }
   c.innerHTML = '<label class="lbl-min">Ya tiene ' + lista.length +
-    (lista.length===1?" archivo":" archivos") + '</label>' +
+    (lista.length===1?" archivo":" archivos") + ' en esta etapa</label>' +
     lista.map(function(e){
       const pieza = piezaDe(e.tipo);
       return '<div class="yaEv">'+
@@ -757,7 +904,7 @@ function pintarYaSubidas(){
         '<button class="mini quita" title="Quitar esta evidencia" '+
           'onclick="borrarEvidencia('+e.ev_id+',\''+esc(e.ruta)+'\')">🗑</button>'+
       '</div>';
-    }).join("");
+    }).join("") + pie;
 }
 
 /* Quitar una evidencia: primero el archivo, luego el renglon.
@@ -799,19 +946,62 @@ async function borrarEvidencia(evId, ruta){
     err.style.display="block";
   }
 }
+/* ---------- pegar desde el portapapeles ----------
+   El reporte casi siempre llega dentro de un PDF: se recorta con la
+   herramienta de captura y se pega aqui, sin el rodeo de guardarlo como
+   archivo primero. Solo se atiende mientras la ventana esta abierta, para no
+   robarle el Ctrl+V al resto de la pantalla. */
+document.addEventListener("paste", function(e){
+  const m = document.getElementById("mSubir");
+  if(!m || m.style.display === "none") return;
+  const items = (e.clipboardData || {}).items || [];
+  let hubo = false;
+  for(const it of items){
+    if(it.kind !== "file") continue;
+    const f = it.getAsFile();
+    if(!f || !/^image\//.test(f.type)) continue;
+    pegadas.push(f); hubo = true;
+  }
+  if(!hubo) return;
+  e.preventDefault();
+  pintarPegadas();
+});
+
+function pintarPegadas(){
+  const c = document.getElementById("subPegadas");
+  const z = document.getElementById("subPegar");
+  c.innerHTML = pegadas.map(function(f,i){
+    return '<img src="'+URL.createObjectURL(f)+'" title="pegada '+(i+1)+'">';
+  }).join("");
+  z.classList.toggle("lista", pegadas.length > 0);
+  z.firstChild.textContent = pegadas.length
+    ? pegadas.length + (pegadas.length===1 ? " imagen pegada" : " imágenes pegadas") + " · "
+    : "o recorta del PDF y pega aquí con ";
+}
+
 function cerrarSubir(){ document.getElementById("mSubir").style.display="none"; subir=null }
 
 async function guardarSubida(){
   const inp = document.getElementById("subFile");
   const err = document.getElementById("subErr");
   const btn = document.getElementById("subBtn");
-  if(!inp.files.length){ err.textContent="Elige al menos un archivo"; err.style.display="block"; return }
+  const ok = document.getElementById("subOk");
+  ok.style.display = "none";
+  /* lo elegido con Examinar y lo pegado del portapapeles van juntos */
+  const archivos = [].concat([...inp.files], pegadas);
+  if(!archivos.length){
+    err.textContent="Elige al menos un archivo, o pega uno con Ctrl+V";
+    err.style.display="block"; return;
+  }
   /* El tipo va compuesto —ETAPA|PARTIDA|VARIANTE— porque es lo que el informe
      lee para saber junto a que descripcion poner la foto. Sin la partida
      termina en la galeria del final, que era lo que pasaba con todo lo que se
      subia desde aqui. */
   const etapa = document.getElementById("subEtapa").value;
-  const pieza = document.getElementById("subPieza").value;
+  /* "__REPORTE__" es solo la manera de ofrecer el reporte en el desplegable de
+     pieza: no es una partida y no debe viajar en el tipo. La etapa ya lo dice. */
+  const sel = document.getElementById("subPieza").value;
+  const pieza = (sel === "__REPORTE__") ? "" : sel;
   const varia = (pieza === "TROMPETA")
     ? document.getElementById("subVariante").value : "";
   const tipo = etapa + (pieza ? "|" + pieza : "") +
@@ -819,10 +1009,13 @@ async function guardarSubida(){
   const x = subir.srv;
   btn.disabled = true;
   try{
-    for(let i=0;i<inp.files.length;i++){
-      btn.textContent = `Subiendo ${i+1}/${inp.files.length}…`;
-      const f = inp.files[i];
-      const ext = f.type==="application/pdf" ? "pdf" : "jpg";
+    for(let i=0;i<archivos.length;i++){
+      btn.textContent = `Subiendo ${i+1}/${archivos.length}…`;
+      const f = archivos[i];
+      /* la extension sale del archivo, no de una suposicion: lo que se pega
+         del portapapeles viene en PNG y se guardaba llamandose .jpg */
+      const ext = ({"application/pdf":"pdf","image/png":"png","image/webp":"webp",
+                    "image/gif":"gif"})[f.type] || "jpg";
       /* el tipo va completo a la base, pero no al nombre del archivo: las
          barras y los acentos no tienen nada que hacer en una llave de objeto */
       const enNombre = String(tipo).replace(/\|/g, "-")
@@ -838,7 +1031,14 @@ async function guardarSubida(){
         ruta:ruta, tecnico:x.tecnico||ses.nombre})});
     }
     await cargarEvidencias();      // para que la fila muestre lo que ya tiene
-    cerrarSubir();
+    /* La ventana se queda abierta: casi nunca se sube una sola pieza, y
+       cerrarla obligaba a volver a buscar el servicio para la siguiente. */
+    const n = archivos.length;
+    inp.value = ""; pegadas = []; pintarPegadas();
+    ok.textContent = n + (n===1 ? " archivo guardado." : " archivos guardados.") +
+                     " Puedes seguir con la siguiente pieza.";
+    ok.style.display = "block";
+    pintarYaSubidas();
     pintar();
   }catch(e){
     err.textContent = e.message; err.style.display="block";
