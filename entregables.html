@@ -255,6 +255,12 @@
     <label class="lbl-min">¿De qué momento son?</label>
     <select id="subEtapa"></select>
     <div id="subYa"></div>
+    <label class="lbl-min">¿De qué es la foto?</label>
+    <select id="subPieza" onchange="pintarVariante()"></select>
+    <div id="subVarWrap" style="display:none">
+      <label class="lbl-min">¿Cuál?</label>
+      <select id="subVariante"></select>
+    </div>
     <label class="lbl-min">Fotos o reporte escaneado</label>
     <input id="subFile" type="file" accept="image/*,application/pdf" multiple>
     <div class="aviso" id="subErr" style="display:none"></div>
@@ -702,12 +708,39 @@ function abrirSubir(coord, id){
   se.innerHTML = etapasDe(x.coord).map(([t,n])=>`<option value="${t}">${n}</option>`).join("");
   document.getElementById("subErr").style.display="none";
   document.getElementById("subFile").value="";
+  const sp = document.getElementById("subPieza");
+  sp.innerHTML = PIEZAS.map(([v,n])=>`<option value="${v}">${esc(n)}</option>`).join("");
+  document.getElementById("subVariante").innerHTML =
+    VARIANTES_TROMPETA.map(v=>`<option>${esc(v)}</option>`).join("");
+  pintarVariante();
   pintarYaSubidas();
   document.getElementById("mSubir").style.display="flex";
 }
 
 /* Lo que el servicio ya trae, para poder quitar lo que se subio mal. Antes no
    habia por donde: la foto equivocada se quedaba pegada al servicio. */
+/* Las piezas que el informe sabe colocar. Los ids son los de COMPONENTES: si
+   no coinciden, la foto no encuentra su hoja y cae en la galeria del final.
+   Las variantes de la trompeta son las mismas que ofrece Mi dia. */
+const PIEZAS = [
+  ["",             "Sin especificar (va en la galería)"],
+  ["EQUIPO",       "Equipo receptor SARMEX ®"],
+  ["TROMPETA",     "Altavoz trompeta / bocina"],
+  ["ESTROBO",      "Luz estrobo"],
+  ["ANTENA",       "Antena aérea dipolo"],
+  ["AMPLIFICADOR", "Amplificador"],
+  ["UPS",          "Respaldo de energía (UPS)"],
+  ["REFORZADOR",   "Reforzador"]
+];
+const VARIANTES_TROMPETA = ["Plástico", "Aluminio", "Plafón", "Dual elíptica"];
+
+/* la variante solo tiene sentido en la trompeta: en lo demas estorba */
+function pintarVariante(){
+  const p = document.getElementById("subPieza").value;
+  const w = document.getElementById("subVarWrap");
+  w.style.display = (p === "TROMPETA") ? "block" : "none";
+}
+
 function pintarYaSubidas(){
   const c = document.getElementById("subYa");
   if(!c || !subir) return;
@@ -773,7 +806,16 @@ async function guardarSubida(){
   const err = document.getElementById("subErr");
   const btn = document.getElementById("subBtn");
   if(!inp.files.length){ err.textContent="Elige al menos un archivo"; err.style.display="block"; return }
-  const tipo = document.getElementById("subEtapa").value;
+  /* El tipo va compuesto —ETAPA|PARTIDA|VARIANTE— porque es lo que el informe
+     lee para saber junto a que descripcion poner la foto. Sin la partida
+     termina en la galeria del final, que era lo que pasaba con todo lo que se
+     subia desde aqui. */
+  const etapa = document.getElementById("subEtapa").value;
+  const pieza = document.getElementById("subPieza").value;
+  const varia = (pieza === "TROMPETA")
+    ? document.getElementById("subVariante").value : "";
+  const tipo = etapa + (pieza ? "|" + pieza : "") +
+               (varia ? "|" + varia.toUpperCase() : "");
   const x = subir.srv;
   btn.disabled = true;
   try{
@@ -781,7 +823,11 @@ async function guardarSubida(){
       btn.textContent = `Subiendo ${i+1}/${inp.files.length}…`;
       const f = inp.files[i];
       const ext = f.type==="application/pdf" ? "pdf" : "jpg";
-      const ruta = `${x.coord}/${x.tkt||("id"+x.id)}/${Date.now()}_${tipo}_${i}.${ext}`;
+      /* el tipo va completo a la base, pero no al nombre del archivo: las
+         barras y los acentos no tienen nada que hacer en una llave de objeto */
+      const enNombre = String(tipo).replace(/\|/g, "-")
+        .normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const ruta = `${x.coord}/${x.tkt||("id"+x.id)}/${Date.now()}_${enNombre}_${i}.${ext}`;
       const r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,
         {method:"POST", headers:Object.assign({},hdr(),{"Content-Type":f.type||"image/jpeg"}),
          body:f});
