@@ -841,8 +841,18 @@ function marcarTodos(){
 /* ---------- armar el entregable ----------
    Las fotos viven en un bucket privado: se bajan con la sesion y se incrustan
    en la hoja, para que el PDF salga completo y no dependa de la liga. */
+/* Cuanto se espera un archivo antes de darlo por perdido. Sin esto, una foto
+   que el almacenamiento no entrega deja el informe armandose para siempre. */
+const SE_RINDE = 20000;
 async function bajar(ruta){
-  const r=await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,{headers:hdr()});
+  const corta = new AbortController();
+  const reloj = setTimeout(()=>corta.abort(), SE_RINDE);
+  let r;
+  try{
+    r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,
+                    {headers:hdr(), signal:corta.signal});
+  }catch(e){ return null }          // se rindio, o no hubo red: sin foto y adelante
+  finally{ clearTimeout(reloj) }
   if(!r.ok) return null;
   const b=await r.blob();
   return await new Promise(res=>{ const f=new FileReader();
@@ -2212,19 +2222,30 @@ function numeroOrdinal(num){
 
 async function informeDe(x, num, ident, conLog){
   const arch=[];
-  for(const e of (ev[llave(x)]||[])){
-    const d=await bajar(e.ruta);
+  const lista = ev[llave(x)]||[];
+  /* Se dice en que va: un proceso callado de dos minutos es indistinguible de
+     uno colgado, y eso fue exactamente lo que parecio. */
+  const btnGen = document.getElementById("btnGen");
+  const base = btnGen ? btnGen.textContent : "";
+  for(let k=0; k<lista.length; k++){
+    if(btnGen) btnGen.textContent = base + " · foto " + (k+1) + " de " + lista.length;
+    const e = lista[k];
+    const d = await bajar(e.ruta);
     if(d) arch.push({clase:etapaDe(e.tipo), pieza:piezaDe(e.tipo),
                      partida:(String(e.tipo).split("|")[1]||"").toUpperCase(),
                      url:d.url, mime:d.tipo});
   }
+  if(btnGen) btnGen.textContent = base;
   const fotos = arch.filter(f=>!/pdf/.test(f.mime));
   /* Se esperan las imagenes antes de armar nada: repartir mide cajas, y una
      imagen sin decodificar todavia no tiene tamaño. Se tolera la que falle
      -no vale detener un informe por una foto rota-. */
-  await Promise.all(fotos.map(f => new Promise(function(res){
+  await Promise.all(fotos.map((f,k) => new Promise(function(res){
     const im = new Image();
-    im.onload = im.onerror = res;
+    /* tambien se rinde: una imagen que no decodifica no puede detener un
+       entregable, y sin este limite la espera era eterna */
+    const reloj = setTimeout(res, 8000);
+    im.onload = im.onerror = function(){ clearTimeout(reloj); res() };
     im.src = f.url;
   })));
   const rep   = fotos.filter(f=>f.clase==="REPORTE");
