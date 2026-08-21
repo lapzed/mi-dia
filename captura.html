@@ -127,6 +127,11 @@
     border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
   .bien{background:rgba(30,142,90,.16);border:1px solid rgba(30,142,90,.45);color:#9EE7C2;
     border-radius:10px;padding:9px 11px;font-size:12.5px;margin-bottom:11px}
+  .dupG{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+  .dupT{font-weight:700;font-size:13px;margin-bottom:6px}
+  .dupTb{width:100%;border-collapse:collapse;font-size:12px}
+  .dupTb td{border-top:1px solid var(--line);padding:5px 6px;vertical-align:top}
+  .dupSub{font-size:10.5px;color:var(--txt3)}
   .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
     display:flex;align-items:center;justify-content:center;padding:18px}
   .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
@@ -180,6 +185,7 @@
       <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px">
         <button class="pri" id="btnAlta" onclick="guardar()">Dar de alta el servicio</button>
         <button onclick="abrirCarga()">📥 Carga masiva</button>
+      <button onclick="buscarDuplicados()" title="Buscar servicios repetidos">👯 Duplicados</button>
         <button onclick="limpiarSitio()">Limpiar</button>
       </div>
     </div>
@@ -192,6 +198,20 @@
   </div>
 </div>
 
+
+<!-- Servicios repetidos. Muestra y la persona elige: borrar en bloque por una
+     regla automatica es como se pierde trabajo bueno. -->
+<div class="modal" id="mDup" style="display:none">
+  <div class="box" style="max-width:860px;max-height:calc(100vh - 40px);overflow:auto">
+    <h2>Servicios repetidos</h2>
+    <p>Se agrupan por TKT dentro de cada coordinación; los que no traen TKT, por
+       sitio y fecha. <b>Revisa cada grupo y borra solo el que sobre</b> — el que
+       tenga evidencia no se puede borrar, y es el que conviene conservar.</p>
+    <div id="dupCuerpo"><div class="load">Buscando…</div></div>
+    <button style="width:100%;justify-content:center;margin-top:12px"
+            onclick="document.getElementById('mDup').style.display='none'">Cerrar</button>
+  </div>
+</div>
 
 <div class="modal" id="mCarga" style="display:none">
   <div class="box" style="max-width:1000px;max-height:94vh;overflow:auto">
@@ -1331,6 +1351,125 @@ function anotar(accion, detalle, x){
       tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
     })}).catch(function(){});
   }catch(e){}
+}
+
+/* ---------- servicios repetidos ----------
+   No es que el sistema duplique: al no ver lo ya capturado se vuelve a
+   capturar. Por eso esto MUESTRA y la persona elige. */
+let DUP = [];
+
+function claveDup(x){
+  const co = String(x.coord||"").toUpperCase();
+  const tk = String(x.tkt||"").trim();
+  /* con TKT basta el ticket del cliente; sin el, el sitio y el dia */
+  return tk ? co+"|TKT|"+tk.toUpperCase()
+            : co+"|SIT|"+String(x.nombre||"").trim().toUpperCase()+
+                    "|"+String(x.fecha_servicio||"");
+}
+
+async function buscarDuplicados(){
+  const m = document.getElementById("mDup"), c = document.getElementById("dupCuerpo");
+  m.style.display = "flex";
+  c.innerHTML = '<div class="load">Buscando…</div>';
+  try{
+    /* de mil en mil y con orden: paginar sin `order` se salta renglones */
+    let filas = [];
+    for(let off=0; off<6000; off+=1000){
+      const t = await api("servicios?select=coord,id,tkt,nombre,dependencia,"+
+        "fecha_servicio,status,tecnico,dia_creacion,jen_user,jen_ts"+
+        "&order=id.desc&limit=1000&offset="+off);
+      filas = filas.concat(t);
+      if(t.length < 1000) break;
+    }
+    const grupos = {};
+    filas.forEach(function(x){
+      const k = claveDup(x);
+      (grupos[k] = grupos[k] || []).push(x);
+    });
+    DUP = Object.keys(grupos).map(k=>grupos[k]).filter(g=>g.length>1)
+            .sort((a,b)=>b.length-a.length);
+    pintarDup();
+  }catch(e){
+    c.innerHTML = '<div class="aviso">No se pudo buscar: '+esc(String(e.message||e).slice(0,120))+'</div>';
+  }
+}
+
+function pintarDup(){
+  const c = document.getElementById("dupCuerpo");
+  if(!DUP.length){
+    c.innerHTML = '<div class="ok" style="display:block">No hay servicios repetidos.</div>';
+    return;
+  }
+  const total = DUP.reduce((a,g)=>a+g.length-1, 0);
+  c.innerHTML = '<p><b>'+DUP.length+'</b> grupos · <b>'+total+'</b> renglones de más.</p>' +
+    DUP.map(function(g, gi){
+      const porTkt = String(g[0].tkt||"").trim();
+      return '<div class="dupG"><div class="dupT">'+
+        (porTkt ? "TKT "+esc(porTkt) : esc(g[0].nombre||"(sin sitio)")+
+                  " · "+esc(g[0].fecha_servicio||"sin fecha"))+
+        ' <span class="tag">'+esc(g[0].coord)+'</span></div>' +
+        '<table class="dupTb"><tbody>' +
+        g.map(function(x, xi){
+          return '<tr><td>'+esc(x.nombre||"")+'<div class="dupSub">'+
+            esc(x.dependencia||"")+'</div></td>'+
+            '<td>'+esc(x.fecha_servicio||"—")+'</td>'+
+            '<td><span class="tag">'+esc(x.status||"")+'</span></td>'+
+            '<td>'+esc(x.tecnico||"—")+'</td>'+
+            '<td class="dupSub">'+esc(x.jen_user||"")+'<br>'+
+            esc(String(x.jen_ts||x.dia_creacion||"").slice(0,16))+'</td>'+
+            '<td><button class="mini quita" onclick="borrarDup('+gi+','+xi+')" '+
+            'title="Borrar este renglón">🗑 id '+x.id+'</button></td></tr>';
+        }).join("") +
+        '</tbody></table></div>';
+    }).join("");
+}
+
+async function borrarDup(gi, xi){
+  const g = DUP[gi]; if(!g) return;
+  const x = g[xi];   if(!x) return;
+
+  /* Con evidencia no se borra: ahi hay fotos que costaron una visita, y el
+     renglon que sobra es el otro. */
+  let fotos = 0;
+  try{
+    const ev = await api("evidencias?select=ev_id&coord=eq."+encodeURIComponent(x.coord)+
+                         "&servicio_id=eq."+x.id+"&limit=50");
+    fotos = (ev||[]).length;
+  }catch(e){ /* si no se puede consultar, se pregunta igual mas abajo */ }
+  if(fotos){
+    alert("Este servicio tiene "+fotos+" archivo(s) de evidencia.\n\n"+
+          "No se borra: ése es el que conviene conservar. Borra el otro renglón.");
+    return;
+  }
+
+  const otros = g.filter((_,k)=>k!==xi);
+  const seQueda = otros.map(o=>"id "+o.id+" ("+(o.status||"")+")").join(", ");
+  const atendido = String(x.status||"").toUpperCase()==="ATENDIDO";
+  const ningunOtroAtendido = !otros.some(o=>String(o.status||"").toUpperCase()==="ATENDIDO");
+  if(atendido && ningunOtroAtendido &&
+     !confirm("OJO: el que vas a borrar está ATENDIDO y el que se queda no.\n\n"+
+              "Casi siempre es al revés de lo que se quiere. ¿Seguro?")) return;
+
+  if(!confirm("¿Borrar el servicio id "+x.id+" de "+x.coord+"?\n\n"+
+              (x.tkt?"TKT "+x.tkt+" · ":"")+(x.nombre||"")+"\n\n"+
+              "Se queda: "+seQueda+"\n\nEsto no se puede deshacer.")) return;
+
+  try{
+    const d = await api("servicios?coord=eq."+encodeURIComponent(x.coord)+"&id=eq."+x.id,
+      {method:"DELETE", headers:{Prefer:"return=representation"}});
+    /* Una politica que no deja borrar contesta 200 y CERO renglones: sin contar
+       lo que vuelve, la pantalla diria "listo" sin haber borrado nada. */
+    if(!d || !d.length) throw new Error("no se borró (¿permisos sobre esa coordinación?)");
+    anotar("BORRA DUPLICADO",
+           "id="+x.id+(x.tkt?" · TKT "+x.tkt:"")+" · "+(x.nombre||"")+
+           " · se queda "+seQueda, x);
+    DUP[gi] = g.filter((_,k)=>k!==xi);
+    if(DUP[gi].length < 2) DUP.splice(gi,1);
+    pintarDup();
+    ultimos();
+  }catch(e){
+    alert("No se pudo borrar: "+String(e.message||e).slice(0,140));
+  }
 }
 
 async function ultimos(){
