@@ -556,6 +556,8 @@ const ESTACIONES=[
   ["est.patricia","Patricia · Mantenimientos"], ["est.jair","Jair · Levantamientos"],
   ["est.alin","Alin · Instalaciones"], ["est.proyectos","Karina · Proyectos especiales"],
   ["est.ariana","Ariana · CAT"],
+  ["ext.possam","Possam · Administrativo externo"],
+  ["ext.sore","Sore · Administrativo externo"],
   ["est.ximena","Ximena · Aux administrativo · Mantenimientos"]
 ];
 /* los auxiliares y el mando van con el área administrativa, no con las
@@ -621,7 +623,7 @@ async function arrancar(){
   const NOMBRES={"est.gerencia":"Gerencia","est.subgerencia":"Subgerencia",
     "est.gloria":"Montserrat","est.jenifer":"Jenifer","est.ivan":"Iván",
     "est.patricia":"Patricia","est.jair":"Jair","est.alin":"Alin",
-    "est.ariana":"Ariana","est.proyectos":"Karina","est.ximena":"Ximena","est.jocelyn":"Jocelyn",
+    "est.ariana":"Ariana","est.proyectos":"Karina","ext.possam":"Possam","ext.sore":"Sore","est.ximena":"Ximena","est.jocelyn":"Jocelyn",
     "jesus.acosta":"Jesús"};
   document.getElementById("who").innerHTML="Salir<b>"+
     esc(ses.nombre||NOMBRES[ses.usuario]||ses.usuario)+"</b>";

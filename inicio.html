@@ -87,6 +87,11 @@
         <option value="est.subgerencia">Subgerencia</option>
         <option value="est.gerencia">Gerencia</option>
       </optgroup>
+        <!-- Empresas externas: una cuenta por empresa, no por brigada -->
+        <optgroup label="Externos">
+          <option value="ext.sore">Sore · Administrativo externo</option>
+          <option value="ext.possam">Possam · Administrativo externo</option>
+        </optgroup>
     </select>
 
     <label>Tu clave</label>
@@ -156,6 +161,8 @@ const DESTINOS={
                      "demanda","entregables"],
   "est.jocelyn":    ["captura","programacion","coordinacion","cierre","proyectos",
                      "demanda","levantamientos","cat","entregables"],
+  "ext.sore":        ["dia", "entregables"],
+  "ext.possam":      ["dia", "entregables"],
   "jesus.acosta":   ["entregables"],
   "est.ventas":     ["ventas"],
   "est.gerencia":   ["tablero","supervision","demanda","proyectos","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
@@ -172,6 +179,8 @@ const NOMBRES={"est.jenifer":["Jenifer","Captura"],
  "est.gloria":["Montserrat","Auxiliar administrativo"],
  "est.ximena":["Ximena","Auxiliar administrativo · Mantenimientos"],
  "est.jocelyn":["Jocelyn","Auxiliar administrativo · Gerencia"],
+ "ext.sore":["Sore","Administrativo · Sore (externo)"],
+ "ext.possam":["Possam","Administrativo · Possam (externo)"],
  "jesus.acosta":["Jesús","Auxiliar administrativo"],
  "est.ventas":["Ventas","Cómo van las cuentas"],
  "est.gerencia":["Gerencia",""],"est.subgerencia":["Subgerencia",""]};
