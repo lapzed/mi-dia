@@ -187,20 +187,29 @@
      los componentes; aqui solo va lo que comparten */
   #salida table.comp2 td.act{font-size:11pt;line-height:1.4;text-align:justify}
   #salida table.comp2 td.ph{text-align:center;padding:4px}
-  #salida table.comp2 .fotos{display:flex;gap:2mm;justify-content:center;
+  #salida table.comp2 .evfoto{display:flex;gap:2mm;justify-content:center;
     align-items:flex-start}
   /* el pie va bajo SU foto y centrado con ella, como en el machote */
-  #salida table.comp2 .fotos figure{margin:0;display:flex;flex-direction:column;
+  #salida table.comp2 .evfoto figure{margin:0;display:flex;flex-direction:column;
     align-items:center}
-  #salida table.comp2 .fotos figcaption{font-size:11pt;line-height:1.25;
+  #salida table.comp2 .evfoto figcaption{font-size:11pt;line-height:1.25;
     margin-top:2px;text-align:center;max-width:100%}
-  /* Alto y ancho FIJOS, del informe aprobado: 49 x 65 mm una sola foto,
-     43 x 58 mm cuando van dos a la par. Fijo por dos razones: el informe queda
-     parejo de hoja en hoja, y la caja ocupa su lugar aunque la imagen todavia
-     no haya cargado —si midiera cero, el reparto dejaria pasar mas renglones de
-     los que caben y la hoja recortaria—. `contain` conserva la proporcion. */
-  #salida table.comp2 .fotos img{width:49mm;height:65mm;object-fit:contain}
-  #salida table.comp2 .fotos.par img{width:43mm;height:58mm}
+  /* La foto llena el ancho de su celda y el ALTO es fijo. El alto es lo que
+     manda: casi toda la evidencia viene vertical, asi que subirlo es lo que la
+     ensancha de verdad —una foto 3:4 a 82 mm de alto mide 61 mm de ancho,
+     contra los 49 de antes—. Poner solo mas ancho no serviria: `contain` la
+     dejaria del mismo tamaño con barras a los lados.
+
+     Las medidas van en milimetros y no en porcentaje: dentro de un contenedor
+     flex el 100% no llena la celda, la caja se encoge y la foto sale mas chica
+     que antes —lo probamos—.
+
+     El alto es fijo, no automatico, por dos razones: el informe queda parejo de
+     hoja en hoja, y la caja ocupa su lugar aunque la imagen todavia no haya
+     cargado. Si midiera cero, el reparto dejaria pasar mas renglones de los que
+     caben y la hoja recortaria en silencio. */
+  #salida table.comp2 .evfoto img{width:62mm;height:82mm;object-fit:contain}
+  #salida table.comp2 .evfoto.par img{width:43mm;height:58mm}
   #salida table.comp2 .pieimg{font-size:11pt;margin-top:3px;line-height:1.3}
   #salida table.comp2 .sinfoto{font-size:10pt;color:#8a8a8a;padding:10mm 0}
   #salida table.bit{width:100%;border-collapse:collapse;font-size:11.5px;margin:0 0 4mm}
@@ -2115,7 +2124,11 @@ async function informeDe(x, num, ident, conLog){
      la evidencia no trae un pie por imagen. */
   const celdaFotos = (lista, pies) => {
     if(!lista.length) return `<div class="sinfoto">sin fotografía</div>`;
-    return `<div class="fotos${lista.length>1?" par":""}">` +
+    /* `evfoto` y no `fotos`: esa clase ya la usa la galeria del Reporte de
+       servicios, con un max-width del 47% que le ganaba al ancho de aqui
+       -max-width manda sobre width por mucha especificidad que tenga- y dejaba
+       las fotos a la mitad del tamaño pedido. */
+    return `<div class="evfoto${lista.length>1?" par":""}">` +
       lista.map((f,k)=>`<figure><img src="${f.url}">${
         pies[k] ? `<figcaption>${pies[k]}</figcaption>` : ""}</figure>`).join("") +
       `</div>`;
