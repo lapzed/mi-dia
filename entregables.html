@@ -168,7 +168,7 @@
   #salida .port .elab{font-size:12px;text-align:right;margin:6mm 0 0;font-weight:600}
 
   /* ---- machote largo: protocolo, bitacora de trabajo, indice y conclusiones ---- */
-  #salida .hoja h3.sub2{font-size:12px;font-weight:700;margin:9px 0 3px}
+  #salida .hoja h3.sub2{font-size:12px;font-weight:700;margin:7px 0 3px}
   #salida table.idx{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:5mm}
   #salida table.idx td{padding:7px 0;border-bottom:1px dotted #98a6bb}
   #salida table.idx td.pt{text-align:right;width:16mm;font-weight:700}
@@ -244,7 +244,13 @@
      dé la hoja: es un documento, no una fotografia de apoyo */
   #salida .rej.sola figure{width:100%;height:205mm}
   #salida .rej.sola img{width:100%;height:100%;object-fit:contain}
-  #salida .hoja p.txt{font-size:12px;line-height:1.55;text-align:justify;margin:0 0 7px}
+  /* El protocolo mide 435 mm y dos hojas dan 442: cabe, pero con 7 mm de
+     holgura no habia donde cortar sin que un parrafo se pasara, y acababa en
+     tres hojas con la ultima a un cuarto. Bajando el aire entre parrafos de 7 a
+     4 px se recuperan unos 22 mm —lo que ocupan tres renglones— y el reparto
+     encuentra un corte limpio a la mitad. El tamaño de letra y la interlinea NO
+     se tocan: son los del machote. */
+  #salida .hoja p.txt{font-size:12px;line-height:1.55;text-align:justify;margin:0 0 4px}
   #salida table.log{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:6px}
   #salida table.log th{background:#4A6489;color:#fff;text-align:center;font-size:11px;
     padding:4px;border:1px solid #7d8fa8;letter-spacing:.04em}
