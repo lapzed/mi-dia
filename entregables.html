@@ -1349,6 +1349,148 @@ function hojaLog(x, ident){
    Las actividades y su redaccion salen del informe que la empresa ya entrega;
    no se inventa texto. Lo que cambia por servicio son las cantidades, las
    fechas, el personal y las fotos. */
+/* ---------- el protocolo de actuacion, por coordinacion ----------
+   Del documento "PROTOCOLO DE ACTUACION DURANTE LOS SERVICIOS" del area. Trae
+   el de las tres coordinaciones; aqui va completo el de MANTENIMIENTO. Las
+   otras dos se agregan cuando toque: mientras, `protocoloDe` devuelve el texto
+   general que ya se usaba, para que ningun informe salga sin protocolo.
+
+   Los parrafos que reciben `x` son los que llevan la medicion de ESTA visita
+   junto al rango que pide el protocolo. El rango dice cuanto deberia ser; el
+   dato dice cuanto se encontro. Si no se capturo, la frase se acorta sola. */
+const PROTOCOLO_MANT = [
+ {t:"", p:[`Las actividades que se describen a continuación explican el protocolo de
+   actuación durante nuestro servicio de mantenimiento, cuya finalidad es prevenir y
+   minimizar la probabilidad de fallas mediante el reemplazo o ajuste de aquellos
+   elementos de mayor desgaste o uso en los equipos, a partir de la revisión del estado
+   actual de todos los componentes del sistema de alertamiento sísmico SARMEX ®.`,
+   `Nuestro técnico cuenta con la noción y comprensión sobre el funcionamiento del
+   sistema de recepción de alertamiento sísmico, y se presenta con uniforme limpio,
+   identificaciones oficiales vigentes que acreditan su persona y su equipo de
+   protección sanitaria.`,
+   `El servicio parte de la instalación previa: se verifica el dimensionamiento del
+   inmueble sonorizado y se genera un croquis del mismo.`]},
+
+ {t:"1- Revisión física de los componentes del sistema de alertamiento sísmico SARMEX ®.",
+  p:[`Se inspecciona el estado que guardan el equipo receptor SARMEX PA20, los altavoces,
+    la antena aérea dipolo, la luz estrobo, el amplificador externo, los conectores y el
+    cableado.`,
+   `<b>Equipo receptor SARMEX PA20.</b> Se revisa que el equipo se encuentre libre de
+    objetos ajenos al sistema, sin fracturas, algún daño o suciedad, que esté fijado de
+    forma correcta sin poder moverlo, que sus conectores estén limpios y libres de
+    suciedad, el estado de la conexión de antena al receptor y el estado de la tapa del
+    receptor; el display, el cual debe mostrar texto y dígitos de manera legible; se
+    revisa la operación adecuada de los botones, que el sello de garantía se encuentre en
+    buenas condiciones, y el estado de las baterías y sus terminales. Se limpian con aire
+    comprimido, espuma y trapo las partes plásticas del equipo, y se corrige si es
+    necesario su fijación.`,
+   `<b>Altavoces.</b> Se verifica la orientación correcta para una óptima sonorización y
+    el estado físico del altavoz, evitando que el material esté agrietado, amarillento,
+    golpeado o con quemaduras, que esté conectado al sistema de alertamiento sísmico, así
+    como la sujeción del altavoz. Se limpian con aire comprimido, espuma y trapo las
+    partes plásticas, y se corrige si es necesario su fijación.`,
+   `<b>Luz estrobo.</b> Se examina el estado del dispositivo evitando fisuras en el
+    material, filtraciones o quemaduras, con una sujeción firme, y se verifica su conexión
+    al sistema de alertamiento sísmico. Se limpian con aire comprimido, espuma y trapo las
+    partes plásticas, y se corrige si es necesario su fijación.`,
+   `<b>Amplificador externo.</b> En caso de contar con un amplificador externo se revisa
+    que se encuentre libre de objetos ajenos conectados al sistema de alertamiento
+    sísmico, se inspecciona el estado de la carcasa y las perillas, que el equipo esté
+    libre de suciedad y filtraciones, la charola con una sujeción firme y que se encuentre
+    conectado al sistema. Se limpian con aire comprimido, espuma y trapo las partes
+    plásticas y metálicas, y se corrige si es necesario su fijación.`,
+   `<b>Cableado.</b> Se inspecciona el estado del aislante del cableado, que no se
+    encuentre reseco ni agrietado, y su correcta instalación.`,
+   `<b>Antena aérea dipolo.</b> Se revisa que no cuente con daños por golpes, que el
+    material se encuentre libre de suciedad y con la orientación adecuada garantizando la
+    recepción de la señal del Sistema de Alerta Sísmica Mexicano (SASMEX ®); se comprueba
+    que los conectores de acoplamiento se encuentren correctamente soldados al cobre del
+    cable coaxial y a su vez conectados a la antena, y que el mástil y la antena estén
+    fijados firmemente.`,
+   `De cada componente se toma evidencia fotográfica antes, durante y después de la
+    intervención.`]},
+
+ {t:"2- Revisión de parámetros a componentes del sistema de alertamiento sísmico SARMEX ®.",
+  p:[`Se verifican los parámetros de operación del equipo receptor SARMEX PA20, los
+    altavoces, la antena aérea dipolo, la luz estrobo y el amplificador externo, para
+    asegurar el funcionamiento correcto e integral del sistema de alertamiento sísmico.`,
+   x=>`<b>Equipo receptor SARMEX PA20.</b> Se verifica la fecha, la hora, el canal de
+    operación${limpio(x.canal)?` —se encuentra en el <b>canal ${esc(limpio(x.canal))}</b>—`:""},
+    la calidad e intensidad de la señal${limpio(x.senal_barras)?` —<b>${esc(limpio(x.senal_barras))} barras</b>—`:""}
+    y el historial de eventos. Mediante la conexión de un equipo de cómputo se realiza la
+    descarga de los 25 registros, capacidad de memoria del equipo receptor SARMEX, y de
+    los parámetros de configuración del equipo en archivos de datos.`,
+   `Se reprograman los parámetros de operación del equipo receptor, dejando el canal de
+    recepción de mayor ganancia y garantizando la calidad e intensidad de la señal. Se
+    revisa que cuente con la última versión del software “SARMEX DATA PROGRAM”, versión
+    para MDreieck, mediante el menú de configuración.`,
+   `Se verifican los valores de carga con la medición de los voltajes de alimentación de
+    línea, fuente y batería de respaldo. La entrega de voltaje de la línea deberá estar en
+    un rango de <b>85 a 264 Vca</b>. El valor de la fuente de alimentación deberá estar en
+    un rango de <b>13.3 Vcc a 13.6 Vcc</b>. Se comprueba el estado de la batería de
+    respaldo, cuyo voltaje debe estar en un rango de <b>12.2 Vcc a 12.6 Vcc</b>.`,
+   x=>{
+     const m=[];
+     if(limpio(x.volt_bateria)) m.push(`batería de respaldo <b>${esc(limpio(x.volt_bateria))} Vcd</b>`);
+     if(limpio(x.volt_linea))   m.push(`línea de alimentación <b>${esc(limpio(x.volt_linea))} V</b>`);
+     if(limpio(x.amperaje))     m.push(`amperaje de salida <b>${esc(limpio(x.amperaje))} A</b>`);
+     return m.length ? `En esta visita se midió: ${m.join(", ")}.` : "";
+   },
+   `Es importante mencionar que el voltaje medido es el suministrado mediante la línea
+    principal que conecta al equipo.`,
+   `<b>Altavoces.</b> El parámetro por verificar en los altavoces es la potencia, donde
+    P = V × A, siendo de <b>10.1 V</b> y <b>2 A</b> los valores de salida del equipo.`,
+   `<b>Antena aérea dipolo.</b> Los parámetros o indicadores sobre el funcionamiento
+    correcto de la antena son visuales y auditivos respecto de su orientación ideal; por
+    medio del equipo receptor SARMEX PA20 se analizan estos parámetros de acuerdo con la
+    orientación de la antena, y se selecciona el canal con mayor ganancia buscando un
+    máximo de señal con un audio limpio.`,
+   `<b>Luz estrobo.</b> Se revisa que el voltaje de entrada a la luz estrobo sea de
+    <b>127 Vca</b> para una óptima iluminación, alertando al personal por su intensidad
+    luminosa.`,
+   `<b>Amplificador externo.</b> Se revisa el voltaje de alimentación de línea y el
+    voltaje de salida para evitar averías en cualquier dispositivo conectado a él,
+    buscando valores de <b>127 Vca</b> en alimentación de línea y <b>70 Vca</b> de
+    salida.`]},
+
+ {t:"3- Revisión del funcionamiento de los componentes del sistema de alertamiento sísmico SARMEX ®.",
+  p:[`Se verifica el funcionamiento de todos los componentes individualmente y en conjunto,
+    para garantizar la continuidad en la operatividad del sistema de alertamiento sísmico
+    SARMEX PA20.`,
+   `<b>Equipo receptor SARMEX PA20.</b> Se realizan pruebas de sonido, de simulacro, de
+    sirena y de activación de alerta sísmica sin sonido, con el equipo alimentado con
+    energía del tomacorriente de 120 Vca y con batería; en caso de contar con un
+    amplificador externo, se verifica su operación con las diferentes funciones de
+    simulacro, sirena y activación de alerta sísmica.`,
+   `<b>Altavoces.</b> Se comprueba el funcionamiento del altavoz de forma independiente
+    cerrando circuito con una batería de 12 Vcc, la cual debe emitir un “clic” que confirma
+    su funcionamiento; posteriormente se procede con la emisión de sonido por medio de las
+    pruebas de funcionalidad del equipo receptor SARMEX PA20, y se varía la intensidad de
+    audio con el motivo de percibir esos cambios por los altavoces.`,
+   `<b>Luz estrobo.</b> Al igual que los altavoces, este aditamento se verifica
+    encendiéndolo independientemente y en conjunto con el resto de los componentes del
+    sistema de alertamiento sísmico, verificando que encienda y apague en los tiempos de
+    operatividad del sistema.`,
+   `<b>Amplificador externo.</b> Se realizan pruebas para verificar el encendido y apagado
+    automático del amplificador, se verifica el funcionamiento de cada una de sus entradas
+    y salidas, y se regula la intensidad de audio para verificar los cambios en el volumen
+    del audio.`]},
+
+ {t:"4- Cierre del servicio.",
+  p:[`Se verifica toda la evidencia fotográfica —antes, durante y después— y el croquis del
+    sembrado del sistema de recepción de alertamiento sísmico; se redacta de forma correcta
+    el formato según el servicio y se recaba la firma de visto bueno por parte del
+    responsable del inmueble, verificando que no exista ninguna objeción al servicio. La
+    información es enviada y validada por parte del coordinador responsable.`]}
+];
+
+/* Por ahora solo esta capturado el de mantenimiento. Lo que no este aqui usa el
+   texto general, para que ningun informe salga sin protocolo. */
+const PROTOCOLOS = {MANT: PROTOCOLO_MANT};
+function protocoloDe(coord){
+  return PROTOCOLOS[(coord||"").toUpperCase()] || PROTOCOLO;
+}
+
 const PROTOCOLO = [
  {t:"", p:[`Las actividades que se describen a continuación explican el protocolo de actuación
    durante nuestro servicio de mantenimiento, cuya finalidad es prevenir y minimizar la
@@ -1517,7 +1659,7 @@ async function informeDe(x, num, ident, conLog){
      apartado es mucho mas largo que los otros dos. El titulo nunca se queda
      solo al final de una hoja: viaja pegado a su primer parrafo. */
   const piezas=[];
-  PROTOCOLO.forEach(b=>{
+  protocoloDe(x.coord).forEach(b=>{
     b.p.forEach((t,k)=>{
       const txt = typeof t==="function" ? t(x) : t;
       const html=(k===0&&b.t?`<h3 class="sub2">${b.t}</h3>`:"")+`<p class="txt">${txt}</p>`;
