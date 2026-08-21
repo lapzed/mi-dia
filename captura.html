@@ -206,9 +206,11 @@
 <div class="modal" id="mDup" style="display:none">
   <div class="box" style="max-width:860px;max-height:calc(100vh - 40px);overflow:auto">
     <h2>Servicios repetidos</h2>
-    <p>Se agrupan por TKT dentro de cada coordinación; los que no traen TKT, por
-       sitio y fecha. <b>Revisa cada grupo y borra solo el que sobre</b> — el que
-       tenga evidencia no se puede borrar, y es el que conviene conservar.</p>
+    <p>Se agrupan por sitio dentro de cada coordinación: con TKT, el mismo sitio
+       bajo el mismo ticket; sin TKT, el mismo sitio en la misma fecha. Una carga
+       masiva —un ticket con muchas sucursales— no cuenta como repetida.
+       <b>Revisa cada grupo y borra solo el que sobre</b> — el que tenga evidencia
+       no se puede borrar, y es el que conviene conservar.</p>
     <div id="dupCuerpo"><div class="load">Buscando…</div></div>
     <button style="width:100%;justify-content:center;margin-top:12px"
             onclick="document.getElementById('mDup').style.display='none'">Cerrar</button>
@@ -818,6 +820,14 @@ async function guardar(){
   if(co==="CAT") CATF.forEach(([id])=>ponCampo(id));
   if(CON_EQUIPO.indexOf(co)>=0) EQUIPO.forEach(([id])=>ponCampo(id));
 
+  /* Antes de crear: si ese servicio ya está capturado, ponerlo a la vista. El
+     duplicado no nace de la base, nace de no ver lo que ya está. No bloquea
+     —a veces sí son dos visitas al mismo sitio— pero obliga a mirarlo una vez. */
+  if(!editando){
+    const yaAviso = await avisarSiRepetido(fila, msg);
+    if(yaAviso) return;
+  }
+
   btn.disabled=true; btn.textContent="Guardando…";
 
   /* corrigiendo: se escribe sobre el servicio que ya existe */
@@ -864,6 +874,9 @@ async function guardar(){
       }
     }
     anotar("ALTA REGISTRO", "ID="+fila.id, fila);
+    /* Se olvida el aviso ya dado: si se vuelve a tocar el botón con los mismos
+       datos hay que avisar otra vez, porque ahora sí habría dos. */
+    AVISADO = null;
     msg.innerHTML='<div class="bien">Dado de alta como <b>'+esc(co)+' · id '+esc(fila.id)+
       '</b>'+(limpio(fila.tkt)?' · TKT '+esc(fila.tkt):"")+
       '. Ya lo ve programación.</div>';
@@ -1357,16 +1370,79 @@ function anotar(accion, detalle, x){
 
 /* ---------- servicios repetidos ----------
    No es que el sistema duplique: al no ver lo ya capturado se vuelve a
-   capturar. Por eso esto MUESTRA y la persona elige. */
+   capturar. De ahí las dos mitades de esto: el aviso al dar de alta, que ataja
+   el repetido antes de nacer, y el botón, que limpia los que ya están.
+   Las dos usan la MISMA `claveDup`: si alguna vez cambia lo que cuenta como
+   repetido, cambia en los dos lados a la vez. */
 let DUP = [], DUP_PARCIAL = false;
+
+/* La llave sobre la que ya se avisó. Al segundo clic pasa —y si de mientras se
+   cambia el sitio o el TKT, la llave es otra y vuelve a avisar. */
+let AVISADO = null;
+
+/* Los que ya están capturados y son, según `claveDup`, este mismo servicio.
+   Se traen por TKT o por fecha —lo que la base sí sabe filtrar— y el resto de
+   la comparación se hace aquí, con la misma llave. */
+async function yaCapturado(f){
+  if(!igualaSitio(f.nombre)) return [];        /* sin sitio no hay con qué cruzar */
+  const sel = "servicios?select=id,coord,tkt,nombre,fecha_servicio,status,jen_user,jen_ts"+
+              "&coord=eq."+encodeURIComponent(f.coord);
+  let q;
+  if(limpio(f.tkt))         q = sel+"&tkt=eq."+encodeURIComponent(limpio(f.tkt))+"&limit=300";
+  else if(f.fecha_servicio) q = sel+"&fecha_servicio=eq."+
+                                encodeURIComponent(f.fecha_servicio)+"&limit=500";
+  else return [];                              /* ni TKT ni fecha: nada sólido */
+  const k = claveDup(f);
+  const d = await api(q);
+  return (d||[]).filter(x=>claveDup(x)===k);
+}
+
+/* Devuelve true si avisó —y entonces el alta se detiene por este clic—. */
+async function avisarSiRepetido(fila, msg){
+  const clave = claveDup(fila);
+  if(AVISADO === clave) return false;          /* ya se le enseñó; ahora sí pasa */
+  let repes = [];
+  /* Si la lectura falla no se detiene el alta: capturar es lo importante, el
+     aviso es una cortesía. */
+  try{ repes = await yaCapturado(fila) }catch(e){ return false }
+  if(!repes.length) return false;
+
+  AVISADO = clave;
+  msg.innerHTML =
+    '<div class="aviso"><b>Este servicio ya está capturado.</b>' +
+    '<table class="dupTb"><tbody>' + repes.slice(0,6).map(function(x){
+      return '<tr><td><b>'+esc(x.coord)+' · id '+esc(x.id)+'</b>'+
+        '<div class="dupSub">'+esc((x.nombre||"").slice(0,40))+'</div></td>'+
+        '<td>'+esc(x.fecha_servicio||"—")+'</td>'+
+        '<td><span class="tag">'+esc(x.status||"")+'</span></td>'+
+        '<td class="dupSub">'+esc(limpio(x.jen_user)||"—")+'</td>'+
+        '<td><button class="mini" onclick="abrirParaEditar(\''+esc(x.coord)+'\','+x.id+
+        ')">Abrir ése</button></td></tr>';
+    }).join("") + '</tbody></table>' +
+    '<div style="margin-top:8px">Si de verdad es otro servicio, vuelve a tocar '+
+    '<b>Dar de alta el servicio</b> y se crea.</div></div>';
+  return true;
+}
+
+/* Espacios de más y mayúsculas no hacen a un sitio distinto. */
+function igualaSitio(s){
+  return String(s==null?"":s).normalize("NFD").replace(/[̀-ͯ]/g,"")
+    .toUpperCase().replace(/\s+/g," ").trim();
+}
 
 function claveDup(x){
   const co = String(x.coord||"").toUpperCase();
-  const tk = String(x.tkt||"").trim();
-  /* con TKT basta el ticket del cliente; sin el, el sitio y el dia */
-  return tk ? co+"|TKT|"+tk.toUpperCase()
-            : co+"|SIT|"+String(x.nombre||"").trim().toUpperCase()+
-                    "|"+String(x.fecha_servicio||"");
+  /* `limpio` y no un trim: un "-" o un "N/A" en el TKT es un hueco, no un
+     ticket, y tratarlo como ticket separa dos renglones que sí son el mismo. */
+  const tk = limpio(x.tkt).toUpperCase();
+  const si = igualaSitio(x.nombre);
+  /* El sitio SIEMPRE va en la llave. El TKT solo no basta: en carga masiva un
+     mismo ticket cubre las cuarenta sucursales de un cliente, y agrupar por
+     ticket haría pasar una carga entera por duplicada.
+     Con TKT no se pide la fecha —si se recapturó con otra fecha sigue siendo el
+     mismo servicio—; sin TKT, la fecha es lo único que queda para separarlos. */
+  return tk ? co+"|TKT|"+tk+"|"+si
+            : co+"|SIT|"+si+"|"+String(x.fecha_servicio||"");
 }
 
 async function buscarDuplicados(){
@@ -1416,10 +1492,11 @@ function pintarDup(){
   c.innerHTML = aMedias +
     '<p><b>'+DUP.length+'</b> grupos · <b>'+total+'</b> renglones de más.</p>' +
     DUP.map(function(g, gi){
-      const porTkt = String(g[0].tkt||"").trim();
+      const porTkt = limpio(g[0].tkt);
       return '<div class="dupG"><div class="dupT">'+
-        (porTkt ? "TKT "+esc(porTkt) : esc(g[0].nombre||"(sin sitio)")+
-                  " · "+esc(g[0].fecha_servicio||"sin fecha"))+
+        esc(g[0].nombre||"(sin sitio)") +
+        (porTkt ? " · TKT "+esc(porTkt)
+                : " · "+esc(g[0].fecha_servicio||"sin fecha")) +
         ' <span class="tag">'+esc(g[0].coord)+'</span></div>' +
         '<table class="dupTb"><tbody>' +
         g.map(function(x, xi){
