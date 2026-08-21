@@ -204,6 +204,11 @@ function marcarUso(){
 let ses=sesionVigente(JSON.parse(localStorage.getItem("md_demanda")||
   localStorage.getItem("md_web")||"null"));
 let lunes=null, filas=[], TIEMPOS=[], TECNICOS=[], sel=null;
+/* El inventario de cada inmueble, por cliente+sitio. Lo llena la ficha del
+   sitio con cada visita, y sirve para estimar cuando el servicio todavia no
+   dice cuantas piezas hay —que es lo normal al programar—. */
+let FICHAS={};
+const llaveSitio = x => (x.dependencia||"") + "\u0000" + (x.nombre||"");
 
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
   Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
@@ -279,6 +284,17 @@ function num(v){
   const m=String(v==null?"":v).replace(",",".").match(/-?\d+(\.\d+)?/);
   return m?parseFloat(m[0]):0;
 }
+/* Lo que el servicio no diga, lo dice la ficha del sitio. El servicio manda
+   cuando trae algo: en esa visita pueden cambiar las piezas, y ese dato es mas
+   fresco. Un "N/A" o un guion cuentan como no dicho. */
+function dato(x, campo){
+  const v = x[campo];
+  const t = String(v==null?"":v).trim();
+  if(t && !/^(-+|n\/?a|na|s\/d)$/i.test(t)) return v;
+  const f = FICHAS[llaveSitio(x)];
+  return (f && f[campo]!=null) ? f[campo] : v;
+}
+
 function duracion(x){
   let total=0;
   const co=String(x.coord||"").toUpperCase();
@@ -291,11 +307,11 @@ function duracion(x){
     switch(String(t.tipo_calc||"").toUpperCase()){
       case "FIJO": total+=min; break;
       case "PRESENCIA": {
-        const v=String(x[campo]==null?"":x[campo]).trim().toUpperCase();
+        const v=String(dato(x,campo)==null?"":dato(x,campo)).trim().toUpperCase();
         if(v && v!=="NA" && v!=="N/A" && v!=="NO") total+=min;
         break;
       }
-      case "CANTIDAD": total+=num(x[campo])*min; break;
+      case "CANTIDAD": total+=num(dato(x,campo))*min; break;
       case "CATEGORIA":
         if(String(x.tipo_inmueble||"").toUpperCase()===String(t.campo||"").toUpperCase())
           total+=min;
@@ -332,6 +348,15 @@ async function cargar(){
     const cols=fijas.concat([...new Set(deTiempos)]).join(",");
     filas=await api("servicios?select="+cols+
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+"&limit=2000");
+    /* El inventario del inmueble, para lo que el servicio no diga. Si falla no
+       pasa nada: la estimacion sale con lo que traiga el servicio, como antes. */
+    try{
+      const fichas = await api("sitios?select=dependencia,nombre,inventario");
+      FICHAS = {};
+      (fichas||[]).forEach(function(f){
+        if(f && f.inventario) FICHAS[llaveSitio(f)] = f.inventario;
+      });
+    }catch(e){ FICHAS = {} }
     pintar();
   }catch(e){
     document.getElementById("rejilla").innerHTML=
