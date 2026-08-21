@@ -661,7 +661,7 @@ async function cargar(){
       "ejecutivo,correo,cita_confirmada,dia_creacion,tecnico,auxiliar,vehiculo,"+
       "cp,localidad,municipio,estado,equipo,serie,materiales,obs_captura,"+
       "log_estado,log_saltos,log_ultimo,canal,senal_barras,volt_fuente,obs_medicion,"+
-      "volt_salida,coordinador,software_ver,ubicaciones,lux,"+
+      "volt_salida,coordinador,software_ver,ubicaciones,"+
       "avance_tec,avance_coord,avance_ts"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
@@ -1003,8 +1003,7 @@ const MEDICIONES = [["volt_linea","Alimentación de línea (85 a 264)","Vca","12
   ["volt_fuente","Fuente de alimentación (13.3 a 13.6)","Vcc","13.46"],
   ["volt_bateria","Batería de respaldo (12.2 a 12.6)","Vcc","12.40"],
   ["volt_salida","Salida a altavoces (nominal 10.1)","V","11.54"],
-  ["amperaje","Amperaje de salida","A","1.76"],
-  ["lux","Lux del estrobo (a 1 metro)","Lx","71.1x10"]];
+  ["amperaje","Amperaje de salida","A","1.76"]];
 
 /* Los tres voltajes que el protocolo exige medir en un mantenimiento. El
    amperaje no entra: se toma de la salida y no siempre hay como medirlo. */

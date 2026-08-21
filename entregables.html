@@ -981,8 +981,7 @@ const DATOS_MED = [["volt_linea","Alimentación de línea (Vca) · 85 a 264","12
   ["volt_fuente","Fuente de alimentación (Vcc) · 13.3 a 13.6","13.46"],
   ["volt_bateria","Batería de respaldo (Vcc) · 12.2 a 12.6","12.40"],
   ["volt_salida","Salida a altavoces (V) · nominal 10.1","11.54"],
-  ["amperaje","Amperaje de salida (A)","1.76"],
-  ["lux","Lux del estrobo, a 1 m","71.1x10"]];
+  ["amperaje","Amperaje de salida (A)","1.76"]];
 /* Estos dos van siempre debajo del equipo receptor, asi que no se preguntan:
    heredan su ubicacion. */
 const SIN_UBICACION = ["AMPLIFICADOR", "UPS"];
@@ -1913,12 +1912,13 @@ const COMPONENTES = [
    ["Revisión física.", `Se examinó el estado del dispositivo encontrándolo en buenas
      condiciones, con una sujeción firme, se verificó su conexión al sistema receptor de
      alertamiento sísmico SARMEX PA20.`, ["Estado inicial", "Limpieza estrobo"]],
+   /* El machote trae aqui la medicion de Lux, pero no se toma en todos los
+      servicios, asi que no se pide ni se escribe: una frase con el dato en
+      blanco es peor que no tenerla. */
    ["Revisión parámetros.", x=>`Se revisó el voltaje de entrada de la luz estrobo${
        limpio(x.volt_linea)?`, siendo de ${esc(limpio(x.volt_linea))} Vca`:""} (Importante
-     mencionar que el voltaje medido es suministrado por medio de la fuente alimentación)${
-       limpio(x.lux)?`, también se midieron los Lux teniendo valores de ${esc(limpio(x.lux))} Lx`:""}.
-     Se hace mención de que la medida de Lux del estrobo se realiza a 1 metro de distancia
-     y se acerca al estrobo para la toma de evidencia fotográfica.`,
+     mencionar que el voltaje medido es suministrado por medio de la fuente
+     alimentación).`,
      [x=>limpio(x.volt_linea)?`Voltaje de entrada ${esc(limpio(x.volt_linea))} Vca`:NADA]],
    ["Revisión funcionamiento.", `Se verificó el encendido independientemente de la luz
      estrobo, se comprobó el encendido y apagado en los tiempos de operatividad del sistema
