@@ -281,14 +281,16 @@
   /* El reporte que firma el cliente es un documento, no una foto de apoyo: su
      hoja usa margenes de 10 mm en vez de 20, asi la imagen pasa de 176 a 196 mm
      de ancho. El resto de las hojas no se toca. */
-  #salida .hoja.rep{padding-left:10mm;padding-right:10mm}
-  #salida .hoja.rep .pie{left:10mm;right:10mm}
+  #salida .hoja.rep{padding:12mm 8mm 14mm}
+  #salida .hoja.rep .pie{left:8mm;right:8mm;bottom:5mm}
+  #salida .hoja.rep .npag{right:8mm;bottom:10mm}
+  #salida .hoja.rep h2.sec{margin-bottom:3mm}
   /* Sin flex ni alto al 100%: la figura de la rejilla es un contenedor flexible
      con `flex:1; min-height:0` en la imagen, y ahi un `height:100%` la dejaba
      colapsar a un pellizco. Aqui la imagen manda: ancho completo, alto libre y
      un tope para que no se pase de la hoja. */
   #salida .rej.sola figure{width:100%;height:auto;display:block}
-  #salida .rej.sola img{width:100%;height:auto;max-height:205mm;flex:none;
+  #salida .rej.sola img{width:100%;height:auto;max-height:222mm;flex:none;
     object-fit:contain}
   /* El protocolo mide 435 mm y dos hojas dan 442: cabe, pero con 7 mm de
      holgura no habia donde cortar sin que un parrafo se pasara, y acababa en
@@ -701,7 +703,14 @@ async function cargar(){
   let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,tipo_servicio,"+
         "fecha_servicio,fecha_atencion,horario_atencion,tecnico,auxiliar,personal_atiende,"+
         "telefono,obs_coord,requerimientos,equipo,serie,"+
-        "canal,senal_barras,log_estado,log_saltos,log_ultimo&status=eq.ATENDIDO"+
+        "canal,senal_barras,log_estado,log_saltos,log_ultimo,"+
+  /* Sin estas, el panel llegaba vacio cada vez y el informe escribia "no se
+     registro" sobre datos que SI estaban guardados. Se guardaban y no se
+     leian. */
+  "volt_linea,volt_fuente,volt_bateria,volt_salida,amperaje,obs_medicion,"+
+  "coordinador,software_ver,ubicaciones,"+
+  "plasticas,aluminio,eliptica,bocina_plafon,estrobo,antena,amplificador,ups"+
+  "&status=eq.ATENDIDO"+
         "&order=fecha_atencion.desc,dependencia";
   if(cli) q+="&dependencia=eq."+encodeURIComponent(cli);
   if(co)  q+="&coord=eq."+co;
@@ -1826,7 +1835,7 @@ function hojaLog(x, ident){
        ? `En la revisión del log de eventos de <b>${esc(sitio)}</b> se observa que todos los tonos fueron recibidos de manera continua cada 3 horas, por lo que la operación del receptor es óptima.`
        : `En la revisión del log de eventos de <b>${esc(sitio)}</b> se observan <b>${cont}</b> tono(s) no registrado(s) dentro del historial; el resto se recibió de manera continua cada 3 horas.`);
 
-  const detalle=hoja(`<h2 class="sec" style="text-align:center">DETALLE DE BITÁCORA DE EVENTOS</h2>
+  const detalle=(`<h2 class="sec" style="text-align:center">DETALLE DE BITÁCORA DE EVENTOS</h2>
     <p class="txt">Los sistemas receptores de alertamiento sísmico SARMEX ® se encuentran operando bajo la
       frecuencia de transmisión de la señal del Sistema de Alerta Sísmica Mexicano (SASMEX ®), que es
       propiedad del Gobierno de la Ciudad de México.</p>
@@ -1842,14 +1851,18 @@ function hojaLog(x, ident){
     <p class="txt">Es importante hacer mención que un horario desfasado no repercute en la operación del equipo
       receptor SARMEX ® ni en su activación.</p>`);
 
-  if(!ls) return detalle;
+  if(!ls) return hoja(detalle);
   const mitad=13, izq=ls.slice(0,mitad), der=ls.slice(mitad);
   const celda=e=>e?`<div>${e.fecha}<span class="ln">${e.linea}</span></div>`:"";
   const filas=izq.map((e,i)=>`<tr>
       <td class="${e.falta?"falta":""}">${celda(e)}${e.falta?'<div class="ln"><b>tono no registrado</b></div>':""}</td>
       <td class="${der[i]&&der[i].falta?"falta":""}">${celda(der[i])}${der[i]&&der[i].falta?'<div class="ln"><b>tono no registrado</b></div>':""}</td>
     </tr>`).join("");
-  return detalle + hoja(`<table class="log"><tr><th colspan="2">REGISTRO DE EVENTOS</th></tr>${filas}</table>`);
+  /* El detalle y la tabla de los 25 tonos van juntos si caben en una hoja; se
+     mide, como todo lo demas. Si no cupieran, el reparto los separa solo. */
+  const tabla = `<table class="log"><tr><th colspan="2">REGISTRO DE EVENTOS</th></tr>${filas}</table>`;
+  return repartirMixto([{k:null, h:detalle}, {k:null, h:tabla}], {})
+           .map(h => hoja(h)).join("");
 }
 
 /* ---------- el machote largo, el de Banjercito ----------
