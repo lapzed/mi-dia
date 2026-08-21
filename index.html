@@ -2115,9 +2115,15 @@ async function guardarCierre(s, modo, com){
     const b = parseInt(cie.log.barras, 10);
     if(!isNaN(b)) body.senal_barras = b;
   }
+  /* La evidencia se registra a nombre de la BRIGADA del servicio cuando quien
+     sube es de una empresa externa: su administrativo se llama "Sore", pero la
+     política pide `es_mio(tecnico)` sobre sus brigadas —"Sore Externo 1"— y así
+     la subida se rechazaba. Para un técnico no cambia nada: es su propio nombre. */
+  const firmaEv = (ses && ses.rol === "EXTERNO" && limpio(s.tecnico))
+                  ? String(s.tecnico).trim() : tecnico;
   const item={id:s.id, coord:s.coord, tkt:s.tkt||"", body:body, nota:com, modo:modo,
               obra:s.obra||"", dia_n:s.dia_n||0,
-              tecnico:tecnico, ts:new Date().toISOString().slice(0,19).replace("T"," ")};
+              tecnico:firmaEv, ts:new Date().toISOString().slice(0,19).replace("T"," ")};
   item.campos = cie._bloques.map(b=>[b.campo, b.tipo]);
   cie._bloques.forEach(b=>{ item[b.campo]=cie[b.campo].map(f=>f.blob) });
   /* el inventario: cada foto viaja sabiendo de que pieza es —el informe la
