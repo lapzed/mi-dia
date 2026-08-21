@@ -953,8 +953,11 @@ async function precargarDelSitio(x){
   }
 }
 
-/* Guardar la ficha con lo que quedo del servicio. Se manda como upsert: si el
-   sitio ya tenia ficha se actualiza, y si no, se crea. */
+/* Guardar la ficha con lo que quedo del servicio. Se ACTUALIZA, no se inserta:
+   `sitios` es el catalogo de inmuebles y su llave -`sitio_id`- la asigna otro
+   proceso, asi que dar de alta desde aqui dejaria renglones que ese proceso no
+   reconoce. Si el sitio no esta en el catalogo, no pasa nada: no habra ficha
+   que precargar y ya. */
 async function guardarFicha(x){
   if(!(x.dependencia||"").trim() || !(x.nombre||"").trim()) return;
   const inv = {};
@@ -970,10 +973,12 @@ async function guardarFicha(x){
   if(limpio(x.telefono)) cuerpo.telefono = x.telefono;
   const dia = x.fecha_atencion || x.fecha_servicio;
   if(limpio(dia)) cuerpo.ultima_visita = dia;
+  delete cuerpo.dependencia; delete cuerpo.nombre;   // son el filtro, no el dato
   try{
-    await api("sitios", {method:"POST",
-      headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
-      body:JSON.stringify(cuerpo)});
+    await api("sitios?dependencia=eq." + encodeURIComponent(x.dependencia) +
+              "&nombre=eq." + encodeURIComponent(x.nombre),
+      {method:"PATCH", headers:{Prefer:"return=minimal"},
+       body:JSON.stringify(cuerpo)});
     fichas[llaveSitio(x)] = undefined;      // que se relea la proxima vez
   }catch(e){ /* la ficha es un extra: si falla, el servicio ya quedo guardado */ }
 }
