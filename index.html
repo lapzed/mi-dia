@@ -2266,9 +2266,12 @@ async function arrancarSesion(){
     return;
   }
   if(ses.rol==="ADMINISTRATIVO"){ location.href="entregables.html"; return }
-  /* Esta pantalla es de tecnicos. Si la sesion es de otra cosa —una estacion,
-     ventas— no se entra prestado: se pide la clave del tecnico. */
-  if(ses.rol!=="TECNICO"){
+  /* Esta pantalla es de tecnicos, y tambien de los administrativos de las
+     empresas externas: ellos llevan los servicios de sus brigadas y los cierran
+     desde aqui. Lo que ven lo decide la base -es_mio(tecnico) sobre sus alias-,
+     no esta pantalla. Cualquier otra sesion —una estacion, ventas— no entra
+     prestada: se pide la clave del tecnico. */
+  if(ses.rol!=="TECNICO" && ses.rol!=="EXTERNO"){
     ses=null; localStorage.removeItem("md_tec");
     document.getElementById("mTec").style.display="flex";
     llenarUsuarios();

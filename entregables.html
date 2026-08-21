@@ -556,8 +556,6 @@ const ESTACIONES=[
   ["est.patricia","Patricia · Mantenimientos"], ["est.jair","Jair · Levantamientos"],
   ["est.alin","Alin · Instalaciones"], ["est.proyectos","Karina · Proyectos especiales"],
   ["est.ariana","Ariana · CAT"],
-  ["ext.possam","Possam · Administrativo externo"],
-  ["ext.sore","Sore · Administrativo externo"],
   ["est.ximena","Ximena · Aux administrativo · Mantenimientos"]
 ];
 /* los auxiliares y el mando van con el área administrativa, no con las
@@ -578,10 +576,17 @@ async function llenarUsuarios(){
     /* los que ya vienen con etiqueta propia no se repiten */
     const puestos=ADMIN_FIJOS.map(([u])=>u);
     const adm=l.filter(u=>u.rol==="ADMINISTRATIVO" && puestos.indexOf(u.usuario)<0);
+    /* Los externos van en su propio grupo y se sacan por ROL, no de una lista
+       escrita a mano: así el próximo aparece solo. Y no van con las
+       coordinaciones, que no es lo que son. */
+    const ext=l.filter(u=>u.rol==="EXTERNO");
     sel.innerHTML='<option value="">Elige tu nombre…</option>'+
       '<optgroup label="Área administrativa">'+
         adm.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("")+
         fijos+'</optgroup>'+
+      (ext.length ? '<optgroup label="Empresas externas">'+
+        ext.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("")+
+        '</optgroup>' : '')+
       '<optgroup label="Coordinaciones">'+est+'</optgroup>';
   }catch(e){
     // sin conexión igual se puede entrar: las estaciones no dependen de la consulta
