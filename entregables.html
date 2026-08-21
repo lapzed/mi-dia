@@ -377,9 +377,10 @@
 <!-- el logo del cliente se pide una sola vez y queda para siempre -->
 <div class="modal" id="mLogo" style="display:none">
   <div class="box">
-    <h2>Falta el logo de <span id="logoCli"></span></h2>
-    <p>Se guarda una sola vez y de aquí en adelante el informe de este cliente
-       ya lo trae. Conviene un PNG con fondo transparente.</p>
+    <h2>Logo de <span id="logoCli"></span></h2>
+    <p>Se guarda y de aquí en adelante el informe de este cliente ya lo trae; si
+       ya había uno, éste lo reemplaza. Va al centro de la portada, así que
+       conviene un PNG con fondo transparente y del mayor tamaño que tengas.</p>
     <input id="logoFile" type="file" accept="image/*">
     <div class="aviso" id="logoErr" style="display:none"></div>
     <button id="logoOmitir" style="width:100%;justify-content:center">
@@ -1324,16 +1325,33 @@ async function logoDe(cliente){
 async function subirLogo(cliente, file){
   const k = claveCliente(cliente);
   // se normaliza a un alto fijo para que no baile de un informe a otro
-  const img = await createImageBitmap(file);
-  const alto = 150, ancho = Math.round(img.width * alto / img.height);
+  let img;
+  try{ img = await createImageBitmap(file) }
+  catch(e){ throw new Error("no se pudo leer la imagen; prueba con un PNG o JPG normal") }
+  /* 600 px de alto: en la portada el logo mide 45 mm, y a los 150 px de antes
+     eso daban 85 puntos por pulgada —se veia pixeleado al imprimir—. Se
+     conserva la transparencia: la hoja es blanca y el PNG cae limpio. */
+  const alto = 600, ancho = Math.max(1, Math.round(img.width * alto / img.height));
   const c = document.createElement("canvas");
   c.width = ancho; c.height = alto;
   c.getContext("2d").drawImage(img, 0, 0, ancho, alto);
   const blob = await new Promise(r=>c.toBlob(r, "image/png"));
-  const r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${CARPETA_LOGOS}/${k}.png`,
-    {method:"POST", headers:Object.assign({},hdr(),{"Content-Type":"image/png","x-upsert":"true"}),
-     body:blob});
-  if(!r.ok) throw new Error("no se pudo guardar el logo ("+r.status+")");
+
+  const ruta = `${SUPA_URL}/storage/v1/object/${BUCKET}/${CARPETA_LOGOS}/${k}.png`;
+  const cab = Object.assign({},hdr(),{"Content-Type":"image/png","x-upsert":"true"});
+  let r = await fetch(ruta, {method:"POST", headers:cab, body:blob});
+  /* POST sobre un objeto que ya existe contesta 409: para reemplazar hay que
+     usar PUT. Esto es lo que hacia parecer que el archivo estaba mal cuando lo
+     que pasaba es que el cliente ya tenia logo. */
+  if(!r.ok && (r.status === 409 || r.status === 400))
+    r = await fetch(ruta, {method:"PUT", headers:cab, body:blob});
+  if(!r.ok){
+    let dice = "";
+    try{ dice = (await r.text()).slice(0,140) }catch(e){}
+    throw new Error("no se pudo guardar el logo (" + r.status +
+      (r.status===403 ? "): tu cuenta no tiene permiso de subir logos"
+                      : ")" + (dice ? " · " + dice : "")));
+  }
   logos[k] = await new Promise(res=>{ const f=new FileReader();
     f.onload=()=>res(f.result); f.readAsDataURL(blob) });
   return logos[k];
