@@ -97,8 +97,12 @@
 
   .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
     display:flex;align-items:center;justify-content:center;padding:18px}
+  /* Alto maximo y barra propia: con el panel de datos abierto la ventana
+     crecia mas que la pantalla y los botones quedaban fuera, sin manera de
+     bajar hasta ellos. */
   .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
-    padding:20px;max-width:400px;width:100%}
+    padding:20px;max-width:400px;width:100%;
+    max-height:calc(100vh - 36px);overflow-y:auto;overscroll-behavior:contain}
   .box h2{margin:0 0 3px;font-size:17px}
   .box p{margin:0 0 14px;font-size:12.5px;color:var(--txt2)}
   .box select,.box input{width:100%;margin-bottom:11px}
@@ -816,18 +820,23 @@ function pintarDatos(){
   /* Lo que el machote pide y no estaba: quien coordino, la version del
      software que traia el receptor, y donde esta cada componente. */
   document.getElementById("datEquipo").innerHTML +=
-    campo("coordinador", "Coordinador de mantenimiento", "nombre") +
+    campo("coordinador", "Coordinador de mantenimiento", "se propone solo") +
     campo("software_ver", "Versión de software del receptor", "521521OP120526") +
     '<div style="grid-column:1/-1"><div class="dat-t">¿Dónde está cada componente?</div>' +
     '<div class="dat-g">' +
-      COMPONENTES.map(c => '<label>' + esc(c.nom) +
+      COMPONENTES.filter(c => SIN_UBICACION.indexOf(c.id) < 0)
+        .map(c => '<label>' + esc(c.nom) +
         '<input id="ubic_' + c.id + '" placeholder="ej. Área de cajas" value="' +
         esc((x.ubicaciones||{})[c.id] || "") + '"></label>').join("") +
+      '<div class="dat-nota" style="grid-column:1/-1">El amplificador y el ' +
+      'respaldo no se preguntan: van debajo del equipo receptor y toman su ' +
+      'ubicación.</div>' +
     '</div></div>';
   document.getElementById("datMed").innerHTML +=
     `<label style="grid-column:1/-1">Si algo salió de rango, ¿por qué?
        <input id="dat_obs_medicion" placeholder="ej. Batería con 3 años de uso, se deja en observación"
               value="${esc(x.obs_medicion||"")}"></label>`;
+  proponerCoordinador(x);
   document.getElementById("datLog").innerHTML =
     `<label>¿Cómo venía el log?
        <select id="dat_log_estado">
@@ -839,6 +848,26 @@ function pintarDatos(){
     `<label style="grid-column:1/-1">¿Cuáles faltan? (si hubo saltos)
        <input id="dat_log_saltos" placeholder="ej. 12-jul 04:39 y 07:39"
               value="${esc(x.log_saltos||"")}"></label>`;
+}
+
+/* Quien coordina cada coordinacion ya esta en la base; no hay por que
+   teclearlo. Se propone y se deja editar, por si un servicio lo llevo alguien
+   mas. Se consulta una vez por coordinacion y se recuerda. */
+const coordinadores = {};
+async function proponerCoordinador(x){
+  const e = document.getElementById("dat_coordinador");
+  if(!e || e.value.trim()) return;                 // el servicio ya trae uno
+  const c = (x.coord||"").toUpperCase();
+  if(coordinadores[c] === undefined){
+    try{
+      const d = await api("usuarios?select=nombre,rol&coord=eq." +
+                          encodeURIComponent(c) + "&rol=ilike.*COORDINA*");
+      coordinadores[c] = (d && d.length) ? d[0].nombre : "";
+    }catch(z){ coordinadores[c] = "" }
+  }
+  /* puede haberse cerrado la ventana mientras respondia la base */
+  const sigue = document.getElementById("dat_coordinador");
+  if(sigue && !sigue.value.trim() && coordinadores[c]) sigue.value = coordinadores[c];
 }
 
 /* Se guardan en el servicio, que es de donde los lee el informe. Se manda solo
@@ -937,6 +966,9 @@ const DATOS_MED = [["volt_linea","Alimentación de línea (Vca) · 85 a 264","12
   ["volt_bateria","Batería de respaldo (Vcc) · 12.2 a 12.6","12.40"],
   ["volt_salida","Salida a altavoces (V) · nominal 10.1","11.54"],
   ["amperaje","Amperaje de salida (A)","1.76"]];
+/* Estos dos van siempre debajo del equipo receptor, asi que no se preguntan:
+   heredan su ubicacion. */
+const SIN_UBICACION = ["AMPLIFICADOR", "UPS"];
 const DATOS_INV = [["plasticas","Trompetas de plástico"],["aluminio","Trompetas de aluminio"],
   ["eliptica","Dual elíptica"],["bocina_plafon","Bocinas de plafón"],
   ["estrobo","Luz estrobo"],["antena","Antena dipolo"],
@@ -1942,6 +1974,10 @@ async function informeDe(x, num, ident, conLog){
   };
 
   const ubic = x.ubicaciones || {};
+  /* el amplificador y el respaldo van montados sobre el equipo receptor: su
+     ubicacion es la de el, y por eso no se pregunta aparte */
+  const ubicDe = id => limpio(ubic[id]) ||
+    (SIN_UBICACION.indexOf(id) >= 0 ? limpio(ubic.EQUIPO) : "");
   for(const c of COMPONENTES){
     const suyas = fotos.filter(f=>f.partida===c.id && f.clase!=="REPORTE");
     if(!suyas.length && !hayEn(c)) continue;
@@ -1966,9 +2002,10 @@ async function informeDe(x, num, ident, conLog){
     if(c.id==="EQUIPO" && limpio(x.software_ver))
       cierre.push(`<tr><th class="cabComp" colspan="2">ÚLTIMA VERSIÓN DE SOFTWARE
         ENCONTRADO: ${esc(limpio(x.software_ver))}</th></tr>`);
-    if(limpio(ubic[c.id]))
+    const donde = ubicDe(c.id);
+    if(donde)
       cierre.push(`<tr><th class="cabComp" colspan="2">UBICACIÓN:
-        ${esc(String(ubic[c.id]).toUpperCase())}</th></tr>`);
+        ${esc(String(donde).toUpperCase())}</th></tr>`);
 
     const cab = `<tr><th class="cabComp" colspan="2">${esc(c.nom)}</th></tr>
       <tr><th class="sub">ACTIVIDAD</th><th class="sub">EVIDENCIA FOTOGRÁFICA</th></tr>`;
