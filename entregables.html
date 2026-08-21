@@ -1293,42 +1293,114 @@ let nPag=0;
    `cabecera` es el titulo de seccion, que solo va en la primera hoja y ocupa su
    espacio: por eso entra en la medicion y no se pega despues. */
 function repartirEnHojas(bloques, cabecera){
+  if(!bloques.length) return [];
+  /* El molde va DENTRO de #salida, no en el body: todas las reglas del informe
+     estan acotadas a ese contenedor -#salida .hoja, #salida .hoja .pie...- y
+     colgado del body la hoja se medía sin un solo estilo: 207 px de alto en vez
+     de 279 mm, y el pie en el flujo. Con esa geometria la cuenta no podia dar.
+     Si #salida esta oculto se muestra lo justo para medir; como esto es
+     sincrono, el navegador no llega a pintar nada. */
+  const anfitrion = document.getElementById("salida") || document.body;
+  const comoEstaba = anfitrion.style.display;
+  const veniaOculto = getComputedStyle(anfitrion).display === "none";
+  if(veniaOculto) anfitrion.style.display = "block";
   const molde = document.createElement("div");
   molde.style.cssText = "position:absolute;left:-99999px;top:0;visibility:hidden";
-  document.body.appendChild(molde);
+  anfitrion.appendChild(molde);
   const marca = LOGO ? `<img src="${LOGO}">`
                      : `<b style="font-size:22px;color:#1F3864">MDreieck</b>`;
-  const hojas = [];
-  let i = 0;
+  const armar = () => {
+    molde.innerHTML = `<div class="hoja"><div class="marca">${marca}</div>` +
+      `<div class="cont"></div><div class="npag">0</div>${PIE}</div>`;
+    const pag = molde.firstElementChild;
+    /* Hasta donde puede llegar el contenido: el alto de la hoja menos lo que
+       reserva el relleno de abajo, donde vive el pie. NO se usa scrollHeight:
+       la hoja tiene overflow:hidden y en un elemento que recorta scrollHeight
+       se queda pegado a clientHeight en vez de crecer, asi que el
+       desbordamiento resultaba invisible. */
+    const rel = parseFloat(getComputedStyle(pag).paddingBottom) || 0;
+    return {pag:pag, cont:pag.querySelector(".cont"),
+            tope: pag.getBoundingClientRect().top + pag.clientHeight - rel};
+  };
+  const fondo = m => m.cont.getBoundingClientRect().bottom;
+
   try{
+    /* ── 1 · cuanto ocupa cada bloque, y cuanto el titulo de seccion ──
+       se miden en cadena para que la medida incluya el margen que colapsa
+       contra el bloque anterior */
+    let m = armar();
+    const arranque = fondo(m);
+    m.cont.insertAdjacentHTML("beforeend", cabecera || "");
+    const altoCab = fondo(m) - arranque;
+    const alto = [];
+    let previo = fondo(m);
+    bloques.forEach(function(b){
+      m.cont.insertAdjacentHTML("beforeend", b);
+      const ahora = fondo(m);
+      alto.push(ahora - previo);
+      previo = ahora;
+    });
+    const util = m.tope - arranque;
+
+    /* ── 2 · cuantas hojas hacen falta como minimo ── */
+    const caben = (cupo) => {                 // ¿alcanzan `n` hojas con ese cupo?
+      let hojas = 1, usado = altoCab;
+      for(let k = 0; k < alto.length; k++){
+        if(usado + alto[k] > cupo && usado > (hojas===1 ? altoCab : 0)){
+          hojas++; usado = 0;
+        }
+        usado += alto[k];
+      }
+      return hojas;
+    };
+    const nMin = caben(util);
+
+    /* ── 3 · el reparto mas parejo que quepa en esas hojas ──
+       se busca por biseccion el cupo mas bajo con el que todavia alcanzan nMin
+       hojas: cuanto mas bajo el cupo, mas pareja queda la mas cargada */
+    let bajo = Math.max.apply(null, alto), altoTope = util, mejor = util;
+    while(bajo <= altoTope){
+      const medio = Math.floor((bajo + altoTope) / 2);
+      if(caben(medio) <= nMin){ mejor = medio; altoTope = medio - 1 }
+      else bajo = medio + 1;
+    }
+
+    /* ── 4 · armar las hojas con ese cupo, comprobando de verdad ──
+       las alturas sumadas no son exactas al pixel; si una hoja se pasa, el
+       ultimo bloque se corre a la siguiente. Esta comprobacion es la que evita
+       que la hoja recorte texto en silencio. */
+    const hojas = [];
+    let i = 0;
     while(i < bloques.length){
       const esPrimera = hojas.length === 0;
-      molde.innerHTML = `<div class="hoja"><div class="marca">${marca}</div>` +
-        `<div class="cont">${esPrimera ? (cabecera||"") : ""}</div>` +
-        `<div class="npag">0</div>${PIE}</div>`;
-      const pag  = molde.firstElementChild;
-      const cont = pag.querySelector(".cont");
-      let caben = 0;
-      while(i + caben < bloques.length){
-        const antes = cont.childElementCount;
-        cont.insertAdjacentHTML("beforeend", bloques[i + caben]);
-        if(pag.scrollHeight > pag.clientHeight){
+      m = armar();
+      if(esPrimera && cabecera) m.cont.insertAdjacentHTML("beforeend", cabecera);
+      let puestos = 0, usado = esPrimera ? altoCab : 0;
+      while(i + puestos < bloques.length){
+        if(puestos && usado + alto[i+puestos] > mejor) break;   // reparto parejo
+        const antes = m.cont.childElementCount;
+        m.cont.insertAdjacentHTML("beforeend", bloques[i+puestos]);
+        if(fondo(m) > m.tope){
           /* se quita entero: un bloque puede ser titulo + parrafo, y borrar
-             solo el ultimo hijo dejaria el titulo huerfano al pie de la hoja */
-          while(cont.childElementCount > antes) cont.lastElementChild.remove();
+             solo el ultimo hijo dejaria el titulo huerfano al pie */
+          while(m.cont.childElementCount > antes) m.cont.lastElementChild.remove();
           break;
         }
-        caben++;
+        usado += alto[i+puestos];
+        puestos++;
       }
       /* un bloque mas alto que la hoja entera no cabe en ninguna parte: va solo
-         en la suya y que la hoja lo recorte, antes que ciclar para siempre */
-      if(caben === 0) caben = 1;
+         en la suya, antes que ciclar para siempre */
+      if(puestos === 0) puestos = 1;
       hojas.push((esPrimera ? (cabecera||"") : "") +
-                 bloques.slice(i, i + caben).join(""));
-      i += caben;
+                 bloques.slice(i, i + puestos).join(""));
+      i += puestos;
     }
-  } finally { molde.remove() }
-  return hojas;
+    return hojas;
+  } finally {
+    molde.remove();
+    if(veniaOculto) anfitrion.style.display = comoEstaba;
+  }
 }
 
 function hoja(cuerpo, clase){
