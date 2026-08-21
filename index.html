@@ -657,7 +657,7 @@ async function cargar(){
       "requerimientos,tipo_servicio,obra,dias_est,dia_n,"+
       "ejecutivo,correo,cita_confirmada,dia_creacion,tecnico,auxiliar,vehiculo,"+
       "cp,localidad,municipio,estado,equipo,serie,materiales,obs_captura,"+
-      "log_estado,log_saltos,log_ultimo,canal,senal_barras,"+
+      "log_estado,log_saltos,log_ultimo,canal,senal_barras,volt_fuente,"+
       "avance_tec,avance_coord,avance_ts"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
@@ -992,8 +992,12 @@ const INVENTARIO = [["plasticas","Trompetas de plástico"],["aluminio","Trompeta
   ["amplificador","Amplificador"],["ups","Respaldo (UPS)"]];
 
 /* lo que el técnico mide en sitio y el informe repite en el texto */
-const MEDICIONES = [["volt_bateria","Voltaje de batería","Vcd","13.46"],
-  ["volt_linea","Voltaje de línea / salida","V","11.54"],
+/* Los tres voltajes son distintos y cada uno tiene su rango en el protocolo;
+   el marcador de agua trae un valor dentro del rango para que se vea de que
+   orden es la medicion y no se confunda uno con otro. */
+const MEDICIONES = [["volt_linea","Alimentación de línea (85 a 264)","Vca","127.0"],
+  ["volt_fuente","Fuente de alimentación (13.3 a 13.6)","Vcc","13.46"],
+  ["volt_bateria","Batería de respaldo (12.2 a 12.6)","Vcc","12.40"],
   ["amperaje","Amperaje de salida","A","1.76"]];
 
 const PART_COORD = ["MANT","INST","PRY_ESP"];   // donde se interviene el equipo

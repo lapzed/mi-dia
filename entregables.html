@@ -882,8 +882,9 @@ const VARIANTES_TROMPETA = ["Plástico", "Aluminio", "Plafón", "Dual elíptica"
    distinto, el informe seguiria sin encontrarlos. */
 const DATOS_EQUIPO = [["equipo","Equipo","texto"],["serie","# de serie","texto"],
   ["canal","Canal","texto"],["senal_barras","Señal (barras)","0-5"]];
-const DATOS_MED = [["volt_bateria","Voltaje de batería (Vcd)","13.46"],
-  ["volt_linea","Voltaje de línea / salida (V)","11.54"],
+const DATOS_MED = [["volt_linea","Alimentación de línea (Vca) · 85 a 264","127.0"],
+  ["volt_fuente","Fuente de alimentación (Vcc) · 13.3 a 13.6","13.46"],
+  ["volt_bateria","Batería de respaldo (Vcc) · 12.2 a 12.6","12.40"],
   ["amperaje","Amperaje de salida (A)","1.76"]];
 const DATOS_INV = [["plasticas","Trompetas de plástico"],["aluminio","Trompetas de aluminio"],
   ["eliptica","Dual elíptica"],["bocina_plafon","Bocinas de plafón"],
@@ -1430,9 +1431,12 @@ const PROTOCOLO_MANT = [
     un rango de <b>13.3 Vcc a 13.6 Vcc</b>. Se comprueba el estado de la batería de
     respaldo, cuyo voltaje debe estar en un rango de <b>12.2 Vcc a 12.6 Vcc</b>.`,
    x=>{
+     /* cada medicion con la unidad que le toca, y en el mismo orden en que el
+        parrafo anterior enuncia los rangos, para poder cotejarlas de un vistazo */
      const m=[];
-     if(limpio(x.volt_bateria)) m.push(`batería de respaldo <b>${esc(limpio(x.volt_bateria))} Vcd</b>`);
-     if(limpio(x.volt_linea))   m.push(`línea de alimentación <b>${esc(limpio(x.volt_linea))} V</b>`);
+     if(limpio(x.volt_linea))   m.push(`alimentación de línea <b>${esc(limpio(x.volt_linea))} Vca</b>`);
+     if(limpio(x.volt_fuente))  m.push(`fuente de alimentación <b>${esc(limpio(x.volt_fuente))} Vcc</b>`);
+     if(limpio(x.volt_bateria)) m.push(`batería de respaldo <b>${esc(limpio(x.volt_bateria))} Vcc</b>`);
      if(limpio(x.amperaje))     m.push(`amperaje de salida <b>${esc(limpio(x.amperaje))} A</b>`);
      return m.length ? `En esta visita se midió: ${m.join(", ")}.` : "";
    },
@@ -1518,8 +1522,8 @@ const PROTOCOLO = [
   p:[x=>`Se verifican y actualizan los parámetros de operación: fecha, hora, canal de recepción${
       limpio(x.canal)?` —se encuentra en el <b>canal ${esc(x.canal)}</b>—`:""}, intensidad de la
     señal recibida${limpio(x.senal_barras)?` —<b>${esc(x.senal_barras)} barras</b>—`:""}, voltaje
-    de la fuente de alimentación${limpio(x.volt_linea)?` —<b>${esc(x.volt_linea)} V</b>—`:""} y
-    voltaje de la batería de respaldo${limpio(x.volt_bateria)?` —<b>${esc(x.volt_bateria)} Vcd</b>—`:""},
+    de la fuente de alimentación${limpio(x.volt_fuente)?` —<b>${esc(x.volt_fuente)} Vcc</b>—`:""} y
+    voltaje de la batería de respaldo${limpio(x.volt_bateria)?` —<b>${esc(x.volt_bateria)} Vcc</b>—`:""},
     así como los valores de salida hacia los aditamentos de sonorización${
       limpio(x.amperaje)?` —<b>${esc(x.amperaje)} A</b>—`:""}.`,
    `Es importante mencionar que el voltaje medido es el suministrado mediante la línea principal
@@ -1547,9 +1551,12 @@ const COMPONENTES = [
    ["Revisión de parámetros.", x=>`Se verificaron fecha, hora, canal de recepción${
        limpio(x.canal)?` —canal <b>${esc(x.canal)}</b>—`:""} e intensidad de la señal${
        limpio(x.senal_barras)?`, con <b>${esc(x.senal_barras)} barras</b>`:""}, así como el
-     voltaje de la fuente${limpio(x.volt_linea)?` (<b>${esc(x.volt_linea)} V</b>)`:""} y el de la
-     batería de respaldo${limpio(x.volt_bateria)?` (<b>${esc(x.volt_bateria)} Vcd</b>)`:""}.`,
-     x=>limpio(x.volt_bateria)?`Voltaje de batería ${esc(x.volt_bateria)} Vcd`:""],
+     voltaje de la fuente${limpio(x.volt_fuente)?` (<b>${esc(x.volt_fuente)} Vcc</b>)`:""} y el de la
+     batería de respaldo${limpio(x.volt_bateria)?` (<b>${esc(x.volt_bateria)} Vcc</b>)`:""}.`,
+     x=>{ const p=[];
+          if(limpio(x.volt_fuente))  p.push(`Fuente ${esc(x.volt_fuente)} Vcc`);
+          if(limpio(x.volt_bateria)) p.push(`Batería ${esc(x.volt_bateria)} Vcc`);
+          return p.join(" · "); }],
    ["Revisión de funcionamiento.", `Se ejecutan las pruebas de funcionalidad del equipo receptor,
      confirmando la emisión de audio hacia los aditamentos y el registro del evento en su
      bitácora.`]]},
@@ -1558,14 +1565,14 @@ const COMPONENTES = [
      sonorización; el estado físico del altavoz se encuentra en buenas condiciones, está conectado
      al sistema receptor de alertamiento sísmico, así como la sujeción del altavoz, y se limpia con
      aire comprimido y espuma para dejarlo libre de suciedad e impurezas.`],
-   ["Revisión de parámetros.", x=>`Se miden los parámetros a verificar${
-       limpio(x.volt_linea)||limpio(x.amperaje)
-       ? `, encontrando valores óptimos siendo de <b>${esc(limpio(x.volt_linea)||"—")} V</b> y
-          <b>${esc(limpio(x.amperaje)||"—")} A</b> los valores de salida del equipo`
-       : ""}. Es importante mencionar que el voltaje medido es suministrado mediante la línea
-     principal que conecta al equipo.`,
-     x=>limpio(x.volt_linea)?`Voltaje medido ${esc(x.volt_linea)} V${
-        limpio(x.amperaje)?` / Medición de amperaje ${esc(x.amperaje)} A`:""}`:""],
+   /* 10.1 V y 2 A son los valores NOMINALES de salida que declara el protocolo,
+        no una medicion de esta visita: citarlos como medidos era presentar como
+        dato de campo lo que es una especificacion. El amperaje si se mide. */
+     ["Revisión de parámetros.", x=>`Se verifica la potencia entregada al altavoz, donde
+     P = V × A, siendo de <b>10.1 V</b> y <b>2 A</b> los valores de salida del equipo${
+       limpio(x.amperaje)?`; en esta visita se midió un amperaje de salida de
+       <b>${esc(limpio(x.amperaje))} A</b>`:""}.`,
+     x=>limpio(x.amperaje)?`Amperaje de salida ${esc(x.amperaje)} A`:""],
    ["Revisión de funcionamiento.", `Se comprueba el funcionamiento del altavoz emitiendo un
      “click” que confirma su operación; posteriormente se procede con la emisión de sonido por
      medio de las pruebas de funcionalidad del equipo receptor y se confirma la intensidad de
