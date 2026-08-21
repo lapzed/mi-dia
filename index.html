@@ -462,7 +462,9 @@ function toast(msg,err){const t=document.getElementById("toast");t.textContent=m
   t.className="toast show"+(err?" err":"");setTimeout(()=>t.className="toast"+(err?" err":""),3000)}
 function hhmm(s){s=(s||"").trim();const m=s.match(/^(\d{1,2}):(\d{2})/);
   return m?m[1].padStart(2,"0")+":"+m[2]:(s||"--:--")}
-function limpio(s){s=(s||"").trim();
+/* Las columnas numericas de la base llegan como NUMERO y `.trim()` no existe
+   en un numero: sin el String() esto revienta con "trim is not a function". */
+function limpio(s){s=String(s==null?"":s).trim();
   return /^(-+|n\/?a|na|s\/d|sin dato)$/i.test(s)?"":s}
 
 /* Los errores no son todos iguales y la pantalla no debe tratarlos igual: que

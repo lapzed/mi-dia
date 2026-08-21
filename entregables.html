@@ -497,7 +497,12 @@ function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
   Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+/* OJO con el tipo: las columnas numericas de la base llegan como NUMERO, no
+   como texto, y `.trim()` no existe en un numero. Sin el String() de aqui, un
+   inventario de 2 trompetas o una señal de 4 barras reventaba el informe
+   entero con "(s || \"\").trim is not a function". Estuvo latente hasta que
+   esas columnas empezaron a cargarse. */
+function limpio(s){s=String(s==null?"":s).trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
 
 async function api(path,opts,reint){
   /* El Content-Type va por omision: sin el, el navegador manda `text/plain` y
@@ -2491,6 +2496,20 @@ async function informeDe(x, num, ident, conLog){
    llevan el mismo, y preguntarlo diez veces seria insufrible. Si el usuario
    elige omitirlo, `pedirLogo` deja el hueco marcado y no vuelve a preguntar
    en esa tanda. */
+/* Lo que salio mal, donde se pueda leer. Va arriba de la lista y no en un
+   `alert`, para poder copiarlo tal cual. */
+function avisarFalla(e, cual){
+  const c = document.getElementById("salida");
+  const msg = String((e && (e.message || e)) || "error sin mensaje");
+  const caja = document.createElement("div");
+  caja.className = "aviso";
+  caja.style.cssText = "display:block;margin:12px 0";
+  caja.textContent = "No se pudo armar el informe" +
+    (cual ? " de " + cual : "") + ": " + msg;
+  c.parentNode.insertBefore(caja, c);
+  try{ console.error("informe:", e) }catch(z){}
+}
+
 async function generarInformes(sel){
   const btn = document.getElementById("btnGen");
   const num   = document.getElementById("iNum").value;
@@ -2514,7 +2533,13 @@ async function generarInformes(sel){
   let hecho = 0;
   for(const x of sel){
     btn.textContent = "Armando " + (++hecho) + "/" + sel.length + "…";
-    partes.push(await informeDe(x, num, ident, conLog));
+    /* uno por uno: si un servicio revienta se dice CUAL y los demas siguen
+       saliendo, en vez de perderse la tanda entera sin explicacion */
+    try{
+      partes.push(await informeDe(x, num, ident, conLog));
+    }catch(e){
+      avisarFalla(e, (x.nombre||"") + (x.tkt ? " · TKT "+x.tkt : ""));
+    }
   }
   return partes.join("");
 }
@@ -2534,9 +2559,17 @@ async function generar(){
        "¿Generar el entregable de todos modos?")){ btn.disabled=false; return }
 
   if(document.getElementById("fForm").value==="informe"){
-    document.getElementById("salida").innerHTML=await generarInformes(sel);
-    btn.textContent=t0; btn.disabled=false;
-    setTimeout(()=>window.print(),400);
+    /* Con captura: sin ella, una excepcion a media generacion dejaba el boton
+       en "Armando…" y no pasaba nada mas. Se veia igual que un cuelgue, y por
+       eso se busco el problema donde no estaba. */
+    try{
+      document.getElementById("salida").innerHTML=await generarInformes(sel);
+      setTimeout(()=>window.print(),400);
+    }catch(e){
+      avisarFalla(e);
+    }finally{
+      btn.textContent=t0; btn.disabled=false;
+    }
     return;
   }
 
