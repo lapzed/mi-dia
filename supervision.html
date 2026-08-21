@@ -165,6 +165,53 @@ const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
 const DOMINIO="mdcontrol.local";
 const JORNADA=480;                       // 8 horas efectivas
+
+  /* ---------- cuanto dura un servicio ----------
+     El mismo criterio que la pantalla de Demanda: los conceptos de la tabla
+     `tiempos`, y para las cantidades que el servicio no diga, el inventario del
+     inmueble. Si alguien puso `duracion_est` a mano, eso manda. */
+  let TIEMPOS=[], FICHAS={};
+  const llaveSitio = x => (x.dependencia||"") + "\u0000" + (x.nombre||"");
+  function num(v){
+    const m=String(v==null?"":v).replace(",",".").match(/-?\d+(\.\d+)?/);
+    return m?parseFloat(m[0]):0;
+  }
+  /* un "N/A" o un guion cuentan como no dicho, que es lo que son */
+  function dato(x, campo){
+    const v=x[campo], t=String(v==null?"":v).trim();
+    if(t && !/^(-+|n\/?a|na|s\/d)$/i.test(t)) return v;
+    const f=FICHAS[llaveSitio(x)];
+    return (f && f[campo]!=null) ? f[campo] : v;
+  }
+  function duracion(x){
+    let total=0;
+    const co=String(x.coord||"").toUpperCase();
+    TIEMPOS.forEach(function(t){
+      if(String(t.sumar||"").toUpperCase()!=="SI") return;
+      const tc=String(t.coord||"").toUpperCase();
+      if(tc!=="GEN" && tc!==co) return;
+      const campo=String(t.campo||"").toLowerCase();
+      const min=Number(t.minutos)||0;
+      switch(String(t.tipo_calc||"").toUpperCase()){
+        case "FIJO": total+=min; break;
+        case "PRESENCIA": {
+          const v=String(dato(x,campo)==null?"":dato(x,campo)).trim().toUpperCase();
+          if(v && v!=="NA" && v!=="N/A" && v!=="NO") total+=min;
+          break;
+        }
+        case "CANTIDAD": total+=num(dato(x,campo))*min; break;
+        case "CATEGORIA":
+          if(String(x.tipo_inmueble||"").toUpperCase()===String(t.campo||"").toUpperCase())
+            total+=min;
+          break;
+      }
+    });
+    return Math.round(total);
+  }
+  function minutosDe(s){
+    const puesto=parseInt(s.duracion_est,10);
+    return (!isNaN(puesto) && puesto>0) ? puesto : duracion(s);
+  }
 const BASE=[19.365222085075313,-99.14512374641009];   // oficinas: Ajusco 43, Portales Nte
 
 /* Hay registros con la longitud sin el signo negativo o sin punto decimal, y
@@ -280,9 +327,29 @@ async function arrancar(){
        que hay que perseguir—. Y la pestaña de "lo realizado" consulta su propio
        periodo al servidor, así que puede mirar tan atrás como quiera sin que el
        teléfono cargue con el historial completo. */
-    const CAMPOS="id,coord,tkt,nombre,dependencia,direccion,lat,long,fecha_servicio,"+
-      "horario_atencion,status,tecnico,auxiliar,duracion_est,cita_confirmada,obs_coord,"+
-      "dia_creacion,jen_user";
+    /* Los conceptos que suman tiempo y el inventario de cada inmueble. Sin
+       esto Supervision sumaba `duracion_est`, que nadie llena, y toda brigada
+       salia en 0 h aunque Demanda —que si calcula— mostrara su carga. */
+    try{
+      if(!TIEMPOS.length) TIEMPOS = await api("tiempos?select=*") || [];
+      const fichas = await api("sitios?select=dependencia,nombre,inventario");
+      FICHAS = {};
+      (fichas||[]).forEach(function(f){
+        if(f && f.inventario) FICHAS[llaveSitio(f)] = f.inventario;
+      });
+    }catch(e){ /* sin esto la carga sale como antes, no se detiene la pantalla */ }
+
+    /* Las columnas que el calculo necesita salen de la propia tabla `tiempos`:
+       una lista fija se desfasa en cuanto alguien agrega un concepto. */
+    const deTiempos = TIEMPOS
+      .filter(t=>/^(PRESENCIA|CANTIDAD)$/i.test(String(t.tipo_calc||"")))
+      .map(t=>String(t.campo||"").trim().toLowerCase())
+      .filter(c=>/^[a-z][a-z0-9_]*$/.test(c));
+    const CAMPOS=["id","coord","tkt","nombre","dependencia","direccion","lat","long",
+      "fecha_servicio","horario_atencion","status","tecnico","auxiliar","duracion_est",
+      "cita_confirmada","obs_coord","dia_creacion","jen_user","tipo_inmueble"]
+      .concat([...new Set(deTiempos)].filter(c=>c!=="tipo_inmueble"))
+      .join(",");
     const desde=isoDe(-90);
     const paginar = async filtro => {
       let out=[];
@@ -350,7 +417,7 @@ function pintarHoy(){
     <div id="mapa"></div>
     <div class="brigadas">${brigs.map((t,i)=>{
       const ss=porBrig[t];
-      const min=ss.reduce((a,s)=>a+(parseInt(s.duracion_est,10)||0),0);
+      const min=ss.reduce((a,s)=>a+minutosDe(s),0);
       const hechos=ss.filter(s=>(s.status||"").toUpperCase()==="ATENDIDO").length;
       const pct=Math.min(100,Math.round(min/JORNADA*100));
       const col=min>JORNADA?"#F0A9A5":(min<JORNADA*0.5?"#F0BE6E":"#5BD79B");
