@@ -164,6 +164,31 @@
   #salida table.idx{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:5mm}
   #salida table.idx td{padding:7px 0;border-bottom:1px dotted #98a6bb}
   #salida table.idx td.pt{text-align:right;width:16mm;font-weight:700}
+  /* La tabla de componente, calcada del informe aprobado: 155 mm de ancho
+     -de 30 a 185 mm en la hoja-, la columna de actividad de 62.5 y la de
+     evidencia de 92.5, que es donde caben dos fotos de 43 mm a la par. */
+  #salida table.comp2{width:155mm;margin:0 auto 4mm;border-collapse:collapse;
+    font-size:11pt;table-layout:fixed}
+  #salida table.comp2 th.cabComp{background:#8596B0;color:#111;font-weight:700;
+    text-align:center;padding:3px 6px;border:.2mm solid #7d8fa8;font-size:11pt}
+  #salida table.comp2 th.sub{background:#BDD6ED;color:#111;font-weight:700;
+    text-align:center;padding:3px 6px;border:.2mm solid #7d8fa8;font-size:11pt}
+  #salida table.comp2 td{border:.2mm solid #7d8fa8;padding:5px 7px;
+    vertical-align:middle}
+  #salida table.comp2 td.act{width:62.5mm;font-size:11pt;line-height:1.4;
+    text-align:justify}
+  #salida table.comp2 td.ph{width:92.5mm;text-align:center;padding:4px}
+  #salida table.comp2 .fotos{display:flex;gap:2mm;justify-content:center;
+    align-items:flex-start}
+  /* Alto y ancho FIJOS, del informe aprobado: 49 x 65 mm una sola foto,
+     43 x 58 mm cuando van dos a la par. Fijo por dos razones: el informe queda
+     parejo de hoja en hoja, y la caja ocupa su lugar aunque la imagen todavia
+     no haya cargado —si midiera cero, el reparto dejaria pasar mas renglones de
+     los que caben y la hoja recortaria—. `contain` conserva la proporcion. */
+  #salida table.comp2 .fotos img{width:49mm;height:65mm;object-fit:contain}
+  #salida table.comp2 .fotos.par img{width:43mm;height:58mm}
+  #salida table.comp2 .pieimg{font-size:11pt;margin-top:3px;line-height:1.3}
+  #salida table.comp2 .sinfoto{font-size:10pt;color:#8a8a8a;padding:10mm 0}
   #salida table.bit{width:100%;border-collapse:collapse;font-size:11.5px;margin:0 0 4mm}
   #salida table.bit th{background:#1F3864;color:#fff;padding:4px 7px;text-align:left;
     border:1px solid #7d8fa8;font-size:10.5px;letter-spacing:.03em}
@@ -788,6 +813,17 @@ function pintarDatos(){
     DATOS_MED.map(([k,et,ph]) => campo(k, et, ph, 'inputmode="decimal"')).join("");
   document.getElementById("datInv").innerHTML =
     DATOS_INV.map(([k,et]) => campo(k, et, "", 'type="number" min="0"')).join("");
+  /* Lo que el machote pide y no estaba: quien coordino, la version del
+     software que traia el receptor, y donde esta cada componente. */
+  document.getElementById("datEquipo").innerHTML +=
+    campo("coordinador", "Coordinador de mantenimiento", "nombre") +
+    campo("software_ver", "Versión de software del receptor", "521521OP120526") +
+    '<div style="grid-column:1/-1"><div class="dat-t">¿Dónde está cada componente?</div>' +
+    '<div class="dat-g">' +
+      COMPONENTES.map(c => '<label>' + esc(c.nom) +
+        '<input id="ubic_' + c.id + '" placeholder="ej. Área de cajas" value="' +
+        esc((x.ubicaciones||{})[c.id] || "") + '"></label>').join("") +
+    '</div></div>';
   document.getElementById("datMed").innerHTML +=
     `<label style="grid-column:1/-1">Si algo salió de rango, ¿por qué?
        <input id="dat_obs_medicion" placeholder="ej. Batería con 3 años de uso, se deja en observación"
@@ -833,13 +869,22 @@ async function guardarDatos(){
   const cuerpo = {};
   const claves = [].concat(DATOS_EQUIPO.map(a=>a[0]), DATOS_MED.map(a=>a[0]),
                            DATOS_INV.map(a=>a[0]),
-                           ["log_ultimo","log_saltos","obs_medicion"]);
+                           ["log_ultimo","log_saltos","obs_medicion",
+                            "coordinador","software_ver"]);
   claves.forEach(k => {
     const e = document.getElementById("dat_"+k);
     if(e && e.value.trim() !== "") cuerpo[k] = e.value.trim();
   });
   const le = document.getElementById("dat_log_estado");
   if(le && le.value) cuerpo.log_estado = le.value;
+  /* las ubicaciones viajan juntas en un solo campo: son una por componente y
+     no tiene sentido una columna para cada pieza */
+  const ub = {};
+  COMPONENTES.forEach(function(c){
+    const e = document.getElementById("ubic_"+c.id);
+    if(e && e.value.trim()) ub[c.id] = e.value.trim();
+  });
+  if(Object.keys(ub).length) cuerpo.ubicaciones = ub;
   if(!Object.keys(cuerpo).length){
     err.textContent = "No hay nada que guardar: llena al menos un dato.";
     err.style.display = "block"; b.disabled = false; b.textContent = t0; return;
@@ -1292,7 +1337,12 @@ let nPag=0;
 
    `cabecera` es el titulo de seccion, que solo va en la primera hoja y ocupa su
    espacio: por eso entra en la medicion y no se pega despues. */
-function repartirEnHojas(bloques, cabecera){
+function repartirEnHojas(bloques, cabecera, envolver){
+  /* `envolver` sirve para partir una TABLA entre hojas: los bloques son <tr> y
+     no se sostienen solos, asi que se meten en su tabla tanto para medir como
+     para salir. Sin esto no habria forma de cortar la tabla de un componente,
+     que en el ejemplo ocupa dos hojas. */
+  const vestir = envolver || (h => h);
   if(!bloques.length) return [];
   /* El molde va DENTRO de #salida, no en el body: todas las reglas del informe
      estan acotadas a ese contenedor -#salida .hoja, #salida .hoja .pie...- y
@@ -1330,12 +1380,14 @@ function repartirEnHojas(bloques, cabecera){
        contra el bloque anterior */
     let m = armar();
     const arranque = fondo(m);
-    m.cont.insertAdjacentHTML("beforeend", cabecera || "");
+    m.cont.innerHTML = vestir(cabecera || "");
     const altoCab = fondo(m) - arranque;
     const alto = [];
     let previo = fondo(m);
+    let acum = cabecera || "";
     bloques.forEach(function(b){
-      m.cont.insertAdjacentHTML("beforeend", b);
+      acum += b;
+      m.cont.innerHTML = vestir(acum);
       const ahora = fondo(m);
       alto.push(ahora - previo);
       previo = ahora;
@@ -1374,16 +1426,18 @@ function repartirEnHojas(bloques, cabecera){
     while(i < bloques.length){
       const esPrimera = hojas.length === 0;
       m = armar();
-      if(esPrimera && cabecera) m.cont.insertAdjacentHTML("beforeend", cabecera);
+      let dentro = esPrimera ? (cabecera || "") : "";
+      m.cont.innerHTML = vestir(dentro);
       let puestos = 0, usado = esPrimera ? altoCab : 0;
       while(i + puestos < bloques.length){
         if(puestos && usado + alto[i+puestos] > mejor) break;   // reparto parejo
-        const antes = m.cont.childElementCount;
-        m.cont.insertAdjacentHTML("beforeend", bloques[i+puestos]);
+        const previo = dentro;
+        dentro += bloques[i+puestos];
+        m.cont.innerHTML = vestir(dentro);
         if(fondo(m) > m.tope){
-          /* se quita entero: un bloque puede ser titulo + parrafo, y borrar
-             solo el ultimo hijo dejaria el titulo huerfano al pie */
-          while(m.cont.childElementCount > antes) m.cont.lastElementChild.remove();
+          /* se retira entero: un bloque puede ser titulo mas parrafo, o un <tr>
+             con su celda, y quitar solo el ultimo hijo dejaria medio bloque */
+          dentro = previo; m.cont.innerHTML = vestir(dentro);
           break;
         }
         usado += alto[i+puestos];
@@ -1392,8 +1446,8 @@ function repartirEnHojas(bloques, cabecera){
       /* un bloque mas alto que la hoja entera no cabe en ninguna parte: va solo
          en la suya, antes que ciclar para siempre */
       if(puestos === 0) puestos = 1;
-      hojas.push((esPrimera ? (cabecera||"") : "") +
-                 bloques.slice(i, i + puestos).join(""));
+      hojas.push(vestir((esPrimera ? (cabecera||"") : "") +
+                 bloques.slice(i, i + puestos).join("")));
       i += puestos;
     }
     return hojas;
@@ -1782,6 +1836,14 @@ async function informeDe(x, num, ident, conLog){
                      url:d.url, mime:d.tipo});
   }
   const fotos = arch.filter(f=>!/pdf/.test(f.mime));
+  /* Se esperan las imagenes antes de armar nada: repartir mide cajas, y una
+     imagen sin decodificar todavia no tiene tamaño. Se tolera la que falle
+     -no vale detener un informe por una foto rota-. */
+  await Promise.all(fotos.map(f => new Promise(function(res){
+    const im = new Image();
+    im.onload = im.onerror = res;
+    im.src = f.url;
+  })));
   const rep   = fotos.filter(f=>f.clase==="REPORTE");
   const secs  = [];                       // {titulo, hoja} para el índice
   let cuerpo  = "";
@@ -1819,7 +1881,7 @@ async function informeDe(x, num, ident, conLog){
       piezas.push((k===0&&b.t?`<h3 class="sub2">${b.t}</h3>`:"")+`<p class="txt">${txt}</p>`);
     });
   });
-  repartirEnHojas(piezas, `<h2 class="sec">PROTOCOLO DE MANTENIMIENTO</h2>`)
+  repartirEnHojas(piezas, `<h2 class="sec">PROTOCOLO DE MANTENIMIENTO</h2>`, null)
     .forEach(h => { cuerpo += hoja(h) });
 
   /* 4 · bitácora de trabajo y evidencia fotográfica */
@@ -1829,7 +1891,8 @@ async function informeDe(x, num, ident, conLog){
     .filter(([,v])=>v && v!=="0");
   const fecha = x.fecha_atencion || x.fecha_servicio || "";
   cuerpo += hoja(`<h2 class="sec">BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA</h2>
-    <p class="txt">El ${esc(numeroOrdinal(num))} servicio de mantenimiento contempla el servicio a:</p>
+    <p class="txt">El ${esc(numeroOrdinal(num))} servicio de mantenimiento por contrato
+      contempla el servicio a:</p>
     <table class="bit"><tr><th>CONCEPTO</th><th style="width:26mm">CANTIDAD</th></tr>
       ${cant.map(([et,v])=>`<tr><td>${esc(et)}</td><td class="c">${esc(v)}</td></tr>`).join("")
         || `<tr><td colspan="2">No se registró el inventario en esta visita.</td></tr>`}</table>
@@ -1838,6 +1901,8 @@ async function informeDe(x, num, ident, conLog){
           <td class="c">${esc(numeroOrdinal(num))} servicio de mantenimiento</td>
           <td class="c">${esc(fecha)}</td></tr></table>
     <table class="bit"><tr><th colspan="2">PERSONAL DE TRABAJO</th></tr>
+      ${limpio(x.coordinador)?`<tr><td>Coordinador de mantenimiento</td>
+        <td>${esc(x.coordinador)}</td></tr>`:""}
       <tr><td>Técnico encargado</td><td>${esc(limpio(x.tecnico)||"—")}</td></tr>
       ${limpio(x.auxiliar)?`<tr><td>Técnico auxiliar</td><td>${esc(x.auxiliar)}</td></tr>`:""}
       ${limpio(x.personal_atiende)?`<tr><td>Personal encargado del inmueble</td>
@@ -1854,30 +1919,58 @@ async function informeDe(x, num, ident, conLog){
     const v=limpio(x[k]);
     return c.id==="EQUIPO" ? !!v : (v!=="" && Number(v)>0);
   });
+
+  /* La celda de fotos: hasta dos a la par, como en el machote. Con una sola,
+     va centrada y a su tamaño. El pie va debajo del grupo, no de cada foto:
+     la evidencia no trae un pie por imagen. */
+  const celdaFotos = (lista, pie) => {
+    if(!lista.length) return `<div class="sinfoto">sin fotografía</div>`;
+    return `<div class="fotos${lista.length>1?" par":""}">` +
+      lista.map(f=>`<img src="${f.url}">`).join("") + `</div>` +
+      (pie ? `<div class="pieimg">${pie}</div>` : "");
+  };
+
+  const ubic = x.ubicaciones || {};
   for(const c of COMPONENTES){
     const suyas = fotos.filter(f=>f.partida===c.id && f.clase!=="REPORTE");
     if(!suyas.length && !hayEn(c)) continue;
-
     suyas.forEach(f=>usada.add(f));
-    /* el texto y el pie de foto pueden depender de lo medido en sitio: si la
-       actividad viene como función, se resuelve con este servicio */
+
+    /* Por ETAPA, que es como están en el machote: lo de antes en la revisión
+       física, lo de durante en parámetros y lo de después en funcionamiento.
+       Repartirlas por posición —la foto 1 a la actividad 1— no tenía por qué
+       coincidir con nada. Lo que no trae etapa reconocible se va a la primera,
+       para no perderlo. */
+    const porEtapa = {ANTES:[], DURANTE:[], DESPUES:[]};
+    suyas.forEach(f => (porEtapa[f.clase] || porEtapa.ANTES).push(f));
+    const reparto = [porEtapa.ANTES, porEtapa.DURANTE, porEtapa.DESPUES];
+
     const resolver = v => typeof v==="function" ? v(x) : v;
-    const filas = c.act.map((a,i)=>{
-      const pie = resolver(a[2]);
-      return `<tr>
+    const filas = c.act.map((a,i)=>`<tr>
       <td class="act"><b>${esc(a[0])}</b> ${resolver(a[1])}</td>
-      <td class="ph">${suyas[i]
-        ? `<img src="${suyas[i].url}">${pie?`<div class="pieimg">${pie}</div>`:""}`
-        : `<div class="sinfoto">sin fotografía</div>`}</td></tr>`;
-    }).join("");
-    const sobran = suyas.slice(c.act.length);
-    const bloque=`<div class="comp">${esc(c.nom)}</div>
-      <table class="bit ev"><tr><th>ACTIVIDAD</th><th style="width:78mm">EVIDENCIA FOTOGRÁFICA</th></tr>
-      ${filas}</table>
-      ${sobran.length?`<div class="rej" style="margin-top:6mm">${sobran.map(f=>
-        `<figure><img src="${f.url}"><figcaption>${esc(f.pieza||c.nom)}</figcaption></figure>`
-        ).join("")}</div>`:""}`;
-    cuerpo += hoja(bloque);
+      <td class="ph">${celdaFotos(reparto[i]||[], resolver(a[2]))}</td></tr>`);
+
+    /* los renglones que cierran la tabla, como en el machote */
+    const cierre = [];
+    if(c.id==="EQUIPO" && limpio(x.software_ver))
+      cierre.push(`<tr><th class="cabComp" colspan="2">ÚLTIMA VERSIÓN DE SOFTWARE
+        ENCONTRADO: ${esc(limpio(x.software_ver))}</th></tr>`);
+    if(limpio(ubic[c.id]))
+      cierre.push(`<tr><th class="cabComp" colspan="2">UBICACIÓN:
+        ${esc(String(ubic[c.id]).toUpperCase())}</th></tr>`);
+
+    const cab = `<tr><th class="cabComp" colspan="2">${esc(c.nom)}</th></tr>
+      <tr><th class="sub">ACTIVIDAD</th><th class="sub">EVIDENCIA FOTOGRÁFICA</th></tr>`;
+    /* se corta midiendo: en el machote el equipo receptor ocupa dos hojas y la
+       segunda sigue con los renglones que faltaban, sin repetir el encabezado */
+    /* Los anchos van en el colgroup y no en las celdas: con table-layout:fixed
+       el reparto lo decide la PRIMERA fila, y esa es el encabezado del
+       componente con colspan=2, asi que las columnas salian a la mitad cada una
+       en vez de 62.5 y 92.5. */
+    const COLS = '<colgroup><col style="width:62.5mm"><col style="width:92.5mm"></colgroup>';
+    repartirEnHojas(filas.concat(cierre), cab,
+                    h => `<table class="comp2">${COLS}${h}</table>`)
+      .forEach(h => { cuerpo += hoja(h) });
   }
   /* lo que no cayó en ningún componente —vistas del sitio, antes y después— va
      en la cuadrícula de siempre, para no perder evidencia */
