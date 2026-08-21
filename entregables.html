@@ -935,6 +935,7 @@ const DATOS_EQUIPO = [["equipo","Equipo","texto"],["serie","# de serie","texto"]
 const DATOS_MED = [["volt_linea","Alimentación de línea (Vca) · 85 a 264","127.0"],
   ["volt_fuente","Fuente de alimentación (Vcc) · 13.3 a 13.6","13.46"],
   ["volt_bateria","Batería de respaldo (Vcc) · 12.2 a 12.6","12.40"],
+  ["volt_salida","Salida a altavoces (V) · nominal 10.1","11.54"],
   ["amperaje","Amperaje de salida (A)","1.76"]];
 const DATOS_INV = [["plasticas","Trompetas de plástico"],["aluminio","Trompetas de aluminio"],
   ["eliptica","Dual elíptica"],["bocina_plafon","Bocinas de plafón"],
@@ -1768,9 +1769,19 @@ const COMPONENTES = [
         dato de campo lo que es una especificacion. El amperaje si se mide. */
      ["Revisión de parámetros.", x=>`Se verifica la potencia entregada al altavoz, donde
      P = V × A, siendo de <b>10.1 V</b> y <b>2 A</b> los valores de salida del equipo${
-       limpio(x.amperaje)?`; en esta visita se midió un amperaje de salida de
-       <b>${esc(limpio(x.amperaje))} A</b>`:""}.`,
-     x=>limpio(x.amperaje)?`Amperaje de salida ${esc(x.amperaje)} A`:""],
+       (limpio(x.volt_salida)||limpio(x.amperaje))
+         ? `; en esta visita se midió` +
+           (limpio(x.volt_salida)?` <b>${esc(limpio(x.volt_salida))} V</b>`:"") +
+           (limpio(x.volt_salida)&&limpio(x.amperaje)?" y":"") +
+           (limpio(x.amperaje)?` <b>${esc(limpio(x.amperaje))} A</b>`:"") +
+           ` a la salida`
+         : ""}.`,
+     /* el pie del machote: "Voltaje medido 11.54 V / Medicion de amperaje
+        1.76 A". Si solo se capturo uno de los dos, sale el que haya. */
+     x=>{ const p=[];
+          if(limpio(x.volt_salida)) p.push(`Voltaje medido ${esc(limpio(x.volt_salida))} V`);
+          if(limpio(x.amperaje))    p.push(`Medición de amperaje ${esc(limpio(x.amperaje))} A`);
+          return p.join(" / "); }],
    ["Revisión de funcionamiento.", `Se comprueba el funcionamiento del altavoz emitiendo un
      “click” que confirma su operación; posteriormente se procede con la emisión de sonido por
      medio de las pruebas de funcionalidad del equipo receptor y se confirma la intensidad de
