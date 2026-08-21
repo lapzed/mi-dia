@@ -274,10 +274,18 @@
   #salida .rej figcaption{font-size:10.5px;margin-top:3px;flex:none}
   /* una sola foto —el reporte firmado o un croquis— se lleva la hoja entera */
   #salida .rej.sola{grid-template-columns:1fr}
-  /* el reporte que firma el cliente va a todo el ancho util y a lo alto que
-     dé la hoja: es un documento, no una fotografia de apoyo */
-  #salida .rej.sola figure{width:100%;height:205mm}
-  #salida .rej.sola img{width:100%;height:100%;object-fit:contain}
+  /* El reporte que firma el cliente es un documento, no una foto de apoyo: su
+     hoja usa margenes de 10 mm en vez de 20, asi la imagen pasa de 176 a 196 mm
+     de ancho. El resto de las hojas no se toca. */
+  #salida .hoja.rep{padding-left:10mm;padding-right:10mm}
+  #salida .hoja.rep .pie{left:10mm;right:10mm}
+  /* Sin flex ni alto al 100%: la figura de la rejilla es un contenedor flexible
+     con `flex:1; min-height:0` en la imagen, y ahi un `height:100%` la dejaba
+     colapsar a un pellizco. Aqui la imagen manda: ancho completo, alto libre y
+     un tope para que no se pase de la hoja. */
+  #salida .rej.sola figure{width:100%;height:auto;display:block}
+  #salida .rej.sola img{width:100%;height:auto;max-height:205mm;flex:none;
+    object-fit:contain}
   /* El protocolo mide 435 mm y dos hojas dan 442: cabe, pero con 7 mm de
      holgura no habia donde cortar sin que un parrafo se pasara, y acababa en
      tres hojas con la ultima a un cuarto. Bajando el aire entre parrafos de 7 a
@@ -896,6 +904,9 @@ function pintarDatos(){
               value="${esc(x.obs_medicion||"")}"></label>`;
   proponerCoordinador(x);
   precargarDelSitio(x);
+  /* La tabla de los 25 tonos se cuenta hacia atras desde el ultimo registro, y
+     esa hora la da el receptor: sin ella no hay tabla que imprimir. Por eso el
+     campo lo dice en su etiqueta. */
   document.getElementById("datLog").innerHTML =
     `<label>¿Cómo venía el log?
        <select id="dat_log_estado">
@@ -903,7 +914,8 @@ function pintarDatos(){
          <option value="CONTINUO"${x.log_estado==="CONTINUO"?" selected":""}>Continuo</option>
          <option value="SALTEADO"${x.log_estado==="SALTEADO"?" selected":""}>Con saltos</option>
        </select></label>` +
-    campo("log_ultimo", "Último registro (dd-mm hh:mm)", "12-jul 19:39") +
+    campo("log_ultimo", "Último registro del log — SIN ESTO NO SALE LA TABLA",
+          "2026-08-17 19:39") +
     `<label style="grid-column:1/-1">¿Cuáles faltan? (si hubo saltos)
        <input id="dat_log_saltos" placeholder="ej. 12-jul 04:39 y 07:39"
               value="${esc(x.log_saltos||"")}"></label>`;
@@ -2370,7 +2382,7 @@ async function informeDe(x, num, ident, conLog){
     rep.forEach((f,k)=>{
       cuerpo += hoja(`<h2 class="sec" style="text-align:center">REPORTE DE MANTENIMIENTO</h2>
         <div class="rej sola"><figure><img src="${f.url}">
-        ${rep.length>1?`<figcaption>Hoja ${k+1} de ${rep.length}</figcaption>`:""}</figure></div>`);
+        ${rep.length>1?`<figcaption>Hoja ${k+1} de ${rep.length}</figcaption>`:""}</figure></div>`, "rep");
     });
   }
 
