@@ -227,7 +227,11 @@
   #salida table.comp2 .evfoto.enfila{flex-direction:column;gap:3mm}
   /* La del receptor, mas grande: casi siempre es vertical, asi que lo que la
      hace crecer es el alto -a 70 mm de ancho una foto 3:4 solo usaba 39-. */
-  #salida table.comp2 .evfoto.enfila img{width:70mm;height:70mm}
+  /* 70 x 58: el receptor lleva dos fotos apiladas en "revision parametros" y
+     una en "funcionamiento". A 70 de alto esos dos renglones sumaban 124% de
+     una hoja y el componente se repartia en tres; a 58 caben en dos, que es
+     como esta en el machote. Sigue siendo mas grande que los 52 de origen. */
+  #salida table.comp2 .evfoto.enfila img{width:70mm;height:58mm}
   #salida table.comp2 .pieimg{font-size:11pt;margin-top:3px;line-height:1.3}
   #salida table.comp2 .sinfoto{font-size:10pt;color:#8a8a8a;padding:10mm 0}
   /* Toda la cuadricula: el mismo trazo en el encabezado y en las celdas, y el
