@@ -1284,6 +1284,53 @@ const ACTIVIDADES=[
  "Revisión de historial de incidencias almacenado en la bitácora electrónica del sistema del receptor (mínimo últimos 25 eventos)."];
 
 let nPag=0;
+/* ---------- repartir bloques en hojas, midiendo ----------
+   Se arma una hoja igual a la de verdad fuera de la pantalla y se le van
+   metiendo bloques hasta que el contenido se desborda; el que no cupo abre la
+   siguiente. Contar caracteres no sirve: no sabe de negritas, de titulos ni de
+   como parte las lineas el justificado.
+
+   `cabecera` es el titulo de seccion, que solo va en la primera hoja y ocupa su
+   espacio: por eso entra en la medicion y no se pega despues. */
+function repartirEnHojas(bloques, cabecera){
+  const molde = document.createElement("div");
+  molde.style.cssText = "position:absolute;left:-99999px;top:0;visibility:hidden";
+  document.body.appendChild(molde);
+  const marca = LOGO ? `<img src="${LOGO}">`
+                     : `<b style="font-size:22px;color:#1F3864">MDreieck</b>`;
+  const hojas = [];
+  let i = 0;
+  try{
+    while(i < bloques.length){
+      const esPrimera = hojas.length === 0;
+      molde.innerHTML = `<div class="hoja"><div class="marca">${marca}</div>` +
+        `<div class="cont">${esPrimera ? (cabecera||"") : ""}</div>` +
+        `<div class="npag">0</div>${PIE}</div>`;
+      const pag  = molde.firstElementChild;
+      const cont = pag.querySelector(".cont");
+      let caben = 0;
+      while(i + caben < bloques.length){
+        const antes = cont.childElementCount;
+        cont.insertAdjacentHTML("beforeend", bloques[i + caben]);
+        if(pag.scrollHeight > pag.clientHeight){
+          /* se quita entero: un bloque puede ser titulo + parrafo, y borrar
+             solo el ultimo hijo dejaria el titulo huerfano al pie de la hoja */
+          while(cont.childElementCount > antes) cont.lastElementChild.remove();
+          break;
+        }
+        caben++;
+      }
+      /* un bloque mas alto que la hoja entera no cabe en ninguna parte: va solo
+         en la suya y que la hoja lo recorte, antes que ciclar para siempre */
+      if(caben === 0) caben = 1;
+      hojas.push((esPrimera ? (cabecera||"") : "") +
+                 bloques.slice(i, i + caben).join(""));
+      i += caben;
+    }
+  } finally { molde.remove() }
+  return hojas;
+}
+
 function hoja(cuerpo, clase){
   nPag++;
   return `<div class="hoja ${clase||""}">
@@ -1694,25 +1741,14 @@ async function informeDe(x, num, ident, conLog){
   protocoloDe(x.coord).forEach(b=>{
     b.p.forEach((t,k)=>{
       const txt = typeof t==="function" ? t(x) : t;
-      const html=(k===0&&b.t?`<h3 class="sub2">${b.t}</h3>`:"")+`<p class="txt">${txt}</p>`;
-      piezas.push({html:html, peso:txt.replace(/<[^>]+>/g,"").length + (k===0&&b.t?150:0)});
+      /* los parrafos que dependen de lo medido devuelven "" cuando no hay nada
+         que decir; un <p> vacio se lleva su renglon y su margen */
+      if(!String(txt).trim()) return;
+      piezas.push((k===0&&b.t?`<h3 class="sub2">${b.t}</h3>`:"")+`<p class="txt">${txt}</p>`);
     });
   });
-  const total=piezas.reduce((a,x)=>a+x.peso,0);
-  const nHojas=Math.max(1, Math.ceil(total/2100));
-  const CUPO=Math.ceil(total/nHojas);
-  let tanda=[], usado=0, primera=true;
-  const cerrarTanda = () => {
-    if(!tanda.length) return;
-    cuerpo += hoja(`${primera?`<h2 class="sec">PROTOCOLO DE MANTENIMIENTO</h2>`:""}
-      ${tanda.join("")}`);
-    primera=false; tanda=[]; usado=0;
-  };
-  piezas.forEach((z,k)=>{
-    if(usado && usado + z.peso > CUPO*1.08) cerrarTanda();
-    tanda.push(z.html); usado += z.peso;
-  });
-  cerrarTanda();
+  repartirEnHojas(piezas, `<h2 class="sec">PROTOCOLO DE MANTENIMIENTO</h2>`)
+    .forEach(h => { cuerpo += hoja(h) });
 
   /* 4 · bitácora de trabajo y evidencia fotográfica */
   marca("BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA");
