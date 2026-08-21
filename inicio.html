@@ -227,7 +227,14 @@ async function entrar(){
     localStorage.setItem("md_quien", u);
     menu(u);
   }catch(x){
-    e.textContent="No se pudo entrar. Revisa tu clave.";
+    /* Se dice lo que contesto el servidor, no solo "revisa tu clave": una
+       cuenta que no existe, una que quedo sin confirmar y una clave mal
+       escrita dan avisos distintos, y con el mensaje generico los tres se
+       ven igual. Buscar a ciegas cuesta mas que leer. */
+    const dice = String(x && x.message || "");
+    e.textContent = /invalid login/i.test(dice)
+      ? "Usuario o clave incorrectos."
+      : "No se pudo entrar: " + (dice || "sin respuesta del servidor");
     e.style.display="block";
   }
   b.disabled=false; b.textContent="Entrar";
