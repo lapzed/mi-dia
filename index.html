@@ -1009,6 +1009,11 @@ const MEDICIONES = [["volt_linea","Alimentación de línea (85 a 264)","Vca","12
 
 /* Los tres voltajes que el protocolo exige medir en un mantenimiento. El
    amperaje no entra: se toma de la salida y no siempre hay como medirlo. */
+/* Donde esta instalada cada pieza. El amplificador y el respaldo no se
+   preguntan: van montados sobre el receptor y toman su ubicacion. */
+const PIEZAS_UBIC = [["EQUIPO","Equipo receptor"],["TROMPETA","Altavoz trompeta"],
+  ["ESTROBO","Luz estrobo"],["ANTENA","Antena aérea dipolo"]];
+
 const VOLT_OBLIG = ["volt_linea", "volt_fuente", "volt_bateria"];
 const VOLT_RANGO = {volt_linea:[85, 264], volt_fuente:[13.3, 13.6],
                     volt_bateria:[12.2, 12.6]};
@@ -1137,6 +1142,8 @@ function abrirCierre(coord, id, modo){
        de la foto, y cambia en cada visita: tiene que salir de aquí. */
     MEDICIONES.forEach(([k])=>{ cie.inv[k] = (srv[k]==null?"":String(srv[k])) });
     cie.inv.obs_medicion = (srv.obs_medicion==null?"":String(srv.obs_medicion));
+    cie.inv.software_ver = (srv.software_ver==null?"":String(srv.software_ver));
+    cie.inv.ubicaciones  = srv.ubicaciones || {};
   }
   cie.partidas = null;
   if(PART_COORD.indexOf((coord||"").toUpperCase())>=0){
@@ -1350,6 +1357,13 @@ function isoLog(v){
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(t) ? t : "";
 }
 function invCampo(k, v){ cie.inv[k]=v }
+/* Las ubicaciones viajan juntas en un solo campo: son una por pieza y no tiene
+   sentido una columna para cada una. */
+function ubicCampo(pieza, v){
+  cie.inv.ubicaciones = cie.inv.ubicaciones || {};
+  if(String(v).trim()) cie.inv.ubicaciones[pieza] = v.trim();
+  else delete cie.inv.ubicaciones[pieza];
+}
 function notaMedCampo(v){
   cie.inv.obs_medicion = v;
   const b = document.querySelector("#notaMed .req");
@@ -1607,6 +1621,21 @@ function pintarCierre(){
         <label>${et}
           <input type="number" min="0" inputmode="numeric" value="${esc(I[k])}"
                  oninput="invCampo('${k}',this.value)"></label>`).join("")}</div>
+
+      ${(cie.srv.coord||"").toUpperCase()==="MANT" ? `
+      <div class="lbl" style="margin-top:14px">Versión del software</div>
+      <p class="pista">La que muestra el receptor al descargar el log. Va al
+         informe, al pie de la tabla del equipo.</p>
+      <input id="invSw" placeholder="ej. 521521OP120526" value="${esc(I.software_ver||"")}"
+             oninput="invCampo('software_ver',this.value)">
+
+      <div class="lbl" style="margin-top:14px">¿Dónde está cada pieza?</div>
+      <p class="pista">Como lo diría el cliente: «área de cajas», «patio
+         bancario», «azotea». Se queda guardado para las próximas visitas.</p>
+      <div class="inv">${PIEZAS_UBIC.map(([k,et])=>`
+        <label>${et}
+          <input value="${esc((I.ubicaciones||{})[k]||"")}"
+                 oninput="ubicCampo('${k}',this.value)"></label>`).join("")}</div>` : ""}
 
       <div class="lbl" style="margin-top:14px">Mediciones${
         pideMediciones() ? `<span class="req ${faltanMediciones().length?"":"listo"}">${
@@ -2119,6 +2148,9 @@ async function guardarCierre(s, modo, com){
       if(limpio(cie.inv.equipo)) body.equipo = cie.inv.equipo.trim();
       if(limpio(cie.inv.serie))  body.serie  = cie.inv.serie.trim();
       if(limpio(cie.inv.obs_medicion)) body.obs_medicion = cie.inv.obs_medicion.trim();
+    if(limpio(cie.inv.software_ver)) body.software_ver = cie.inv.software_ver.trim();
+    if(cie.inv.ubicaciones && Object.keys(cie.inv.ubicaciones).length)
+      body.ubicaciones = cie.inv.ubicaciones;
     INVENTARIO.concat(MEDICIONES).forEach(([k])=>{
         const v=String(cie.inv[k]==null?"":cie.inv[k]).trim();
         if(v!=="") body[k]=v;
