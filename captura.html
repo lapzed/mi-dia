@@ -1356,7 +1356,7 @@ function anotar(accion, detalle, x){
 /* ---------- servicios repetidos ----------
    No es que el sistema duplique: al no ver lo ya capturado se vuelve a
    capturar. Por eso esto MUESTRA y la persona elige. */
-let DUP = [];
+let DUP = [], DUP_PARCIAL = false;
 
 function claveDup(x){
   const co = String(x.coord||"").toUpperCase();
@@ -1372,15 +1372,21 @@ async function buscarDuplicados(){
   m.style.display = "flex";
   c.innerHTML = '<div class="load">Buscando…</div>';
   try{
-    /* de mil en mil y con orden: paginar sin `order` se salta renglones */
-    let filas = [];
-    for(let off=0; off<6000; off+=1000){
+    /* de mil en mil y con orden: paginar sin `order` se salta renglones.
+       Aquí se recorre TODO el histórico, sin filtro de fecha: un duplicado
+       viejo sigue siendo un duplicado. */
+    let filas = [], completo = false;
+    for(let off=0; off<40000; off+=1000){
       const t = await api("servicios?select=coord,id,tkt,nombre,dependencia,"+
         "fecha_servicio,status,tecnico,dia_creacion,jen_user,jen_ts"+
         "&order=id.desc&limit=1000&offset="+off);
       filas = filas.concat(t);
-      if(t.length < 1000) break;
+      c.innerHTML = '<div class="load">Buscando… '+filas.length+' servicios</div>';
+      if(t.length < 1000){ completo = true; break }
     }
+    /* Si se llegó al tope hay que decirlo: callarlo haría que la pantalla
+       dijera "no hay repetidos" sobre una revisión a medias. */
+    DUP_PARCIAL = !completo;
     const grupos = {};
     filas.forEach(function(x){
       const k = claveDup(x);
@@ -1396,12 +1402,17 @@ async function buscarDuplicados(){
 
 function pintarDup(){
   const c = document.getElementById("dupCuerpo");
+  const aMedias = DUP_PARCIAL
+    ? '<div class="aviso">Se revisaron los 40,000 servicios más recientes, no todo '+
+      'el histórico. Lo de más atrás no está en esta lista.</div>' : '';
   if(!DUP.length){
-    c.innerHTML = '<div class="ok" style="display:block">No hay servicios repetidos.</div>';
+    c.innerHTML = aMedias +
+      '<div class="ok" style="display:block">No hay servicios repetidos.</div>';
     return;
   }
   const total = DUP.reduce((a,g)=>a+g.length-1, 0);
-  c.innerHTML = '<p><b>'+DUP.length+'</b> grupos · <b>'+total+'</b> renglones de más.</p>' +
+  c.innerHTML = aMedias +
+    '<p><b>'+DUP.length+'</b> grupos · <b>'+total+'</b> renglones de más.</p>' +
     DUP.map(function(g, gi){
       const porTkt = String(g[0].tkt||"").trim();
       return '<div class="dupG"><div class="dupT">'+
