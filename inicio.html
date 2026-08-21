@@ -125,7 +125,13 @@ const DOMINIO="mdcontrol.local";
 const LLAVES={"proyectos.html":"md_pry", "tablero.html":"md_tablero", "demanda.html":"md_demanda", "captura.html":"md_capt", "programacion.html":"md_prog",
   "coordinacion.html":"md_coord", "cierre.html":"md_cierre", "cat.html":"md_cat",
   "supervision.html":"md_sup", "ventas.html":"md_ventas", "levantamientos.html":"md_lev",
-  "entregables.html":"md_ses"};
+  "entregables.html":"md_ses",
+    /* Mi dia tiene su PROPIA llave —no comparte md_ses con entregables, para no
+       heredar la sesion de quien haya entrado antes en ese equipo—. Faltaba
+       aqui, asi que el menu no le dejaba nada y la pantalla volvia a pedir la
+       clave a todos. A quien solo tiene Mi dia —las empresas externas— eso lo
+       dejaba dando vueltas sin poder entrar. */
+    "index.html":"md_tec"};
 /* "Mi dia" NO se preautoriza desde aqui: es de tecnicos y su clave es la
    suya. Antes compartia llave con entregables y se entraba prestado. */
 
