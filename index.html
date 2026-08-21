@@ -1337,6 +1337,16 @@ function logEstado(v){
   pintarCierre();
 }
 function logCampo(k, v){ cie.log[k]=v }
+
+/* El campo pide fecha y hora con selector, y eso solo acepta la forma
+   "2026-08-17T07:39:28". Lo capturado antes venia como texto libre -"17-08
+   07:39"-, que el selector no puede mostrar: se deja vacio para que se vuelva a
+   elegir, en vez de perderlo callando o mostrar basura. El informe si sigue
+   leyendo lo viejo. */
+function isoLog(v){
+  const t = String(v||"").trim();
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(t) ? t : "";
+}
 function invCampo(k, v){ cie.inv[k]=v }
 function notaMedCampo(v){
   cie.inv.obs_medicion = v;
@@ -1643,8 +1653,8 @@ function pintarCierre(){
         <input id="logSaltos" placeholder="¿Cuáles faltan? ej. 12-jul 04:39 y 07:39"
                value="${esc(L.saltos)}" oninput="logCampo('saltos',this.value)">`:""}
       <div class="tres">
-        <input id="logUlt" placeholder="Último registro (dd-mm hh:mm)"
-               value="${esc(L.ultimo)}" oninput="logCampo('ultimo',this.value)">
+        <input id="logUlt" type="datetime-local" step="1" title="Último registro del log"
+               value="${esc(isoLog(L.ultimo))}" oninput="logCampo('ultimo',this.value)">
         <input id="logCanal" placeholder="Canal" value="${esc(L.canal)}"
                oninput="logCampo('canal',this.value)">
         <input id="logBarras" type="number" min="0" max="5" placeholder="Barras"
