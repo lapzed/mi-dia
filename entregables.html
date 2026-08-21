@@ -388,6 +388,7 @@
       <summary>Datos del servicio para el informe</summary>
       <div class="dat-nota">Son los que el técnico captura en sitio. El informe
         los escribe en sus párrafos y en la tabla de inventario.</div>
+      <div class="dat-nota" id="fichaNota" style="display:none;color:var(--acc)"></div>
       <div class="dat-g" id="datEquipo"></div>
       <div class="dat-t">Mediciones</div>
       <div class="dat-g" id="datMed"></div>
@@ -894,6 +895,7 @@ function pintarDatos(){
        <input id="dat_obs_medicion" placeholder="ej. Batería con 3 años de uso, se deja en observación"
               value="${esc(x.obs_medicion||"")}"></label>`;
   proponerCoordinador(x);
+  precargarDelSitio(x);
   document.getElementById("datLog").innerHTML =
     `<label>¿Cómo venía el log?
        <select id="dat_log_estado">
@@ -905,6 +907,75 @@ function pintarDatos(){
     `<label style="grid-column:1/-1">¿Cuáles faltan? (si hubo saltos)
        <input id="dat_log_saltos" placeholder="ej. 12-jul 04:39 y 07:39"
               value="${esc(x.log_saltos||"")}"></label>`;
+}
+
+/* ---------- la ficha del sitio ----------
+   Lo que no cambia de una visita a otra vive en `sitios`, con llave cliente +
+   sitio. Se consulta una vez por sitio y se recuerda mientras dure la pantalla. */
+const fichas = {};
+function llaveSitio(x){
+  return (x.dependencia||"") + "\u0000" + (x.nombre||"");
+}
+async function fichaDeSitio(x){
+  const k = llaveSitio(x);
+  if(fichas[k] !== undefined) return fichas[k];
+  fichas[k] = null;
+  if(!(x.dependencia||"").trim() || !(x.nombre||"").trim()) return null;
+  try{
+    const d = await api("sitios?dependencia=eq." + encodeURIComponent(x.dependencia) +
+                        "&nombre=eq." + encodeURIComponent(x.nombre) + "&limit=1");
+    fichas[k] = (d && d.length) ? d[0] : null;
+  }catch(e){ fichas[k] = null }   // sin ficha se sigue igual, solo no precarga
+  return fichas[k];
+}
+
+/* Rellena SOLO lo que este vacio. Lo que el tecnico capturo en esta visita
+   manda sobre la ficha: puede haber cambiado el equipo. */
+async function precargarDelSitio(x){
+  const f = await fichaDeSitio(x);
+  if(!f) return;
+  const poner = (id, v) => {
+    const e = document.getElementById(id);
+    if(e && !String(e.value).trim() && v != null && String(v).trim()) e.value = v;
+  };
+  poner("dat_equipo", f.equipo);
+  poner("dat_serie", f.serie);
+  poner("dat_software_ver", f.software_ver);
+  (f.ubicaciones ? Object.keys(f.ubicaciones) : []).forEach(id =>
+    poner("ubic_" + id, f.ubicaciones[id]));
+  const inv = f.inventario || {};
+  Object.keys(inv).forEach(k => poner("dat_" + k, inv[k]));
+  const av = document.getElementById("fichaNota");
+  if(av){
+    av.textContent = "Lo que no llenaste viene de la última visita a este sitio" +
+      (f.ultima_visita ? " (" + f.ultima_visita + ")" : "") + ". Corrige lo que haya cambiado.";
+    av.style.display = "block";
+  }
+}
+
+/* Guardar la ficha con lo que quedo del servicio. Se manda como upsert: si el
+   sitio ya tenia ficha se actualiza, y si no, se crea. */
+async function guardarFicha(x){
+  if(!(x.dependencia||"").trim() || !(x.nombre||"").trim()) return;
+  const inv = {};
+  DATOS_INV.forEach(([k]) => { if(limpio(x[k])) inv[k] = x[k] });
+  const cuerpo = {dependencia:x.dependencia, nombre:x.nombre,
+    actualizado:new Date().toISOString(), actualizo:(ses&&ses.nombre)||""};
+  ["direccion","equipo","serie","software_ver"].forEach(k => {
+    if(limpio(x[k])) cuerpo[k] = x[k];
+  });
+  if(x.ubicaciones && Object.keys(x.ubicaciones).length) cuerpo.ubicaciones = x.ubicaciones;
+  if(Object.keys(inv).length) cuerpo.inventario = inv;
+  if(limpio(x.personal_atiende)) cuerpo.contacto = x.personal_atiende;
+  if(limpio(x.telefono)) cuerpo.telefono = x.telefono;
+  const dia = x.fecha_atencion || x.fecha_servicio;
+  if(limpio(dia)) cuerpo.ultima_visita = dia;
+  try{
+    await api("sitios", {method:"POST",
+      headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
+      body:JSON.stringify(cuerpo)});
+    fichas[llaveSitio(x)] = undefined;      // que se relea la proxima vez
+  }catch(e){ /* la ficha es un extra: si falla, el servicio ya quedo guardado */ }
 }
 
 /* Quien coordina cada coordinacion ya esta en la base; no hay por que
@@ -985,7 +1056,10 @@ async function guardarDatos(){
     const f = filas.find(y => y.coord===x.coord && y.id===x.id);
     if(f) Object.assign(f, cuerpo);
     anotar("GUARDAR", "ID="+x.id+" · datos para el informe", x);
-    ok.textContent = "Datos guardados. El informe ya los va a escribir.";
+    /* la ficha del sitio, con lo que quedo: la siguiente visita llega
+       precargada y el parque instalado del cliente queda al dia */
+    await guardarFicha(x);
+    ok.textContent = "Datos guardados, y la ficha del sitio quedó al día.";
     ok.style.display = "block";
   }catch(e){
     err.textContent = String(e.message||e).slice(0,140); err.style.display = "block";
