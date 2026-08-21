@@ -150,18 +150,22 @@
   #salida .hoja .marca{height:52px;margin-bottom:8px}
   #salida .hoja .marca img{height:52px}
   /* el logo del cliente, en la portada y del lado opuesto al de la empresa */
-  #salida .port .logo-cli{position:absolute;right:20mm;top:26mm;text-align:right}
-  #salida .port .logo-cli img{max-height:22mm;max-width:52mm;object-fit:contain}
+  /* el logo del cliente, al centro de la portada */
+  #salida .port .logo-cli{position:absolute;left:0;right:0;top:105mm;text-align:center}
+  #salida .port .logo-cli img{max-height:45mm;max-width:110mm;object-fit:contain}
+  /* el sitio y la direccion, abajo a la derecha */
+  #salida .port .pieport{position:absolute;right:20mm;bottom:44mm;left:60mm;
+    text-align:right}
   #salida .hoja .npag{position:absolute;right:20mm;bottom:16mm;font-size:11px;color:#333}
   #salida .hoja .pie{position:absolute;left:20mm;right:20mm;bottom:8mm;text-align:center;
     font-size:9.5px;color:#3b3b3b;border-top:2px solid #1F3864;padding-top:5px}
   #salida .hoja .pie a{color:#1F3864}
   #salida .port h1{font-size:19px;font-weight:700;line-height:1.35;margin:26mm 0 0;
     text-align:center;color:#111}
-  #salida .port .sitio{font-size:22px;font-weight:800;text-align:center;margin:14mm 0 0;
+  #salida .port .sitio{font-size:22px;font-weight:800;text-align:right;margin:0;
     letter-spacing:.02em}
-  #salida .port .dir{font-size:12px;text-align:center;margin:46mm 0 0;line-height:1.5}
-  #salida .port .elab{font-size:12px;text-align:center;margin:6px 0 0;font-weight:600}
+  #salida .port .dir{font-size:12px;text-align:right;margin:4mm 0 0;line-height:1.5}
+  #salida .port .elab{font-size:12px;text-align:right;margin:6mm 0 0;font-weight:600}
 
   /* ---- machote largo: protocolo, bitacora de trabajo, indice y conclusiones ---- */
   #salida .hoja h3.sub2{font-size:12px;font-weight:700;margin:9px 0 3px}
@@ -179,11 +183,17 @@
     text-align:center;padding:3px 6px;border:.2mm solid #7d8fa8;font-size:11pt}
   #salida table.comp2 td{border:.2mm solid #7d8fa8;padding:5px 7px;
     vertical-align:middle}
-  #salida table.comp2 td.act{width:62.5mm;font-size:11pt;line-height:1.4;
-    text-align:justify}
-  #salida table.comp2 td.ph{width:92.5mm;text-align:center;padding:4px}
+  /* el ancho lo pone el colgroup de cada tabla, que no es el mismo en todos
+     los componentes; aqui solo va lo que comparten */
+  #salida table.comp2 td.act{font-size:11pt;line-height:1.4;text-align:justify}
+  #salida table.comp2 td.ph{text-align:center;padding:4px}
   #salida table.comp2 .fotos{display:flex;gap:2mm;justify-content:center;
     align-items:flex-start}
+  /* el pie va bajo SU foto y centrado con ella, como en el machote */
+  #salida table.comp2 .fotos figure{margin:0;display:flex;flex-direction:column;
+    align-items:center}
+  #salida table.comp2 .fotos figcaption{font-size:11pt;line-height:1.25;
+    margin-top:2px;text-align:center;max-width:100%}
   /* Alto y ancho FIJOS, del informe aprobado: 49 x 65 mm una sola foto,
      43 x 58 mm cuando van dos a la par. Fijo por dos razones: el informe queda
      parejo de hoja en hoja, y la caja ocupa su lugar aunque la imagen todavia
@@ -205,11 +215,14 @@
   #salida table.ev td.ph img{max-width:76mm;max-height:66mm;object-fit:contain;
     border:1px solid #bbb}
   #salida .comp{font-weight:800;font-size:13.5px;margin:0 0 6px}
-  #salida .firmas{display:flex;justify-content:center;margin-top:20mm;
-    text-align:center;font-size:11.5px}
+  /* la firma va centrada y a dos tercios de la hoja, no pegada al ultimo
+     parrafo: asi cae siempre en el mismo lugar, escriban lo que escriban las
+     conclusiones */
+  #salida .firmas{position:absolute;left:20mm;right:20mm;top:66%;
+    display:flex;justify-content:center;text-align:center;font-size:11.5px}
   /* el espacio de arriba es para firmar de puño y letra */
   #salida .firmas .linea{margin-top:24mm}
-  #salida .firmas .linea{border-top:1px solid #333;width:80mm;margin:24mm auto 4px}
+  #salida .firmas .linea{border-top:1px solid #333;width:80mm;margin:0 auto 4px}
   #salida .firmas .pto{font-weight:700}
   #salida .hoja h2.sec{font-size:14.5px;font-weight:700;margin:0 0 7px}
   #salida .hoja ul.act{font-size:12px;line-height:1.6;padding-left:18px;margin:0}
@@ -227,7 +240,10 @@
   #salida .rej figcaption{font-size:10.5px;margin-top:3px;flex:none}
   /* una sola foto —el reporte firmado o un croquis— se lleva la hoja entera */
   #salida .rej.sola{grid-template-columns:1fr}
-  #salida .rej.sola figure{width:100%;height:180mm}
+  /* el reporte que firma el cliente va a todo el ancho util y a lo alto que
+     dé la hoja: es un documento, no una fotografia de apoyo */
+  #salida .rej.sola figure{width:100%;height:205mm}
+  #salida .rej.sola img{width:100%;height:100%;object-fit:contain}
   #salida .hoja p.txt{font-size:12px;line-height:1.55;text-align:justify;margin:0 0 7px}
   #salida table.log{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:6px}
   #salida table.log th{background:#4A6489;color:#fff;text-align:center;font-size:11px;
@@ -965,10 +981,15 @@ const DATOS_MED = [["volt_linea","Alimentación de línea (Vca) · 85 a 264","12
   ["volt_fuente","Fuente de alimentación (Vcc) · 13.3 a 13.6","13.46"],
   ["volt_bateria","Batería de respaldo (Vcc) · 12.2 a 12.6","12.40"],
   ["volt_salida","Salida a altavoces (V) · nominal 10.1","11.54"],
-  ["amperaje","Amperaje de salida (A)","1.76"]];
+  ["amperaje","Amperaje de salida (A)","1.76"],
+  ["lux","Lux del estrobo, a 1 m","71.1x10"]];
 /* Estos dos van siempre debajo del equipo receptor, asi que no se preguntan:
    heredan su ubicacion. */
 const SIN_UBICACION = ["AMPLIFICADOR", "UPS"];
+
+/* El ancho de las dos columnas, en milimetros, medido del informe aprobado.
+   El receptor va mitad y mitad; el resto deja mas espacio a la foto. */
+const ANCHO_COL = {EQUIPO:[77.5, 77.5], _:[62.5, 92.5]};
 const DATOS_INV = [["plasticas","Trompetas de plástico"],["aluminio","Trompetas de aluminio"],
   ["eliptica","Dual elíptica"],["bocina_plafon","Bocinas de plafón"],
   ["estrobo","Luz estrobo"],["antena","Antena dipolo"],
@@ -1490,6 +1511,70 @@ function repartirEnHojas(bloques, cabecera, envolver){
   }
 }
 
+/* ---------- repartir bloques de distinta clase en las mismas hojas ----------
+   Cada bloque es {k, h}: `k` dice a que tabla pertenece -null si va suelto- y
+   `h` es su HTML. Los bloques seguidos con la misma `k` se envuelven juntos en
+   su tabla; asi la bitacora y el primer renglon del equipo receptor caben en
+   la misma hoja, como en el machote.
+
+   Se mide igual que el protocolo: hoja de verdad, fuera de pantalla, dentro de
+   #salida para que le apliquen los estilos, y comparando donde termina el
+   contenido contra el limite que deja el relleno -no scrollHeight, que en una
+   caja con overflow:hidden no crece-. */
+function repartirMixto(bloques, envolturas){
+  if(!bloques.length) return [];
+  const anfitrion = document.getElementById("salida") || document.body;
+  const comoEstaba = anfitrion.style.display;
+  const veniaOculto = getComputedStyle(anfitrion).display === "none";
+  if(veniaOculto) anfitrion.style.display = "block";
+  const molde = document.createElement("div");
+  molde.style.cssText = "position:absolute;left:-99999px;top:0;visibility:hidden";
+  anfitrion.appendChild(molde);
+  const marca = LOGO ? `<img src="${LOGO}">`
+                     : `<b style="font-size:22px;color:#1F3864">MDreieck</b>`;
+
+  /* junta los bloques de una hoja respetando a que tabla va cada uno */
+  const vestir = lista => {
+    let out = "", i = 0;
+    while(i < lista.length){
+      const k = lista[i].k;
+      let j = i; let dentro = "";
+      while(j < lista.length && lista[j].k === k){ dentro += lista[j].h; j++ }
+      out += (k && envolturas[k]) ? envolturas[k](dentro) : dentro;
+      i = j;
+    }
+    return out;
+  };
+
+  try{
+    const hojas = [];
+    let i = 0;
+    while(i < bloques.length){
+      molde.innerHTML = `<div class="hoja"><div class="marca">${marca}</div>` +
+        `<div class="cont"></div><div class="npag">0</div>${PIE}</div>`;
+      const pag  = molde.firstElementChild;
+      const cont = pag.querySelector(".cont");
+      const rel  = parseFloat(getComputedStyle(pag).paddingBottom) || 0;
+      const tope = pag.getBoundingClientRect().top + pag.clientHeight - rel;
+      const enHoja = [];
+      while(i + enHoja.length < bloques.length){
+        enHoja.push(bloques[i + enHoja.length]);
+        cont.innerHTML = vestir(enHoja);
+        if(cont.getBoundingClientRect().bottom > tope){ enHoja.pop(); break }
+      }
+      /* un bloque mas alto que la hoja entera va solo en la suya, antes que
+         ciclar para siempre */
+      if(!enHoja.length) enHoja.push(bloques[i]);
+      hojas.push(vestir(enHoja));
+      i += enHoja.length;
+    }
+    return hojas;
+  } finally {
+    molde.remove();
+    if(veniaOculto) anfitrion.style.display = comoEstaba;
+  }
+}
+
 function hoja(cuerpo, clase){
   nPag++;
   return `<div class="hoja ${clase||""}">
@@ -1770,76 +1855,107 @@ const PROTOCOLO = [
 /* Cada componente se ata al campo del inventario que dice si el sitio lo
    tiene. Un informe no debe hablar de un amplificador donde no hay
    amplificador, ni callarse uno que si esta porque nadie le tomo foto. */
+/* Los componentes del sistema, con el texto del informe aprobado palabra por
+   palabra. Cada actividad trae sus PIES DE FOTO, uno por hueco: en el machote
+   "Estado inicial" y "Limpieza trompeta" son dos pies distintos del mismo
+   renglon, no uno debajo del grupo.
+
+   `inv` dice de que campo del inventario depende que el componente aparezca.
+   Los textos y pies que reciben `x` llevan lo medido en la visita; si no se
+   capturo, la frase se acorta sola. */
+const NADA = "";
 const COMPONENTES = [
- {id:"EQUIPO", nom:"Equipo receptor SARMEX ®", inv:["equipo"], act:[
-   ["Revisión física.", `Se revisa que el equipo quede libre de objetos ajenos al sistema; no se
-     encontraron fracturas ni daño, se remueve la suciedad por medio de aire comprimido y espuma,
-     se observa fijado de forma correcta, sus conectores quedan limpios y libres de suciedad, el
-     estado de la conexión de antena al receptor y la tapa son los adecuados; el display muestra
-     el texto y los dígitos de manera legible, la operación de los botones es la adecuada, el sello
-     de garantía se encuentra en buenas condiciones y el estado de las baterías y sus terminales
-     es bueno.`],
-   ["Revisión de parámetros.", x=>`Se verificaron fecha, hora, canal de recepción${
-       limpio(x.canal)?` —canal <b>${esc(x.canal)}</b>—`:""} e intensidad de la señal${
-       limpio(x.senal_barras)?`, con <b>${esc(x.senal_barras)} barras</b>`:""}, así como el
-     voltaje de la fuente${limpio(x.volt_fuente)?` (<b>${esc(x.volt_fuente)} Vcc</b>)`:""} y el de la
-     batería de respaldo${limpio(x.volt_bateria)?` (<b>${esc(x.volt_bateria)} Vcc</b>)`:""}.`,
-     x=>{ const p=[];
-          if(limpio(x.volt_fuente))  p.push(`Fuente ${esc(x.volt_fuente)} Vcc`);
-          if(limpio(x.volt_bateria)) p.push(`Batería ${esc(x.volt_bateria)} Vcc`);
-          return p.join(" · "); }],
-   ["Revisión de funcionamiento.", `Se ejecutan las pruebas de funcionalidad del equipo receptor,
-     confirmando la emisión de audio hacia los aditamentos y el registro del evento en su
-     bitácora.`]]},
+ {id:"EQUIPO", nom:"Equipo receptor SARMEX PA20", inv:["equipo"], act:[
+   ["Revisión física.", `Se revisa que el equipo se deje libre de objetos ajenos al
+     sistema, no se encontraron fracturas o algún daño, se remueve la suciedad por medio
+     de aire comprimido y espuma, se observa fijado de forma correcta, sus conectores
+     quedan limpios y libres de suciedad, el estado de la conexión de antena al receptor,
+     la tapa del receptor es el adecuado; el display, muestra el texto y dígitos de manera
+     legible; la operación de los botones es el adecuado, el sello de garantía se encuentra
+     en buenas condiciones, el estado de las baterías y sus terminales se encuentran en
+     buen estado.`, ["Limpieza del gabinete"]],
+   ["Revisión parámetros.", `Se verificaron fecha, hora, canal de operación, calidad e
+     intensidad de señal, verificación de software actual e historial de eventos. Mediante
+     la conexión de un equipo de cómputo, se descargaron los 25 registros verificando que
+     sean los correspondientes al periodo y parámetros de configuración del equipo en
+     archivos de datos.`,
+     ["Configuración gabinete.",
+      x=>limpio(x.volt_linea)?`Voltaje de línea ${esc(limpio(x.volt_linea))} Vca.`:NADA]],
+   ["Revisión funcionamiento.", x=>`Se realizaron pruebas de sonido, con la función de
+     simulacro, sirena y la activación de alerta sísmica con auto prueba de equipo, con el
+     equipo alimentado con energía del tomacorriente${
+       limpio(x.volt_linea)?` de ${esc(limpio(x.volt_linea))} Vca`:""} y con batería${
+       limpio(x.volt_bateria)?` de ${esc(limpio(x.volt_bateria))} Vcd`:""}; en caso de
+     contar con un amplificador, se verificó su operación con las diferentes funciones de
+     simulacro, sirena y activación de alerta sísmica, es importante precisar que la
+     activación de alerta sísmica se realiza mediante auto prueba sin audio.`,
+     [x=>limpio(x.volt_bateria)?`Voltaje de batería ${esc(limpio(x.volt_bateria))} Vcd.`:NADA]]]},
+
  {id:"TROMPETA", nom:"Altavoz trompeta", inv:["plasticas","aluminio","eliptica","bocina_plafon"], act:[
    ["Revisión física.", `Se verificó que la orientación fuera la correcta para una óptima
-     sonorización; el estado físico del altavoz se encuentra en buenas condiciones, está conectado
-     al sistema receptor de alertamiento sísmico, así como la sujeción del altavoz, y se limpia con
-     aire comprimido y espuma para dejarlo libre de suciedad e impurezas.`],
-   /* 10.1 V y 2 A son los valores NOMINALES de salida que declara el protocolo,
-        no una medicion de esta visita: citarlos como medidos era presentar como
-        dato de campo lo que es una especificacion. El amperaje si se mide. */
-     ["Revisión de parámetros.", x=>`Se verifica la potencia entregada al altavoz, donde
-     P = V × A, siendo de <b>10.1 V</b> y <b>2 A</b> los valores de salida del equipo${
-       (limpio(x.volt_salida)||limpio(x.amperaje))
-         ? `; en esta visita se midió` +
-           (limpio(x.volt_salida)?` <b>${esc(limpio(x.volt_salida))} V</b>`:"") +
-           (limpio(x.volt_salida)&&limpio(x.amperaje)?" y":"") +
-           (limpio(x.amperaje)?` <b>${esc(limpio(x.amperaje))} A</b>`:"") +
-           ` a la salida`
-         : ""}.`,
-     /* el pie del machote: "Voltaje medido 11.54 V / Medicion de amperaje
-        1.76 A". Si solo se capturo uno de los dos, sale el que haya. */
-     x=>{ const p=[];
-          if(limpio(x.volt_salida)) p.push(`Voltaje medido ${esc(limpio(x.volt_salida))} V`);
-          if(limpio(x.amperaje))    p.push(`Medición de amperaje ${esc(limpio(x.amperaje))} A`);
-          return p.join(" / "); }],
-   ["Revisión de funcionamiento.", `Se comprueba el funcionamiento del altavoz emitiendo un
-     “click” que confirma su operación; posteriormente se procede con la emisión de sonido por
-     medio de las pruebas de funcionalidad del equipo receptor y se confirma la intensidad de
-     audio.`]]},
+     sonorización, el estado físico del altavoz se encuentra en buenas condiciones, se
+     encuentra conectada al sistema receptor de alertamiento sísmico, así como la sujeción
+     del altavoz, se limpia con aire comprimido y espuma para dejarla libre de suciedad e
+     impurezas.`, ["Estado inicial", "Limpieza trompeta"]],
+   ["Revisión parámetros.", x=>`Se miden los parámetros a verificar encontrando valores
+     óptimos siendo de ${esc(limpio(x.volt_salida)||"—")} V y ${esc(limpio(x.amperaje)||"—")} A
+     los valores de salida del equipo.</p><p class="txt">Es importante mencionar que el
+     voltaje medido es suministrado mediante la línea principal que conecta al equipo.`,
+     [x=>(limpio(x.volt_salida)||limpio(x.amperaje))
+        ? `Voltaje medido ${esc(limpio(x.volt_salida)||"—")} V / Medición de amperaje ${
+            esc(limpio(x.amperaje)||"—")} A` : NADA]],
+   ["Revisión funcionamiento.", `Se comprueba el funcionamiento del altavoz emitiendo un
+     “click” que nos confirma el funcionamiento del altavoz, posteriormente se procede con
+     la emisión de sonido por medio de las pruebas de funcionalidad del equipo receptor
+     SARMEX PA20 y se confirma la intensidad de audio.`, ["Estado final"]]]},
+
  {id:"ESTROBO", nom:"Luz estrobo", inv:["estrobo"], act:[
-   ["Revisión física.", `Se examina el estado del dispositivo sin encontrar fisuras en el material,
-     filtraciones ni quemaduras; la sujeción es firme y su conexión al sistema receptor es la
-     adecuada. Se limpia para dejarlo libre de suciedad.`],
-   ["Revisión de funcionamiento.", `Se confirma el destello de la luz estrobo durante las pruebas
-     de funcionalidad del equipo receptor.`]]},
+   ["Revisión física.", `Se examinó el estado del dispositivo encontrándolo en buenas
+     condiciones, con una sujeción firme, se verificó su conexión al sistema receptor de
+     alertamiento sísmico SARMEX PA20.`, ["Estado inicial", "Limpieza estrobo"]],
+   ["Revisión parámetros.", x=>`Se revisó el voltaje de entrada de la luz estrobo${
+       limpio(x.volt_linea)?`, siendo de ${esc(limpio(x.volt_linea))} Vca`:""} (Importante
+     mencionar que el voltaje medido es suministrado por medio de la fuente alimentación)${
+       limpio(x.lux)?`, también se midieron los Lux teniendo valores de ${esc(limpio(x.lux))} Lx`:""}.
+     Se hace mención de que la medida de Lux del estrobo se realiza a 1 metro de distancia
+     y se acerca al estrobo para la toma de evidencia fotográfica.`,
+     [x=>limpio(x.volt_linea)?`Voltaje de entrada ${esc(limpio(x.volt_linea))} Vca`:NADA]],
+   ["Revisión funcionamiento.", `Se verificó el encendido independientemente de la luz
+     estrobo, se comprobó el encendido y apagado en los tiempos de operatividad del sistema
+     confirmando el buen estado del equipo.`, ["Estado final"]]]},
+
  {id:"ANTENA", nom:"Antena aérea dipolo", inv:["antena"], act:[
-   ["Revisión física.", `Se revisa que la antena se encuentre libre de obstáculos, sin fracturas ni
-     corrosión, con la sujeción y orientación adecuadas, y se verifica el estado del cable coaxial
-     y sus conectores.`],
-   ["Revisión de parámetros.", `Se verifica la intensidad de la señal recibida, confirmando que se
-     encuentra dentro de los valores óptimos de operación.`]]},
+   ["Revisión física.", `Se revisó que no cuente con daños por golpes, el material se
+     encuentra libre de suciedad, con una orientación adecuada garantizando la recepción de
+     la señal del Sistema de Alerta Sísmica Mexicano (SASMEX ®), se comprobaron que los
+     conectores de acoplamiento se encontraran correctamente soldados al cobre del cable
+     coaxial y a su vez conectado a la antena, el mástil y antena están fijados
+     firmemente.`, ["Vista de la antena"]],
+   ["Revisión parámetros.", `Los parámetros o indicadores sobre el funcionamiento correcto
+     de la antena son visuales y auditivos con respecto a la orientación ideal de la antena
+     dejando seleccionado el canal con mayor ganancia teniendo el máximo de señal con un
+     audio limpio.`, ["Canal de señal"]]]},
+
  {id:"AMPLIFICADOR", nom:"Amplificador", inv:["amplificador"], act:[
-   ["Revisión física.", `Se revisa el estado del amplificador, su fijación, conectores y cableado;
-     se limpia con aire comprimido para dejarlo libre de polvo.`],
-   ["Revisión de parámetros.", `Se miden los valores de entrada y salida, confirmando que el
-     equipo entrega la potencia adecuada hacia los aditamentos de sonorización.`]]},
+   ["Revisión física.", `Se revisa que se encuentre libre de objetos ajenos conectados al
+     sistema de alertamiento sísmico, se inspecciona el estado de la carcasa y las perillas,
+     que el equipo esté libre de suciedad y filtraciones, la charola con una sujeción firme
+     y que se encuentre conectado al sistema.`, ["Estado inicial", "Limpieza amplificador"]],
+   ["Revisión parámetros.", `Se revisa el voltaje de alimentación de línea y el voltaje de
+     salida para evitar averías en cualquier dispositivo conectado a él, buscando valores
+     de 127 Vca en alimentación de línea y 70 Vca de salida.`, ["Voltajes del amplificador"]],
+   ["Revisión funcionamiento.", `Se realizan pruebas para verificar el encendido y apagado
+     automático del amplificador, se verifica el funcionamiento de cada una de sus entradas
+     y salidas, y se regula la intensidad de audio para verificar los cambios en el volumen
+     del audio.`, ["Estado final"]]]},
+
  {id:"UPS", nom:"Respaldo de energía (UPS)", inv:["ups"], act:[
-   ["Revisión física.", `Se revisa el estado del respaldo de energía, su conexión al sistema y el
-     estado de sus terminales.`],
-   ["Revisión de funcionamiento.", `Se comprueba que el respaldo sostenga la operación del equipo
-     receptor ante la falta de energía de la línea principal.`]]}
+   ["Revisión física.", `Se revisa el estado de la carcasa y sus conectores, que se
+     encuentre libre de suciedad y con una sujeción firme, y que el equipo receptor esté
+     conectado a él.`, ["Estado inicial"]],
+   ["Revisión funcionamiento.", `Se comprueba que el respaldo entre en operación al
+     retirar la alimentación de línea, y que el equipo receptor siga operando con él.`,
+     ["Estado final"]]]}
 ];
 
 const CONCLUSIONES = [
@@ -1895,12 +2011,15 @@ async function informeDe(x, num, ident, conLog){
 
   /* 1 · portada */
   nPag = 0;
-  cuerpo += hoja(`${logoCli?`<div class="logo-cli"><img src="${logoCli}"></div>`:""}
+  cuerpo += hoja(`
     <h1>${esc(numeroOrdinal(num).toUpperCase())} SERVICIO DE MANTENIMIENTO<br>
       RECEPTOR DE ALERTA SÍSMICA SARMEX ®${limpio(x.equipo)?" "+esc(limpio(x.equipo)):""}</h1>
-    <div class="sitio">${esc((x.nombre||"").toUpperCase())}</div>
-    <div class="dir">${esc(limpio(x.direccion))}</div>
-    <div class="elab">Elaborado por: MDreieck S.A. de C.V.</div>`, "port");
+    ${logoCli?`<div class="logo-cli"><img src="${logoCli}"></div>`:""}
+    <div class="pieport">
+      <div class="sitio">${esc((x.nombre||"").toUpperCase())}</div>
+      <div class="dir">${esc(limpio(x.direccion))}</div>
+      <div class="elab">Elaborado por: MDreieck S.A. de C.V.</div>
+    </div>`, "port");
 
   /* 2 · el índice se reserva y se arma al final, cuando ya se sabe qué página
         le tocó a cada sección */
@@ -1933,7 +2052,11 @@ async function informeDe(x, num, ident, conLog){
     .map(([k,et])=>[et, k==="equipo" ? (limpio(x.equipo)?"1":"") : limpio(x[k])])
     .filter(([,v])=>v && v!=="0");
   const fecha = x.fecha_atencion || x.fecha_servicio || "";
-  cuerpo += hoja(`<h2 class="sec">BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA</h2>
+  /* la bitacora ya no ocupa una hoja para ella sola: entra al mismo reparto
+     que los componentes, para que la primera actividad quepa aqui mismo como
+     en el machote */
+  const bloques = [], envolturas = {};
+  bloques.push({k:null, h:`<h2 class="sec">BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA</h2>
     <p class="txt">El ${esc(numeroOrdinal(num))} servicio de mantenimiento por contrato
       contempla el servicio a:</p>
     <table class="bit"><tr><th>CONCEPTO</th><th style="width:26mm">CANTIDAD</th></tr>
@@ -1949,7 +2072,7 @@ async function informeDe(x, num, ident, conLog){
       <tr><td>Técnico encargado</td><td>${esc(limpio(x.tecnico)||"—")}</td></tr>
       ${limpio(x.auxiliar)?`<tr><td>Técnico auxiliar</td><td>${esc(x.auxiliar)}</td></tr>`:""}
       ${limpio(x.personal_atiende)?`<tr><td>Personal encargado del inmueble</td>
-        <td>${esc(x.personal_atiende)}</td></tr>`:""}</table>`);
+        <td>${esc(x.personal_atiende)}</td></tr>`:""}</table>`});
 
   /* una hoja por componente: la actividad a la izquierda, su foto a la derecha.
      Se intento pegar el primero debajo de las tablas, como en el machote, pero
@@ -1966,11 +2089,22 @@ async function informeDe(x, num, ident, conLog){
   /* La celda de fotos: hasta dos a la par, como en el machote. Con una sola,
      va centrada y a su tamaño. El pie va debajo del grupo, no de cada foto:
      la evidencia no trae un pie por imagen. */
-  const celdaFotos = (lista, pie) => {
+  const celdaFotos = (lista, pies) => {
     if(!lista.length) return `<div class="sinfoto">sin fotografía</div>`;
     return `<div class="fotos${lista.length>1?" par":""}">` +
-      lista.map(f=>`<img src="${f.url}">`).join("") + `</div>` +
-      (pie ? `<div class="pieimg">${pie}</div>` : "");
+      lista.map((f,k)=>`<figure><img src="${f.url}">${
+        pies[k] ? `<figcaption>${pies[k]}</figcaption>` : ""}</figure>`).join("") +
+      `</div>`;
+  };
+
+  /* La evidencia que llega sin decir de que es. No es sobrante: el personal la
+     manda para los huecos de las actividades, asi que se va repartiendo ahi
+     -por etapa cuando se puede- y solo lo que quede va a la cuadricula final. */
+  const sueltas = fotos.filter(f => !f.partida && f.clase !== "REPORTE");
+  const tomarSuelta = etapa => {
+    let i = sueltas.findIndex(f => f.clase === etapa);
+    if(i < 0) i = 0;
+    return sueltas.splice(i, 1)[0];
   };
 
   const ubic = x.ubicaciones || {};
@@ -1993,9 +2127,22 @@ async function informeDe(x, num, ident, conLog){
     const reparto = [porEtapa.ANTES, porEtapa.DURANTE, porEtapa.DESPUES];
 
     const resolver = v => typeof v==="function" ? v(x) : v;
-    const filas = c.act.map((a,i)=>`<tr>
+    const ETAPA_DE = ["ANTES","DURANTE","DESPUES"];
+    const filas = c.act.map((a,i)=>{
+      const pies = (a[2]||[]).map(resolver).filter(p=>p!==undefined);
+      const mias = (reparto[i]||[]).slice();
+      /* cada actividad sabe cuantas fotos espera —una por pie—; los huecos se
+         llenan con la evidencia que vino sin partida, prefiriendo la de la
+         misma etapa */
+      while(mias.length < pies.length && sueltas.length){
+        const f = tomarSuelta(ETAPA_DE[i] || "ANTES");
+        if(!f) break;
+        usada.add(f); mias.push(f);
+      }
+      return `<tr>
       <td class="act"><b>${esc(a[0])}</b> ${resolver(a[1])}</td>
-      <td class="ph">${celdaFotos(reparto[i]||[], resolver(a[2]))}</td></tr>`);
+      <td class="ph">${celdaFotos(mias, pies)}</td></tr>`;
+    });
 
     /* los renglones que cierran la tabla, como en el machote */
     const cierre = [];
@@ -2009,17 +2156,25 @@ async function informeDe(x, num, ident, conLog){
 
     const cab = `<tr><th class="cabComp" colspan="2">${esc(c.nom)}</th></tr>
       <tr><th class="sub">ACTIVIDAD</th><th class="sub">EVIDENCIA FOTOGRÁFICA</th></tr>`;
-    /* se corta midiendo: en el machote el equipo receptor ocupa dos hojas y la
-       segunda sigue con los renglones que faltaban, sin repetir el encabezado */
     /* Los anchos van en el colgroup y no en las celdas: con table-layout:fixed
        el reparto lo decide la PRIMERA fila, y esa es el encabezado del
-       componente con colspan=2, asi que las columnas salian a la mitad cada una
-       en vez de 62.5 y 92.5. */
-    const COLS = '<colgroup><col style="width:62.5mm"><col style="width:92.5mm"></colgroup>';
-    repartirEnHojas(filas.concat(cierre), cab,
-                    h => `<table class="comp2">${COLS}${h}</table>`)
-      .forEach(h => { cuerpo += hoja(h) });
+       componente con colspan=2, asi que las columnas salian a la mitad cada
+       una en vez del ancho que toca.
+
+       Y el ancho es el del machote, que NO es el mismo en todos: el receptor va
+       mitad y mitad -su texto es el mas largo, y asi el renglon baja de alto, que
+       es lo que permite que la primera actividad quepa en la hoja de la bitacora-,
+       y los demas dan mas espacio a la foto porque llevan dos a la par. */
+    const anchos = ANCHO_COL[c.id] || ANCHO_COL._;
+    const COLS = '<colgroup><col style="width:'+anchos[0]+'mm"><col style="width:'+
+                 anchos[1]+'mm"></colgroup>';
+    const clave = "c" + c.id;
+    envolturas[clave] = h => `<table class="comp2">${COLS}${h}</table>`;
+    [cab].concat(filas, cierre).forEach(h => bloques.push({k:clave, h:h}));
   }
+  /* todo junto: la bitacora y los componentes reparten las mismas hojas, y una
+     tabla se corta entre hojas sin repetir su encabezado */
+  repartirMixto(bloques, envolturas).forEach(h => { cuerpo += hoja(h) });
   /* lo que no cayó en ningún componente —vistas del sitio, antes y después— va
      en la cuadrícula de siempre, para no perder evidencia */
   const resto = fotos.filter(f=>f.clase!=="REPORTE" && !usada.has(f));
@@ -2086,7 +2241,12 @@ async function generarInformes(sel){
         a media generacion, la ventana saldria encima del informe a medio hacer */
   const clientes = [...new Set(sel.map(x => x.dependencia || ""))];
   for(const c of clientes){
+    /* Si no hay logo se pide. Si ya hay, se avisa cual es y se ofrece
+       cambiarlo: los clientes cambian de imagen y el informe va firmado, asi
+       que usar el de hace un año sin decir nada es peor que preguntar. */
     if(await logoDe(c) === null) await pedirLogo(c);
+    else if(confirm("Para " + (c||"este cliente") + " ya hay un logo guardado.\n\n" +
+                    "¿Quieres cambiarlo por otro?")) await pedirLogo(c, true);
   }
 
   /* 2 · un informe por servicio, en el orden en que se ven en la lista */
