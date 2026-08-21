@@ -314,9 +314,23 @@ async function cargar(){
       const c=await api("catalogos?select=valor,orden&catalogo=eq.TECNICOS&order=orden");
       TECNICOS=(c||[]).map(x=>x.valor).filter(v=>limpio(v));
     }
-    filas=await api("servicios?select=coord,id,tkt,nombre,dependencia,tipo_servicio,status,"+
-      "fecha_servicio,tecnico,auxiliar,equipo,plasticas,aluminio,eliptica,bocina_plafon,"+
-      "amplificador,ups,antena,estrobo,tipo_inmueble"+
+    /* Las columnas se arman a partir de la tabla `tiempos`: el calculo lee
+       `x[campo]` de cada renglon, y si esa columna no viene en el select llega
+       vacia y suma CERO sin decir nada. La lista fija se quedaba corta en
+       cuanto alguien agregaba un concepto nuevo a la tabla —el dato estaba en
+       la base y el tiempo salia en blanco—. Asi ya no puede desfasarse. */
+    const fijas=["coord","id","tkt","nombre","dependencia","tipo_servicio","status",
+      "fecha_servicio","tecnico","auxiliar","equipo","plasticas","aluminio","eliptica",
+      "bocina_plafon","amplificador","ups","antena","estrobo","tipo_inmueble"];
+    const deTiempos=TIEMPOS
+      .filter(t=>/^(PRESENCIA|CANTIDAD)$/i.test(String(t.tipo_calc||"")))
+      .map(t=>String(t.campo||"").trim().toLowerCase())
+      /* CATEGORIA guarda en `campo` el nombre de un inmueble, no una columna:
+         por eso se filtran solo los dos tipos que si leen una columna, y ademas
+         se descarta lo que no tenga forma de nombre de columna. */
+      .filter(c=>/^[a-z][a-z0-9_]*$/.test(c) && fijas.indexOf(c)<0);
+    const cols=fijas.concat([...new Set(deTiempos)]).join(",");
+    filas=await api("servicios?select="+cols+
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+"&limit=2000");
     pintar();
   }catch(e){
