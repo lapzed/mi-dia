@@ -237,7 +237,7 @@ async function entrar(){
        editar desde supervisión ya no vuelve a pedir la clave. */
     localStorage.setItem("md_web", JSON.stringify(ses));
     localStorage.setItem("md_quien", u);
-    menu(u);
+    menu(u, true);          // recien entro: se le lleva directo
   }catch(x){
     /* Se dice lo que contesto el servidor, no solo "revisa tu clave": una
        cuenta que no existe, una que quedo sin confirmar y una clave mal
@@ -252,7 +252,7 @@ async function entrar(){
   b.disabled=false; b.textContent="Entrar";
 }
 
-function menu(u){
+function menu(u, directo){
   const [nom,rol]=NOMBRES[u]||[u,""];
   document.getElementById("ini").textContent=(nom||"?").trim()[0].toUpperCase();
   document.getElementById("nom").textContent=nom;
@@ -265,8 +265,12 @@ function menu(u){
   }).join("");
   document.getElementById("pLogin").style.display="none";
   document.getElementById("pMenu").style.display="block";
-  /* Si solo tiene una pantalla, no tiene caso hacerle elegir. */
-  if(lista.length===1) location.href=PANTALLAS[lista[0]][0];
+  /* Si solo tiene una pantalla, no tiene caso hacerle elegir... pero solo
+     JUSTO DESPUES de entrar. Al restaurar una sesion guardada el reenvio
+     automatico se vuelve una trampa: quien abre el inicio para cambiar de
+     cuenta rebota a esa pantalla antes de poder elegir, y no hay manera de
+     llegar al menu. Con `directo` se distingue una cosa de la otra. */
+  if(lista.length===1 && directo) location.href=PANTALLAS[lista[0]][0];
 }
 
 function salir(){
@@ -277,6 +281,17 @@ function salir(){
 }
 
 (function(){
+  /* Salida de emergencia: abrir inicio.html?salir=1 borra la sesion guardada y
+     deja la pantalla de acceso. Sirve cuando el equipo quedo con la cuenta de
+     otra persona —probando una externa, por ejemplo— y hay que volver a la
+     propia. */
+  if(/[?&]salir=1/.test(location.search)){
+    Object.values(LLAVES).forEach(ll=>localStorage.removeItem(ll));
+    localStorage.removeItem("md_web");
+    localStorage.removeItem("md_quien");
+    localStorage.removeItem("md_tecnico");
+    history.replaceState(null, "", location.pathname);
+  }
   const u=localStorage.getItem("md_quien");
   if(u){
     const s=document.getElementById("inUsr");
