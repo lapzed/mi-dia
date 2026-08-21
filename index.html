@@ -660,7 +660,7 @@ async function cargar(){
       "requerimientos,tipo_servicio,obra,dias_est,dia_n,"+
       "ejecutivo,correo,cita_confirmada,dia_creacion,tecnico,auxiliar,vehiculo,"+
       "cp,localidad,municipio,estado,equipo,serie,materiales,obs_captura,"+
-      "log_estado,log_saltos,log_ultimo,canal,senal_barras,volt_fuente,"+
+      "log_estado,log_saltos,log_ultimo,canal,senal_barras,volt_fuente,obs_medicion,"+
       "avance_tec,avance_coord,avance_ts"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
@@ -1030,6 +1030,45 @@ function fueraDeRango(k, v){
   return !isNaN(n) && (n < r[0] || n > r[1]);
 }
 
+/* Que mediciones salieron del rango. Si hay alguna, el informe tiene que decir
+   por que, y eso solo lo sabe quien estuvo en el sitio. */
+function medicionesFuera(){
+  if(!pideMediciones()) return [];
+  return VOLT_OBLIG.filter(k => fueraDeRango(k, cie.inv[k]));
+}
+function faltaNotaMedicion(){
+  return medicionesFuera().length > 0 &&
+         !String(cie.inv.obs_medicion||"").trim();
+}
+
+/* Se actualiza al teclear sin repintar la seccion: repintar le quitaria el
+   foco al campo a media captura. */
+function medCampo(k, el){
+  cie.inv[k] = el.value;
+  const mal = fueraDeRango(k, el.value);
+  const falta = pideMediciones() && VOLT_OBLIG.indexOf(k)>=0 && !el.value.trim();
+  el.classList.toggle("ojo", mal);
+  el.classList.toggle("pide", falta);
+  let av = el.parentNode.querySelector(".fuera");
+  if(mal && !av){
+    av = document.createElement("span"); av.className = "fuera";
+    av.textContent = "fuera del rango — confirma la lectura";
+    el.parentNode.appendChild(av);
+  }else if(!mal && av){ av.remove() }
+  pintarNotaMed();
+}
+
+function pintarNotaMed(){
+  const c = document.getElementById("notaMed");
+  if(!c) return;
+  const fuera = medicionesFuera();
+  c.style.display = fuera.length ? "block" : "none";
+  if(!fuera.length) return;
+  const nom = k => (MEDICIONES.find(m=>m[0]===k)||[,k])[1].replace(/ *\(.*\)/,"");
+  const q = document.getElementById("notaMedQue");
+  if(q) q.textContent = fuera.map(nom).join(", ");
+}
+
 const PART_COORD = ["MANT","INST","PRY_ESP"];   // donde se interviene el equipo
 const ETAPAS_PART = ["ANTES","DURANTE","DESPUES"];
 const NOMBRE_ETAPA = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después"};
@@ -1093,6 +1132,7 @@ function abrirCierre(coord, id, modo){
     /* Lo que se mide con el multímetro. El informe lo dice en el texto y al pie
        de la foto, y cambia en cada visita: tiene que salir de aquí. */
     MEDICIONES.forEach(([k])=>{ cie.inv[k] = (srv[k]==null?"":String(srv[k])) });
+    cie.inv.obs_medicion = (srv.obs_medicion==null?"":String(srv.obs_medicion));
   }
   cie.partidas = null;
   if(PART_COORD.indexOf((coord||"").toUpperCase())>=0){
@@ -1296,6 +1336,12 @@ function logEstado(v){
 }
 function logCampo(k, v){ cie.log[k]=v }
 function invCampo(k, v){ cie.inv[k]=v }
+function notaMedCampo(v){
+  cie.inv.obs_medicion = v;
+  const b = document.querySelector("#notaMed .req");
+  if(b){ const hay=!!String(v).trim();
+         b.classList.toggle("listo", hay); b.textContent = hay?"listo":"obligatorio" }
+}
 
 /* textos de la hoja según cómo se está cerrando el día */
 const MODOS = {
@@ -1562,9 +1608,20 @@ function pintarCierre(){
         <label>${et} <span style="color:var(--txt3)">(${u})</span>
           <input inputmode="decimal" placeholder="${ej}" value="${esc(v)}"
                  class="${falta?"pide":""}${mal?" ojo":""}"
-                 oninput="invCampo('${k}',this.value)">${
+                 oninput="medCampo('${k}',this)">${
           mal?`<span class="fuera">fuera del rango — confirma la lectura</span>`:""}</label>`;
-        }).join("")}</div>`;
+        }).join("")}</div>
+
+      <div id="notaMed" style="display:none;margin-top:10px">
+        <div class="lbl">¿Por qué está fuera de rango?
+          <span class="req ${String(I.obs_medicion||"").trim()?"listo":""}">${
+            String(I.obs_medicion||"").trim()?"listo":"obligatorio"}</span></div>
+        <p class="pista">Salió del rango: <b id="notaMedQue"></b>. Esto va tal cual
+           en el informe del cliente, así que di qué encontraste y qué se hizo
+           —se reemplazó, quedó en observación, el sitio no tiene tierra física—.</p>
+        <textarea id="txtMed" rows="2" placeholder="ej. Batería con 3 años de uso, se deja en observación y se programa reemplazo."
+          oninput="notaMedCampo(this.value)">${esc(I.obs_medicion||"")}</textarea>
+      </div>`;
   }
 
   function seccionLog(){
@@ -1627,6 +1684,9 @@ function pintarCierre(){
 
   const t=document.getElementById("txtCom");
   if(t) t.oninput=()=>{ cie.com=t.value };
+  /* lo precargado puede venir ya fuera de rango: el recuadro se decide aqui,
+     al terminar de armar la hoja, y no en un temporizador dando vueltas */
+  try{ pintarNotaMed() }catch(e){}
 }
 
 function thumbs(campo){
@@ -1886,6 +1946,12 @@ function confirmarCierre(){
     if(primero){ primero.scrollIntoView({block:"center"}); primero.focus() }
     return;
   }
+  if(faltaNotaMedicion()){
+    toast("Explica por qué la medición está fuera de rango", true);
+    const t = document.getElementById("txtMed");
+    if(t){ t.scrollIntoView({block:"center"}); t.focus() }
+    return;
+  }
   if(cie.estatus!=="REPROGRAMADO"){
     const faltan=cie._bloques.filter(b=>!cubierto(b));
     if(faltan.length){
@@ -2038,7 +2104,8 @@ async function guardarCierre(s, modo, com){
     if(cie.inv){
       if(limpio(cie.inv.equipo)) body.equipo = cie.inv.equipo.trim();
       if(limpio(cie.inv.serie))  body.serie  = cie.inv.serie.trim();
-      INVENTARIO.concat(MEDICIONES).forEach(([k])=>{
+      if(limpio(cie.inv.obs_medicion)) body.obs_medicion = cie.inv.obs_medicion.trim();
+    INVENTARIO.concat(MEDICIONES).forEach(([k])=>{
         const v=String(cie.inv[k]==null?"":cie.inv[k]).trim();
         if(v!=="") body[k]=v;
       });

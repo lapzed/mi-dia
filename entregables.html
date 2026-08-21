@@ -788,6 +788,10 @@ function pintarDatos(){
     DATOS_MED.map(([k,et,ph]) => campo(k, et, ph, 'inputmode="decimal"')).join("");
   document.getElementById("datInv").innerHTML =
     DATOS_INV.map(([k,et]) => campo(k, et, "", 'type="number" min="0"')).join("");
+  document.getElementById("datMed").innerHTML +=
+    `<label style="grid-column:1/-1">Si algo salió de rango, ¿por qué?
+       <input id="dat_obs_medicion" placeholder="ej. Batería con 3 años de uso, se deja en observación"
+              value="${esc(x.obs_medicion||"")}"></label>`;
   document.getElementById("datLog").innerHTML =
     `<label>¿Cómo venía el log?
        <select id="dat_log_estado">
@@ -828,7 +832,8 @@ async function guardarDatos(){
   b.disabled = true; const t0 = b.textContent; b.textContent = "Guardando…";
   const cuerpo = {};
   const claves = [].concat(DATOS_EQUIPO.map(a=>a[0]), DATOS_MED.map(a=>a[0]),
-                           DATOS_INV.map(a=>a[0]), ["log_ultimo","log_saltos"]);
+                           DATOS_INV.map(a=>a[0]),
+                           ["log_ultimo","log_saltos","obs_medicion"]);
   claves.forEach(k => {
     const e = document.getElementById("dat_"+k);
     if(e && e.value.trim() !== "") cuerpo[k] = e.value.trim();
@@ -1439,6 +1444,26 @@ const PROTOCOLO_MANT = [
      if(limpio(x.volt_bateria)) m.push(`batería de respaldo <b>${esc(limpio(x.volt_bateria))} Vcc</b>`);
      if(limpio(x.amperaje))     m.push(`amperaje de salida <b>${esc(limpio(x.amperaje))} A</b>`);
      return m.length ? `En esta visita se midió: ${m.join(", ")}.` : "";
+   },
+   /* Lo que salio del rango se dice, no se calla: es el hallazgo por el que el
+      cliente contrata el mantenimiento. La explicacion la da quien estuvo en el
+      sitio; sin ella la frase se queda en el dato. */
+   x=>{
+     const R={volt_linea:[85,264,"alimentación de línea","Vca"],
+              volt_fuente:[13.3,13.6,"fuente de alimentación","Vcc"],
+              volt_bateria:[12.2,12.6,"batería de respaldo","Vcc"]};
+     const fuera=[];
+     for(const k in R){
+       const n=parseFloat(String(limpio(x[k])||"").replace(",","."));
+       if(!isNaN(n) && (n<R[k][0] || n>R[k][1]))
+         fuera.push(`la <b>${R[k][2]}</b> registró <b>${esc(String(limpio(x[k])))} ${R[k][3]}</b>,
+           ${n<R[k][0]?"por debajo":"por encima"} del rango de ${R[k][0]} a ${R[k][1]} ${R[k][3]}`);
+     }
+     if(!fuera.length) return limpio(x.obs_medicion)
+       ? `<b>Observación sobre las mediciones.</b> ${esc(limpio(x.obs_medicion))}` : "";
+     return `<b>Hallazgo.</b> Durante la medición de parámetros se observa que ${
+       fuera.join("; ")}.${limpio(x.obs_medicion)
+         ? " "+esc(limpio(x.obs_medicion)) : ""}`;
    },
    `Es importante mencionar que el voltaje medido es el suministrado mediante la línea
     principal que conecta al equipo.`,
