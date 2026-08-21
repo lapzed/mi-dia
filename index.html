@@ -2063,6 +2063,23 @@ async function subirEnParalelo(tareas, avisa){
   await Promise.all(Array.from({length: Math.min(A_LA_VEZ, tareas.length)}, obrero));
 }
 
+/* La bitácora. Se manda sin esperar y con el error tragado a propósito: si el
+   log falla, lo que hizo el técnico ya quedó guardado y no tiene por qué
+   enterarse. Un log que estorba se acaba quitando. */
+function anotar(accion, detalle, x){
+  try{
+    const t=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    api("log",{method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({
+      timestamp:t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+" "+
+                p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()),
+      usuario:(ses&&ses.nombre)||tecnico||"", win_user:"web",
+      coord:(x&&x.coord)||"", rol:(ses&&ses.rol)||"",
+      etapa:"MI DÍA", tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
+    })}).catch(function(){});
+  }catch(e){}
+}
+
 async function enviarCierre(item, avisa){
   // primero las evidencias: si fallan, el TKT no debe quedar cerrado sin respaldo
   const tareas = [];
@@ -2094,10 +2111,19 @@ async function enviarCierre(item, avisa){
   }
 
   await api("log",{method:"POST",body:JSON.stringify({
-    timestamp:item.ts, usuario:item.tecnico, win_user:"app", coord:item.coord,
-    rol:"TECNICO", etapa:"4", tkt:item.tkt||"",
+    /* `usuario` es QUIEN cerró, no la brigada. Para un técnico da lo mismo
+       —cierra lo suyo—, pero cuando cierra el administrativo de una empresa
+       externa la bitácora guardaba el nombre de la brigada y no el de la
+       persona: se sabía sobre qué se actuó y no quién actuó. La brigada sigue
+       anotada, en el detalle. El rol también sale de la sesión; estaba fijo. */
+    timestamp:item.ts, usuario:(ses&&ses.nombre)||item.tecnico||"",
+    win_user:"app", coord:item.coord,
+    rol:(ses&&ses.rol)||"TECNICO", etapa:"4", tkt:item.tkt||"",
     accion:"APP: "+(item.modo||item.body.status),
-    detalle:"id="+item.id+(item.obra?" · "+item.obra+" dia "+item.dia_n:"")+" · "+
+    detalle:"id="+item.id+
+            ((item.tecnico && item.tecnico!==((ses&&ses.nombre)||"")) ?
+              " · brigada "+item.tecnico : "")+
+            (item.obra?" · "+item.obra+" dia "+item.dia_n:"")+" · "+
             (item.campos||[]).map(([c,t])=>t.toLowerCase()+"="+(item[c]||[]).length).join(" ")+
             (item.nota?" · "+item.nota:"")})});
 }
