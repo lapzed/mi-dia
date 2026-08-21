@@ -244,14 +244,14 @@
         <option value="falta">Les falta algo</option></select></div>
     <div class="f"><label>Formato</label>
       <select id="fForm" onchange="verFormato()">
-        <option value="lista">Reporte de servicios</option>
-        <option value="informe">Informe final (uno por sitio)</option></select></div>
+        <option value="informe">Informe final (uno por sitio)</option>
+        <option value="lista">Reporte de servicios (recopilación)</option></select></div>
     <button onclick="marcarTodos()">Marcar todos</button>
     <button class="pri" id="btnGen" onclick="generar()" disabled>Generar entregable</button>
   </div>
 
   <!-- lo que solo aplica al informe final -->
-  <div class="filtros" id="opsInforme" style="display:none">
+  <div class="filtros" id="opsInforme" >
     <div class="f"><label>Número de mantenimiento</label>
       <select id="iNum">
         <option value="primer">primer</option>
