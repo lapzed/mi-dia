@@ -126,6 +126,9 @@
   .load{text-align:center;padding:30px;color:var(--txt2);font-size:13px}
 
   /* ---------- hojas modales ---------- */
+  .volver{display:block;text-align:center;margin-top:12px;font-size:13px;
+    color:var(--txt2);text-decoration:none}
+  .volver:hover{color:var(--txt)}
   .modal{position:fixed;inset:0;background:rgba(5,16,28,.94);z-index:50;
     display:flex;align-items:flex-end;justify-content:center}
   .box{background:var(--bg2);border:1px solid var(--line);border-radius:18px 18px 0 0;
@@ -348,6 +351,9 @@
            onkeydown="if(event.key==='Enter')entrar()">
     <div class="aviso" id="errLogin" style="display:none"></div>
     <button class="b-full" onclick="entrar()">Entrar</button>
+    <!-- Salida. Sin esto, a quien esta pantalla no le acepta la sesión se queda
+         atrapado: ni entra ni puede volver al menú. -->
+    <a class="volver" href="inicio.html">Volver al inicio</a>
   </div>
 </div>
 
