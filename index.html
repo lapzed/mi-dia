@@ -154,6 +154,9 @@
   .dos{display:flex;gap:8px;margin-bottom:10px}
   /* el inventario que el tecnico declara: etiqueta y numero, en dos columnas */
   .inv{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px;margin-top:9px}
+  .inv input.pide{border-color:rgba(198,65,59,.75)}
+  .inv input.ojo{border-color:rgba(214,158,46,.85)}
+  .fuera{font-size:10px;color:#E4B75B;margin-top:2px}
   .inv label{font-size:12.5px;color:var(--txt2);display:flex;align-items:center;
     justify-content:space-between;gap:8px}
   .inv input{width:76px;text-align:right}
@@ -1000,6 +1003,33 @@ const MEDICIONES = [["volt_linea","Alimentación de línea (85 a 264)","Vca","12
   ["volt_bateria","Batería de respaldo (12.2 a 12.6)","Vcc","12.40"],
   ["amperaje","Amperaje de salida","A","1.76"]];
 
+/* Los tres voltajes que el protocolo exige medir en un mantenimiento. El
+   amperaje no entra: se toma de la salida y no siempre hay como medirlo. */
+const VOLT_OBLIG = ["volt_linea", "volt_fuente", "volt_bateria"];
+const VOLT_RANGO = {volt_linea:[85, 264], volt_fuente:[13.3, 13.6],
+                    volt_bateria:[12.2, 12.6]};
+
+/* Solo en mantenimiento: un levantamiento no mide voltajes porque todavia no
+   hay equipo instalado. Al reprogramar no hubo servicio, y al regularizar se
+   documenta lo que se conservo de hace meses. */
+function pideMediciones(){
+  return cie && cie.inv
+      && (cie.srv.coord||"").toUpperCase()==="MANT"
+      && cie.estatus!=="REPROGRAMADO" && cie.estatus!=="REGULARIZAR";
+}
+function faltanMediciones(){
+  if(!pideMediciones()) return [];
+  return VOLT_OBLIG.filter(k => !String(cie.inv[k]==null?"":cie.inv[k]).trim());
+}
+/* Fuera de rango NO impide cerrar: una bateria baja es justo el hallazgo que el
+   informe tiene que reportar. Solo se senala, para que quien lo capturo
+   confirme que leyo bien el multimetro. */
+function fueraDeRango(k, v){
+  const r = VOLT_RANGO[k]; if(!r) return false;
+  const n = parseFloat(String(v).replace(",", "."));
+  return !isNaN(n) && (n < r[0] || n > r[1]);
+}
+
 const PART_COORD = ["MANT","INST","PRY_ESP"];   // donde se interviene el equipo
 const ETAPAS_PART = ["ANTES","DURANTE","DESPUES"];
 const NOMBRE_ETAPA = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después"};
@@ -1518,13 +1548,23 @@ function pintarCierre(){
           <input type="number" min="0" inputmode="numeric" value="${esc(I[k])}"
                  oninput="invCampo('${k}',this.value)"></label>`).join("")}</div>
 
-      <div class="lbl" style="margin-top:14px">Mediciones</div>
+      <div class="lbl" style="margin-top:14px">Mediciones${
+        pideMediciones() ? `<span class="req ${faltanMediciones().length?"":"listo"}">${
+          faltanMediciones().length?"obligatorio":"listo"}</span>` : ""}</div>
       <p class="pista">Lo que marca el multímetro. Va en el informe, al pie de la
-         foto y en el texto, así que se escribe tal cual se leyó.</p>
-      <div class="inv">${MEDICIONES.map(([k,et,u,ej])=>`
+         foto y en el texto, así que se escribe tal cual se leyó.${
+         pideMediciones()?" Si un valor sale del rango, anótalo igual: eso es lo que hay que reportar.":""}</p>
+      <div class="inv">${MEDICIONES.map(([k,et,u,ej])=>{
+        const v = I[k]||"";
+        const mal  = fueraDeRango(k, v);
+        const falta = pideMediciones() && VOLT_OBLIG.indexOf(k)>=0 && !String(v).trim();
+        return `
         <label>${et} <span style="color:var(--txt3)">(${u})</span>
-          <input inputmode="decimal" placeholder="${ej}" value="${esc(I[k]||"")}"
-                 oninput="invCampo('${k}',this.value)"></label>`).join("")}</div>`;
+          <input inputmode="decimal" placeholder="${ej}" value="${esc(v)}"
+                 class="${falta?"pide":""}${mal?" ojo":""}"
+                 oninput="invCampo('${k}',this.value)">${
+          mal?`<span class="fuera">fuera del rango — confirma la lectura</span>`:""}</label>`;
+        }).join("")}</div>`;
   }
 
   function seccionLog(){
@@ -1837,6 +1877,14 @@ function confirmarCierre(){
   }
   if(cie.log && cie.log.estado==="SALTEADO" && !(cie.log.saltos||"").trim()){
     toast("Anota qué tonos faltan en el log",true); return;
+  }
+  const sinMedir = faltanMediciones();
+  if(sinMedir.length){
+    const nom = k => (MEDICIONES.find(m=>m[0]===k)||[,k])[1].replace(/ *\(.*\)/,"");
+    toast("Falta medir: "+sinMedir.map(nom).join(", "), true);
+    const primero = document.querySelector(".inv input.pide");
+    if(primero){ primero.scrollIntoView({block:"center"}); primero.focus() }
+    return;
   }
   if(cie.estatus!=="REPROGRAMADO"){
     const faltan=cie._bloques.filter(b=>!cubierto(b));
