@@ -578,14 +578,25 @@ async function entrar(){
   }
 }
 
-function pedirTecnico(){                  // ahora es cerrar sesion / cambiar de usuario
+function pedirTecnico(){                  // cerrar sesion / cambiar de usuario
   if(ses && !confirm("¿Salir de la cuenta de "+(ses.nombre||ses.usuario)+"?")) return;
   ses=null; tecnico=""; variantes=[]; semana=[]; datos=[];
   localStorage.removeItem("md_tec");
   localStorage.removeItem("md_tecnico");
   localStorage.removeItem("md_variantes");
-  document.getElementById("mTec").style.display="flex";
-  llenarUsuarios();
+  /* Salir devuelve al MENU, no a la lista de esta pantalla. Esa lista sale de
+     `login_usuarios`, que trae solo al personal —tecnicos, ventas, externos—:
+     las coordinaciones y la gerencia no estan ahi, viven en el menu. Quien
+     cerraba sesion aqui se quedaba viendo puros tecnicos y sin forma de entrar
+     con otra cuenta.
+
+     Tambien se suelta la sesion del menu: "salir" es salir de todo, no cambiar
+     de pantalla con la misma cuenta puesta. */
+  try{
+    localStorage.removeItem("md_web");
+    localStorage.removeItem("md_quien");
+  }catch(e){}
+  location.href = "inicio.html";
 }
 
 /* ============ como se llama cada quien en la base ============
