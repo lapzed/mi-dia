@@ -2321,6 +2321,33 @@ window.addEventListener("online", ()=>sincronizar(true));
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) sincronizar(true) });
 if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
 
+/* Lo que YA esta en el telefono, pintado antes de tocar la red.
+
+   El arranque encadenaba tres llamadas —renovar el token, los alias y la
+   semana— y hasta que las tres terminaban no se pintaba nada. Con senal buena
+   no se nota. Con senal mala son tres esperas seguidas y la pantalla se queda
+   en blanco todo ese rato: eso es exactamente lo que se lee como "no abre".
+
+   La red no se quita, se deja de esperar: lo de abajo se pinta encima cuando
+   llegue. Y si nunca llega, el tecnico ya tiene su dia en pantalla y puede
+   trabajar, que es de lo que se trataba. */
+function pintarGuardado(){
+  try{
+    pintarDias();
+    const g = leerSemanaLocal();
+    if(g && g.filas && g.filas.length){
+      semana = g.filas;
+      /* Todavia no se sabe si hay red, asi que no se dice "sin internet": se
+         dice lo unico cierto, que esto es lo guardado y se esta viendo si hay
+         algo nuevo. `cargar()` cambia este aviso al saber como le fue. */
+      const s = document.getElementById("sinRed");
+      if(s) s.innerHTML = '<div class="sin-red">📋 Esto es lo que tenías guardado. '+
+                          'Buscando lo nuevo…</div>';
+      pintar();
+    }
+  }catch(e){}
+}
+
 async function arrancarSesion(){
   pintarDias();
   // los alias pueden haber cambiado desde la ultima vez; si no hay red se usan
@@ -2350,6 +2377,7 @@ async function arrancarSesion(){
     return;
   }
   tecnico = ses.nombre || tecnico;
+  pintarGuardado();           // primero lo del telefono: la pantalla no espera a nadie
   await renovar();            // el token guardado casi siempre ya vencio
   await arrancarSesion();
 })();
