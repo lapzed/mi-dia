@@ -587,12 +587,20 @@ function arrancar(){
   const u=localStorage.getItem("md_quien");
   if(u && sel.querySelector('option[value="'+u+'"]')) sel.value=u;
   if(!ses) return;
+  /* La sesion guardada se usa DE INMEDIATO: antes se esperaba hasta a dos
+     llamadas de red -renovar el token y, si fallaba, probar un pase viejo-
+     antes de pintar nada, y con senal debil eso son hasta treinta segundos de
+     pantalla en blanco. Se pinta ya, con lo que hay, y la validez se revisa
+     por detras. */
+  document.getElementById("mLogin").style.display="none";
+  arrancar();
   let sirve=await renovar();
   if(!sirve){
     try{ await api("servicios?select=id&limit=1"); sirve=true }catch(e){ sirve=false }
   }
-  if(sirve){ document.getElementById("mLogin").style.display="none"; arrancar(); return }
+  if(sirve) return;
   localStorage.removeItem("md_tablero"); localStorage.removeItem("md_web"); ses=null;
+  document.getElementById("mLogin").style.display="flex";
   const e=document.getElementById("err");
   if(e){ e.textContent="Tu sesión venció. Vuelve a entrar con tu clave."; e.style.display="block" }
 })();

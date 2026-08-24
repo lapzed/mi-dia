@@ -2668,17 +2668,23 @@ async function generar(){
      volvia a pedir la clave aunque llegara con la sesion puesta desde el
      inicio. Ahora entra quien traiga una sesion que sirva, sea quien sea; y si
      la sesion ya vencio, se pide la clave con un aviso claro en vez de dejar la
-     pantalla colgada. */
+     pantalla colgada.
+
+     Y la sesion guardada se usa DE INMEDIATO, sin esperar a la red: antes se
+     hacian hasta dos llamadas antes de pintar nada, y con senal debil eso son
+     hasta treinta segundos en blanco. */
   if(!ses){ llenarUsuarios(); return }
+  arrancar();
   let sirve = await renovar();
   if(!sirve){
     try{ await api("servicios?select=id&limit=1"); sirve = true; }
     catch(e){ sirve = false; }
   }
-  if(sirve){ arrancar(); return }
+  if(sirve) return;
   localStorage.removeItem("md_ses");
   localStorage.removeItem("md_web");
   ses = null;
+  document.getElementById("mLogin").style.display="flex";
   llenarUsuarios();
   const e=document.getElementById("err");
   if(e){ e.textContent="Tu sesion vencio. Vuelve a entrar con tu clave.";

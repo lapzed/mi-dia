@@ -1026,31 +1026,33 @@ function ponerBarra(){
 
 
 (async function(){
-  /* Si hay sesion guardada se entra derecho; pero si ya no sirve hay que
-     volver a pedir la clave. Antes se escondia el recuadro ANTES de saber si
-     la sesion valia: cuando estaba vencida, la pantalla se quedaba cargando
-     para siempre y sin manera de entrar. Le pasaba a quien ya habia abierto
-     antes; a uno recien llegado no, porque ese si veia el recuadro. */
-  if(ses){
-    let sirve = await renovar();
-    if(!sirve){
-      /* el refresco pudo fallar por la red, no por la sesion: se prueba el
-         pase que ya se tenia antes de correr a nadie */
-      try{ await api("servicios?select=id&limit=1"); sirve = true; }
-      catch(e){ sirve = false; }
-    }
-    if(sirve){
-      document.getElementById("mLogin").style.display="none";
-      arrancar();
-    }else{
-      localStorage.removeItem("md_prog");
-      localStorage.removeItem("md_web");
-      ses = null;
-      const e=document.getElementById("err");
-      if(e){ e.textContent="Tu sesion vencio. Vuelve a entrar con tu clave.";
-             e.style.display="block"; }
-    }
+  /* La sesion guardada se usa DE INMEDIATO, sin esperar a la red: antes se
+     hacian hasta dos llamadas -renovar el token y, si fallaba, probar un
+     pase viejo- antes de pintar nada, y con senal debil eso son hasta treinta
+     segundos de pantalla en blanco. Ahora se pinta ya, con lo que hay, y la
+     validez se revisa por detras.
+
+     Y si de verdad la sesion vencio -no la red, la sesion- el recuadro de la
+     clave TIENE que volver a mostrarse: quedarse escondido, como pasaba antes,
+     deja a quien lo abre sin manera de volver a entrar. */
+  if(!ses) return;
+  document.getElementById("mLogin").style.display="none";
+  arrancar();
+  let sirve = await renovar();
+  if(!sirve){
+    /* el refresco pudo fallar por la red, no por la sesion: se prueba el
+       pase que ya se tenia antes de correr a nadie */
+    try{ await api("servicios?select=id&limit=1"); sirve = true; }
+    catch(e){ sirve = false; }
   }
+  if(sirve) return;
+  localStorage.removeItem("md_prog");
+  localStorage.removeItem("md_web");
+  ses = null;
+  document.getElementById("mLogin").style.display="flex";
+  const e=document.getElementById("err");
+  if(e){ e.textContent="Tu sesion vencio. Vuelve a entrar con tu clave.";
+         e.style.display="block"; }
 })();
 
 /* ---------- que no salga siempre el primero de la lista ----------
