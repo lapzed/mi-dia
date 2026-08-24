@@ -258,6 +258,29 @@ function isoDe(n){const d=new Date();d.setDate(d.getDate()+n);
 function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function dias(f){ return Math.round((new Date(hoyISO())-new Date(f))/86400000) }
 
+/* Un fetch que se rinde. Sin esto, en senal debil el telefono no falla:
+   se queda esperando y la pantalla se ve colgada para siempre. Quince segundos
+   son de sobra para una respuesta buena y poco para una espera inutil. */
+const LIMITE_RED = 15000;
+/* Los archivos van aparte: una foto en senal debil tarda de verdad, y rendirse
+   a los quince segundos seria tirarle la evidencia al tecnico. */
+const LIMITE_ARCHIVO = 120000;
+function conTiempoArchivo(url, o){ return conTiempo(url, o, LIMITE_ARCHIVO) }
+function conTiempo(url, o, ms){
+  return new Promise(function(ok, mal){
+    const corta = new AbortController();
+    const reloj = setTimeout(function(){
+      corta.abort();
+      const err = new Error("sin conexión");  /* el telefono no alcanzo el servidor */
+      err.red = true;
+      mal(err);
+    }, ms || LIMITE_RED);
+    fetch(url, Object.assign({}, o || {}, {signal: corta.signal}))
+      .then(function(r){ clearTimeout(reloj); ok(r) })
+      .catch(function(x){ clearTimeout(reloj); mal(x) });
+  });
+}
+
 async function api(path,opts,reint){
   /* Antes esta pantalla solo leia, asi que armaba las cabeceras y tiraba las
      que le pasaran. Desde que puede cerrar un servicio tiene que respetarlas:
@@ -265,14 +288,14 @@ async function api(path,opts,reint){
      acceptable: text/plain", que no se parece en nada al problema real. */
   const o=Object.assign({},opts||{});
   o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
-  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
+  const r=await conTiempo(SUPA_URL+"/rest/v1/"+path,o);
   const t=await r.text();
   if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
   if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,120));
   return t?JSON.parse(t):null;
 }
 async function auth(c,tipo){
-  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+  const r=await conTiempo(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
     {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(c)});
   const j=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));

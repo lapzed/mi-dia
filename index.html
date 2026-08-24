@@ -476,6 +476,29 @@ function limpio(s){s=String(s==null?"":s).trim();
 /* Los errores no son todos iguales y la pantalla no debe tratarlos igual: que
    el equipo no tenga señal no es lo mismo a que se le haya vencido la sesión.
    Decirle "sin internet" a alguien que sí tiene, lo manda a buscar donde no es. */
+/* Un fetch que se rinde. Sin esto, en senal debil el telefono no falla:
+   se queda esperando y la pantalla se ve colgada para siempre. Quince segundos
+   son de sobra para una respuesta buena y poco para una espera inutil. */
+const LIMITE_RED = 15000;
+/* Los archivos van aparte: una foto en senal debil tarda de verdad, y rendirse
+   a los quince segundos seria tirarle la evidencia al tecnico. */
+const LIMITE_ARCHIVO = 120000;
+function conTiempoArchivo(url, o){ return conTiempo(url, o, LIMITE_ARCHIVO) }
+function conTiempo(url, o, ms){
+  return new Promise(function(ok, mal){
+    const corta = new AbortController();
+    const reloj = setTimeout(function(){
+      corta.abort();
+      const err = new Error("sin conexión");  /* el telefono no alcanzo el servidor */
+      err.red = true;
+      mal(err);
+    }, ms || LIMITE_RED);
+    fetch(url, Object.assign({}, o || {}, {signal: corta.signal}))
+      .then(function(r){ clearTimeout(reloj); ok(r) })
+      .catch(function(x){ clearTimeout(reloj); mal(x) });
+  });
+}
+
 async function api(path, opts, reintento){
   const o = opts||{};
   // los encabezados propios de la llamada mandan sobre los de siempre
@@ -483,7 +506,7 @@ async function api(path, opts, reintento){
     o.body?{"Content-Type":"application/json",Prefer:"return=minimal"}:{}, o.headers||{});
   let r;
   try{
-    r = await fetch(SUPA_URL+"/rest/v1/"+path, Object.assign({}, o, {headers:h}));
+    r = await conTiempo(SUPA_URL+"/rest/v1/"+path, Object.assign({}, o, {headers:h}));
   }catch(e){
     const err = new Error("sin conexión");   // el teléfono no alcanzó el servidor
     err.red = true;
@@ -503,7 +526,7 @@ async function api(path, opts, reintento){
 
 /* ============ acceso ============ */
 async function auth(cuerpo, tipo){
-  const r = await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+  const r = await conTiempo(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
     {method:"POST", headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},
      body:JSON.stringify(cuerpo)});
   const j = await r.json().catch(()=>({}));
@@ -1466,7 +1489,7 @@ async function quitarEvidencia(evId, ruta){
   if(!confirm("¿Quitar esta foto?\n\nSe borra el archivo y su registro. "+
               "No se puede deshacer.")) return;
   try{
-    const ra = await fetch(SUPA_URL+"/storage/v1/object/"+BUCKET+"/"+ruta,
+    const ra = await conTiempoArchivo(SUPA_URL+"/storage/v1/object/"+BUCKET+"/"+ruta,
                            {method:"DELETE", headers:HDR});
     // que el archivo ya no este es exito: puede haberse borrado antes
     const noEstaba = !ra.ok && (await ra.clone().text()).indexOf("not_found") >= 0;
@@ -2034,7 +2057,7 @@ async function subirArchivo(item, blob, tipo, i){
   // sin upsert: una evidencia nunca debe pisar a otra. Si la ruta ya existiera
   // —no deberia, lleva la hora al milisegundo— es mejor que falle y se reintente
   // que perder la foto anterior.
-  const r = await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,
+  const r = await conTiempoArchivo(`${SUPA_URL}/storage/v1/object/${BUCKET}/${ruta}`,
     {method:"POST", headers:Object.assign({},HDR,{"Content-Type":blob.type}),
      body:blob});
   if(!r.ok) throw new Error("storage "+r.status);

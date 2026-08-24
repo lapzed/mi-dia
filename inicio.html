@@ -201,6 +201,29 @@ function recordar(){
   document.getElementById("btn").textContent = tec ? "Ir a Mi día" : "Entrar";
 }
 
+/* Un fetch que se rinde. Sin esto, en senal debil el telefono no falla:
+   se queda esperando y la pantalla se ve colgada para siempre. Quince segundos
+   son de sobra para una respuesta buena y poco para una espera inutil. */
+const LIMITE_RED = 15000;
+/* Los archivos van aparte: una foto en senal debil tarda de verdad, y rendirse
+   a los quince segundos seria tirarle la evidencia al tecnico. */
+const LIMITE_ARCHIVO = 120000;
+function conTiempoArchivo(url, o){ return conTiempo(url, o, LIMITE_ARCHIVO) }
+function conTiempo(url, o, ms){
+  return new Promise(function(ok, mal){
+    const corta = new AbortController();
+    const reloj = setTimeout(function(){
+      corta.abort();
+      const err = new Error("sin conexión");  /* el telefono no alcanzo el servidor */
+      err.red = true;
+      mal(err);
+    }, ms || LIMITE_RED);
+    fetch(url, Object.assign({}, o || {}, {signal: corta.signal}))
+      .then(function(r){ clearTimeout(reloj); ok(r) })
+      .catch(function(x){ clearTimeout(reloj); mal(x) });
+  });
+}
+
 async function entrar(){
   const u=document.getElementById("inUsr").value;
   const e=document.getElementById("err");
@@ -213,7 +236,7 @@ async function entrar(){
   const b=document.getElementById("btn");
   b.disabled=true; b.textContent="Entrando…";
   try{
-    const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type=password",
+    const r=await conTiempo(SUPA_URL+"/auth/v1/token?grant_type=password",
       {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},
        body:JSON.stringify({email:u+"@"+DOMINIO, password:p})});
     const j=await r.json().catch(()=>({}));

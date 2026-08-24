@@ -339,20 +339,43 @@ let CAT={}, sitioSel=null;
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
   Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
+function limpio(s){s=String(s==null?"":s).trim();return /^(-+|n\/?a|na|s\/d)$/i.test(s)?"":s}
 function hoyISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+
+/* Un fetch que se rinde. Sin esto, en senal debil el telefono no falla:
+   se queda esperando y la pantalla se ve colgada para siempre. Quince segundos
+   son de sobra para una respuesta buena y poco para una espera inutil. */
+const LIMITE_RED = 15000;
+/* Los archivos van aparte: una foto en senal debil tarda de verdad, y rendirse
+   a los quince segundos seria tirarle la evidencia al tecnico. */
+const LIMITE_ARCHIVO = 120000;
+function conTiempoArchivo(url, o){ return conTiempo(url, o, LIMITE_ARCHIVO) }
+function conTiempo(url, o, ms){
+  return new Promise(function(ok, mal){
+    const corta = new AbortController();
+    const reloj = setTimeout(function(){
+      corta.abort();
+      const err = new Error("sin conexión");  /* el telefono no alcanzo el servidor */
+      err.red = true;
+      mal(err);
+    }, ms || LIMITE_RED);
+    fetch(url, Object.assign({}, o || {}, {signal: corta.signal}))
+      .then(function(r){ clearTimeout(reloj); ok(r) })
+      .catch(function(x){ clearTimeout(reloj); mal(x) });
+  });
+}
 
 async function api(path,opts,reint){
   const o=Object.assign({},opts||{});
   o.headers=hdr(Object.assign({"Content-Type":"application/json"}, o.headers||{}));
-  const r=await fetch(SUPA_URL+"/rest/v1/"+path,o);
+  const r=await conTiempo(SUPA_URL+"/rest/v1/"+path,o);
   const t=await r.text();
   if((r.status===401||r.status===403)&&!reint&&ses){ if(await renovar()) return api(path,opts,true) }
   if(!r.ok) throw new Error("HTTP "+r.status+" "+t.slice(0,140));
   return t?JSON.parse(t):null;
 }
 async function auth(c,tipo){
-  const r=await fetch(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
+  const r=await conTiempo(SUPA_URL+"/auth/v1/token?grant_type="+tipo,
     {method:"POST",headers:{apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(c)});
   const j=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.msg||j.error_description||("HTTP "+r.status));
@@ -475,7 +498,7 @@ function control(id, etq, tipo, oblig){
 const CIERRE_FUERA='(ATENDIDO,CANCELADO,PROSPECTO,"ATENCION VENTAS")';
 async function _cuantosAtraso(filtro){
   try{
-    const r=await fetch(SUPA_URL+"/rest/v1/servicios?select=id"+filtro+"&limit=1",
+    const r=await conTiempo(SUPA_URL+"/rest/v1/servicios?select=id"+filtro+"&limit=1",
       {headers:hdr({Prefer:"count=exact"})});
     const n=Number(String(r.headers.get("Content-Range")||"").split("/")[1]);
     return isNaN(n)?0:n;
