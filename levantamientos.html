@@ -767,5 +767,11 @@ function recordarQuien(){
 try{ recordarQuien(); }catch(e){}
 
 </script>
+<script>
+/* Sin esto, esta pantalla no guarda nada en el telefono y cada apertura
+   necesita internet vivo. Iba solo en Mi dia; las demas puertas -inicio
+   incluida, que es por donde arranca la app instalada- se quedaban fuera. */
+if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(function(){});
+</script>
 </body>
 </html>

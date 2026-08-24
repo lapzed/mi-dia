@@ -6,7 +6,10 @@
 <meta name="theme-color" content="#0B2038">
 <title>MD Control · Ventas</title>
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!-- El mapa no debe detener la pantalla: la hoja se carga en segundo
+     plano y se aplica cuando llega. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      media="print" onload="this.media='all'">
 <style>
   :root{
     --bg:#0B2038; --bg2:#0E2A47; --card:#12314F; --line:#1D4267;
@@ -172,8 +175,22 @@
 </script>
 
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- `defer` y no bloqueante: venia justo antes del script de esta
+     pantalla, asi que si unpkg no contestaba NADA de aqui corria. -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <script>
+/* El mapa es de un CDN ajeno y puede no llegar -sin senal, o con la red del
+   telefono filtrando-. La pantalla ya no lo espera: si no esta, se dice en el
+   recuadro del mapa y todo lo demas sigue sirviendo. */
+function hayMapa(){
+  if(window.L) return true;
+  const d=document.getElementById("mapa");
+  if(d) d.innerHTML='<div class="q" style="padding:16px;text-align:center">'+
+    'El mapa no cargó — necesita internet abierto.<br>'+
+    'Lo demás de esta pantalla sí funciona.</div>';
+  return false;
+}
+
 const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
 const DOMINIO="mdcontrol.local";
@@ -411,6 +428,7 @@ function pintarHoy(){
     ${tarjetasEjecutivo(ejes, porEje, "hoy")}`;
 
   if(mapa){ mapa.remove(); mapa=null }
+  if(!hayMapa()) return;
   mapa=L.map("mapa",{scrollWheelZoom:false}).setView(BASE,10);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {attribution:"OpenStreetMap", maxZoom:18}).addTo(mapa);
@@ -593,6 +611,12 @@ function recordarQuien(){
 }
 try{ recordarQuien(); }catch(e){}
 
+</script>
+<script>
+/* Sin esto, esta pantalla no guarda nada en el telefono y cada apertura
+   necesita internet vivo. Iba solo en Mi dia; las demas puertas -inicio
+   incluida, que es por donde arranca la app instalada- se quedaban fuera. */
+if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(function(){});
 </script>
 </body>
 </html>
