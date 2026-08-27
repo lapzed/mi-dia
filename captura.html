@@ -432,6 +432,13 @@ function nombreDe(u){
    aquí: es el resultado de ir al sitio, así que se llena al cerrar. */
 const GENERAL = [
   ["dia_creacion",    "Día de creación del TKT", "date",  1],
+  /* La fecha del servicio -la de la visita, no la del alta del TKT- nunca fue
+     parte de esta ficha: solo se ponia UNA VEZ, al nacer sin fecha, desde
+     Programacion. Una vez puesta, no habia donde tocarla en toda la web: ni
+     aqui, ni en Programacion/Coordinacion/Cierre, que solo la muestran como
+     texto. Un servicio cancelado sin recurso invertido -o cualquier otro que
+     necesite reagendarse- se quedaba con la fecha vieja para siempre. */
+  ["fecha_servicio",  "Fecha de visita (cronograma)", "date", 0],
   ["tkt",             "TKT",                     "text",  1],
   ["nombre",          "Nombre / Referencia",     "text",  1],
   ["dependencia",     "Dependencia / Cliente",   "text",  0],
