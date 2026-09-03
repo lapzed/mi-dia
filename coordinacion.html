@@ -557,10 +557,20 @@ function titulo(iso){
   return "PROGRAMACION "+DIAS[d.getDay()]+" "+d.getDate()+" DE "+MESES[d.getMonth()]+
          " DE "+d.getFullYear();
 }
+/* Lo que NO se manda: lo que ya se cerró o nunca fue un servicio de verdad. */
+const FUERA_DEL_MENSAJE=["ATENDIDO","CANCELADO","PROSPECTO","ATENCION VENTAS"];
+
 function entraAlMensaje(x){
   const st=(x.status||"").toUpperCase().trim();
-  return (x.cita_confirmada||"").toUpperCase()==="SI" || st==="PROGRAMADO" ||
-         (st==="" && !!limpio(x.tecnico));
+  /* Antes esta regla nombraba PROGRAMADO y se le olvidaron sus hermanos:
+     REPROGRAMADO y CONTINUIDAD se caían del mensaje sin que nada avisara,
+     aunque tuvieran fecha y brigada. Un servicio reprogramado es tan real
+     como uno programado —de hecho es el mismo, movido de día— y la brigada
+     tiene que enterarse igual. Ahora se dice al revés: se excluye lo cerrado,
+     y lo demás entra. Así un estatus nuevo no vuelve a quedarse fuera solo
+     por no estar en la lista. */
+  if(FUERA_DEL_MENSAJE.indexOf(st)>=0) return false;
+  return (x.cita_confirmada||"").toUpperCase()==="SI" || !!st || !!limpio(x.tecnico);
 }
 function ejecutivoTexto(x){
   const crudo=limpio(x.ejecutivo);
@@ -636,10 +646,10 @@ async function verMensaje(rehacer){
   const fuera=msgFilas.length-msgFilas.filter(entraAlMensaje).length;
   document.getElementById("msgSub").innerHTML = n
     ? n+" servicio"+(n===1?"":"s")+" en el mensaje."+
-      (fuera?' <b style="color:#F0BE6E">'+fuera+' se quedaron fuera</b>: entran los que '+
-        'tienen cita confirmada, los que están en PROGRAMADO, y los que ya traen '+
-        'brigada aunque no tengan estatus.':"")
-    : "Ningún servicio de ese día entra al mensaje: falta confirmar cita, ponerlos en PROGRAMADO o asignarles brigada.";
+      (fuera?' <b style="color:#F0BE6E">'+fuera+' se quedaron fuera</b>: los ya '+
+        'atendidos o cancelados, los prospectos y los de atención a ventas.':"")
+    : "Ningún servicio de ese día entra al mensaje: o ya están todos cerrados, o "+
+      "les falta cita confirmada, estatus y brigada.";
   document.getElementById("msg").value=texto;
   document.getElementById("msgEstado").textContent="";
 }
