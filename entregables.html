@@ -1352,21 +1352,27 @@ async function borrarEvidencia(evId, ruta){
               "No se puede deshacer.")) return;
   err.style.display="none";
   try{
-    // 1 · el archivo del almacenamiento. Si ya no esta, el objetivo se
-    //     cumplio igual: no hay nada que avisar.
-    const ra = await conTiempoArchivo(SUPA_URL+"/storage/v1/object/"+BUCKET+"/"+ruta,
-                           {method:"DELETE", headers:hdr()});
-    const noEstaba = !ra.ok &&
-      (await ra.clone().text()).indexOf("not_found") >= 0;
-    // 2 · el renglon, contando cuantos se fueron de verdad
+    /* 1 · PRIMERO el renglon, y contando cuantos se fueron de verdad.
+       Iba al reves —el archivo primero— y eso destruia fotos: quien no tiene
+       permiso de borrar el renglon SI lo tiene de borrar el archivo, asi que
+       cada intento fallido se llevaba la foto y dejaba el registro apuntando
+       a un hueco. Le paso a Jesus con cinco fotos del 4-sep. Si el renglon no
+       se puede borrar, ahora no se toca nada. */
     const d = await api("evidencias?ev_id=eq."+evId,
                         {method:"DELETE", headers:{Prefer:"return=representation"}});
     if(!d || !d.length){
       err.textContent = "No se pudo quitar. Se puede borrar lo propio dentro de "+
-        "la semana, o lo de tu coordinación dentro del mes; después ya no.";
+        "la semana, o lo de tu coordinación dentro del mes; después ya no. "+
+        "La foto no se tocó.";
       err.style.display="block";
       return;
     }
+    // 2 · ya sin registro, el archivo. Si ya no estaba, el objetivo se cumplio
+    //     igual: no hay nada que avisar.
+    const ra = await conTiempoArchivo(SUPA_URL+"/storage/v1/object/"+BUCKET+"/"+ruta,
+                           {method:"DELETE", headers:hdr()});
+    const noEstaba = !ra.ok &&
+      (await ra.clone().text()).indexOf("not_found") >= 0;
     if(!ra.ok && !noEstaba){
       err.textContent = "Se quitó del listado, pero el archivo quedó guardado "+
                         "(HTTP "+ra.status+"). Avísale a sistemas.";
