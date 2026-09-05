@@ -578,8 +578,15 @@ function verTodos(){
    borra el dia que la brigada si fue, y con el la prueba del gasto.
 
    Se empieza limpio: lo reprogramado ANTES de esta fecha es historia y no se
-   cuenta como pendiente. Lo de aqui en adelante si se persigue. */
-const DESDE_REAGENDA = "2026-09-04";
+   cuenta como pendiente. Lo de aqui en adelante si se persigue.
+
+   El corte se puso dos semanas atras y no en el dia que se estreno esto. Con
+   la fecha del estreno solo entraban 5, y el trabajo que seguia vivo -Walmart
+   Torre Diamante, los cuatro planteles del Colegio Oxford, Medica Sur y ocho
+   PHARMA PLUS- quedaba fuera del radar por unos dias de diferencia. Con el 25
+   de agosto entran 15, y son todos trabajo por atender, no historia: los 310
+   que quedaron colgados de antes siguen sin molestar. */
+const DESDE_REAGENDA = "2026-08-25";
 let YA_REAGENDADO = new Set();   /* claves COORD-ID que ya tienen continuacion */
 let reag = null;
 
