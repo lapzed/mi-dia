@@ -87,6 +87,12 @@
     border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
   .bien{background:rgba(30,142,90,.16);border:1px solid rgba(30,142,90,.45);color:#9EE7C2;
     border-radius:10px;padding:9px 11px;font-size:12.5px;margin-top:10px}
+  /* Un error del servidor llega como una cadena larga sin espacios
+     -{"code":"PGRST301","details":...}- y sin espacios el navegador no tiene
+     donde partirla: empuja la caja y corre la pagina de lado. Esto le da
+     permiso de partir donde sea, que es feo pero se lee; lo otro no se lee. */
+  .aviso,.vacio,.load,.sub,.q,.dat-nota{overflow-wrap:anywhere}
+  .tabla{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 </style>
 </head>
 <body>
@@ -612,6 +618,25 @@ function arrancar(){
    necesita internet vivo. Iba solo en Mi dia; las demas puertas -inicio
    incluida, que es por donde arranca la app instalada- se quedaban fuera. */
 if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(function(){});
+</script>
+<script>
+/* Las tablas anchas tienen que rodar DENTRO de su caja, no empujar la pagina.
+   En vez de tocar cada lugar donde se dibuja una -y de que el proximo se
+   olvide- se vigila el cuerpo y se envuelve lo que aparezca. */
+(function(){
+  function envolver(){
+    document.querySelectorAll("table").forEach(function(t){
+      var p = t.parentElement;
+      if(!p || p.classList.contains("tabla")) return;
+      var caja = document.createElement("div");
+      caja.className = "tabla";
+      t.replaceWith(caja);
+      caja.appendChild(t);
+    });
+  }
+  envolver();
+  new MutationObserver(envolver).observe(document.body, {childList:true, subtree:true});
+})();
 </script>
 </body>
 </html>

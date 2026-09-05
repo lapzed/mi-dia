@@ -73,6 +73,11 @@
   a.op .ic{font-size:19px;width:26px;text-align:center}
   a.op b{display:block;font-size:14.5px}
   a.op span{font-size:11.5px;color:var(--txt2)}
+  /* Un error del servidor llega como una cadena larga sin espacios
+     -{"code":"PGRST301","details":...}- y sin espacios el navegador no tiene
+     donde partirla: empuja la caja y corre la pagina de lado. Esto le da
+     permiso de partir donde sea, que es feo pero se lee; lo otro no se lee. */
+  .aviso,.vacio,.load,.sub,.q,.dat-nota{overflow-wrap:anywhere}
 </style>
 </head>
 <body>

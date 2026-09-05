@@ -75,6 +75,11 @@
     h3{color:#0B2038} .btn{background:#eee;color:#000;border-color:#999}
     td,th{color:#000}
   }
+  /* Un error del servidor llega como una cadena larga sin espacios
+     -{"code":"PGRST301","details":...}- y sin espacios el navegador no tiene
+     donde partirla: empuja la caja y corre la pagina de lado. Esto le da
+     permiso de partir donde sea, que es feo pero se lee; lo otro no se lee. */
+  .aviso,.vacio,.load,.sub,.q,.dat-nota{overflow-wrap:anywhere}
 </style>
 </head>
 <body>

@@ -116,6 +116,11 @@
   #salida table.f td.et{width:38%;color:#333}
   #salida .pie{position:absolute;left:18mm;right:18mm;bottom:10mm;text-align:center;
     font-size:9px;color:#3b3b3b;border-top:2px solid #1F3864;padding-top:5px}
+  /* Un error del servidor llega como una cadena larga sin espacios
+     -{"code":"PGRST301","details":...}- y sin espacios el navegador no tiene
+     donde partirla: empuja la caja y corre la pagina de lado. Esto le da
+     permiso de partir donde sea, que es feo pero se lee; lo otro no se lee. */
+  .aviso,.vacio,.load,.sub,.q,.dat-nota{overflow-wrap:anywhere}
 </style>
 </head>
 <body>

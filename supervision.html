@@ -94,6 +94,11 @@
   .box select,.box input{width:100%;margin-bottom:11px}
   .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
     border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+  /* Un error del servidor llega como una cadena larga sin espacios
+     -{"code":"PGRST301","details":...}- y sin espacios el navegador no tiene
+     donde partirla: empuja la caja y corre la pagina de lado. Esto le da
+     permiso de partir donde sea, que es feo pero se lee; lo otro no se lee. */
+  .aviso,.vacio,.load,.sub,.q,.dat-nota{overflow-wrap:anywhere}
 </style>
 </head>
 <body>

@@ -12,7 +12,7 @@
    Ahora es al reves: se sirve lo guardado de inmediato y la copia se refresca
    por detras. La app abre siempre, y como el CACHE cambia en cada publicacion,
    una version nueva se recoge igual. */
-const CACHE  = "mdcontrol-v172";
+const CACHE  = "mdcontrol-v173";
 const LIMITE = 8000;   // lo que se espera a la red cuando no hay copia guardada
 
 const SHELL = ["./inicio.html", "./index.html", "./entregables.html", "./manifest.json",
