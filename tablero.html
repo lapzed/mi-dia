@@ -41,12 +41,25 @@
   .sub{font-size:12px;color:var(--txt3)}
 
   /* pensado para proyectarse: numeros grandes y pocas palabras */
-  .tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  /* El minimo era 190px y en un telefono -358 de contenido- no caben dos: las
+     cuatro cifras salian una debajo de otra y habia que bajar para ver el
+     tablero completo. Con 150 caben dos por renglon y se leen de un vistazo,
+     que es justo para lo que se abre esto desde el celular. En monitor no
+     cambia nada: siguen siendo cuatro en linea. */
+  .tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
     gap:12px;margin-bottom:18px}
   .t{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:15px 17px}
   .t .n{font-size:34px;font-weight:800;line-height:1.05}
   .t .q{font-size:12.5px;color:var(--txt2);margin-top:3px}
   .t.ok .n{color:#7BE0AE} .t.ojo .n{color:#F0BE6E} .t.mal .n{color:#F3B0AC}
+  /* La cifra es lo que se viene a ver: en pantalla angosta se le respeta el
+     tamaño y se aprieta lo de alrededor. Va DESPUES de las reglas de arriba:
+     una media query no suma especificidad, asi que puesta antes la anularian
+     ellas y no serviria de nada. */
+  @media (max-width:520px){
+    .t{padding:13px 12px}
+    .t .q{font-size:11.5px}
+  }
 
   h2{font-size:15px;margin:24px 0 10px;color:var(--acc);text-transform:uppercase;
     letter-spacing:.06em}
@@ -71,6 +84,10 @@
   .barras i{flex:1;background:#1D4267;border-radius:3px 3px 0 0;min-height:2px}
   .barras i.hoy{background:var(--acc)}
   #mapa{height:380px;border-radius:15px;border:1px solid var(--line);overflow:hidden;z-index:1}
+  /* En un telefono de 844px de alto, 420 es la mitad de la pantalla: el mapa se
+     la comia y las brigadas empezaban abajo del doblez, sin nada que insinuara
+     que seguian. Se recorta en pantallas angostas para que asome la primera. */
+  @media (max-width:520px){ #mapa{height:290px} }
   .leaflet-popup-content-wrapper{background:#12314F;color:#EAF2FB;border-radius:11px}
   .leaflet-popup-tip{background:#12314F}
 

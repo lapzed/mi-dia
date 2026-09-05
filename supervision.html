@@ -43,6 +43,10 @@
   .sub{font-size:12.5px;color:var(--txt2);margin:-6px 0 12px}
 
   #mapa{height:420px;border-radius:14px;border:1px solid var(--line);overflow:hidden;z-index:1}
+  /* En un telefono de 844px de alto, 420 es la mitad de la pantalla: el mapa se
+     la comia y las brigadas empezaban abajo del doblez, sin nada que insinuara
+     que seguian. Se recorta en pantallas angostas para que asome la primera. */
+  @media (max-width:520px){ #mapa{height:290px} }
   .leaflet-popup-content-wrapper{background:#12314F;color:#EAF2FB;border-radius:11px}
   .leaflet-popup-tip{background:#12314F}
   .leaflet-popup-content{margin:11px 13px;font-size:13px;line-height:1.45}
