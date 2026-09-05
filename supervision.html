@@ -65,6 +65,10 @@
   .alerta .num{float:right;font-size:22px;font-weight:800;line-height:1}
   .alerta.grave .num{color:#F0A9A5} .alerta .num{color:#F0BE6E}
 
+  /* Una tabla ancha tiene que rodar DENTRO de su caja, no empujar la pagina.
+     Sin esto, en un telefono de 390px la de "lo que se esta atorando" mide 595
+     y para leer una columna hay que arrastrar la pantalla completa. */
+  .tabla{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
     color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line)}
@@ -358,6 +362,10 @@ function salir(){
 
 async function arrancar(){
   document.getElementById("who").innerHTML="<b>"+esc(ses.usuario||"")+"</b>salir";
+  /* Se enciende una sola vez y cubre las cuatro pestañas: cada vez que algo
+     escriba en el cuerpo, las tablas nuevas quedan envueltas. */
+  new MutationObserver(envolverTablas)
+    .observe(document.getElementById("cuerpo"), {childList:true, subtree:true});
   document.getElementById("tabs").style.display="flex";
   document.getElementById("editar").style.display="block";
   document.getElementById("cuerpo").innerHTML='<div class="load">Cargando…</div>';
@@ -427,6 +435,23 @@ function abierto(x){
   return ["ATENDIDO","CANCELADO","CONTINUIDAD","PROSPECTO","ATENCION VENTAS"]
          .indexOf((x.status||"").toUpperCase().trim())<0;
 }
+/* Las tablas de esta pantalla se escriben en NUEVE lugares distintos, y varias
+   son anchas. En las demas pantallas cada una vive dentro de un `.tabla` que
+   rueda sola; aqui salian sueltas y empujaban la pagina de lado en el telefono.
+
+   En vez de tocar los nueve lugares —y de que el proximo se olvide— se vigila
+   el cuerpo y se envuelve lo que aparezca, lo pinte quien lo pinte. */
+function envolverTablas(){
+  document.querySelectorAll("#cuerpo table").forEach(function(t){
+    const p = t.parentElement;
+    if(p && p.classList.contains("tabla")) return;   // ya estaba
+    const caja = document.createElement("div");
+    caja.className = "tabla";
+    t.replaceWith(caja);
+    caja.appendChild(t);
+  });
+}
+
 function ver(v){
   vista=v;
   [...document.querySelectorAll(".tabs button")].forEach((b,i)=>
