@@ -590,10 +590,21 @@ async function cargarReagendados(){
   }catch(e){ YA_REAGENDADO = new Set() }
 }
 
+/* "Sin reagendar" quiere decir una cosa concreta: la brigada YA FUE, el dia se
+   gasto, no se concluyo, y todavia no existe la visita que lo sustituya.
+
+   Por eso se pide que la fecha ya haya pasado. Un reprogramado con fecha a
+   FUTURO no esta esperando fecha: es de los que traen la practica vieja -le
+   movieron el dia encima de la misma linea- y ya tienen cuando volver. Ese es
+   otro problema, y meterlo aqui llenaria el contador de cosas que no se pueden
+   atender. */
 function sinReagendar(){
+  const hoy = hoyISO();
   return filas.filter(function(x){
+    const f = String(x.fecha_servicio||"");
     return (x.status||"").toUpperCase().trim()==="REPROGRAMADO"
-        && String(x.fecha_servicio||"") >= DESDE_REAGENDA
+        && f >= DESDE_REAGENDA
+        && f <= hoy
         && !YA_REAGENDADO.has(claveDe(x));
   });
 }
