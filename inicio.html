@@ -46,9 +46,29 @@
   .quien b{display:block;font-size:15px}
   .quien span{font-size:12px;color:var(--txt2)}
   .quien .salir{margin-left:auto;font-size:12px;color:var(--acc);cursor:pointer}
+  /* El MENU es lo unico que pide ancho: son tarjetas sueltas, y en un monitor
+     caben varias por renglon. El formulario de acceso se queda angosto a
+     proposito —un campo de novecientos pixeles se lee peor, no mejor—, y por
+     eso el ancho no vive en `.caja` a secas sino en las clases que le pone el
+     menu segun cuantas pantallas tenga esa persona:
+
+       dos o menos   se queda angosto: dos tarjetas nadando en un monitor se
+                     ven peor que una columna corta
+       tres o cuatro dos columnas
+       cinco o mas   tres columnas, que es el caso de Gerencia con once */
+  .caja.m2{max-width:720px}
+  .caja.m3{max-width:1020px}
+  #ops{display:grid;gap:10px;grid-template-columns:1fr}
+  @media (min-width:660px){
+    .caja.m2 #ops, .caja.m3 #ops{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (min-width:980px){
+    .caja.m3 #ops{grid-template-columns:repeat(3,1fr)}
+  }
   a.op{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--txt);
     background:#0F2C4A;border:1px solid var(--line);border-radius:13px;
-    padding:13px 14px;margin-bottom:9px}
+    padding:13px 14px}
+  a.op:hover{background:#17456E;border-color:var(--acc)}
   a.op:active{background:#17456E}
   a.op .ic{font-size:19px;width:26px;text-align:center}
   a.op b{display:block;font-size:14.5px}
@@ -288,6 +308,12 @@ function menu(u, directo){
     return `<a class="op" href="${url}"><span class="ic">${ic}</span>
       <span><b>${esc(tit)}</b><span>${esc(q)}</span></span></a>`;
   }).join("");
+  /* El ancho lo decide cuantas pantallas tiene que elegir esta persona: a
+     Gerencia, con once, una sola columna la obliga a bajar por una lista larga;
+     a quien tiene dos, una caja ancha le deja las tarjetas nadando. */
+  const caja = document.querySelector(".caja");
+  caja.classList.toggle("m2", lista.length >= 3 && lista.length <= 4);
+  caja.classList.toggle("m3", lista.length >= 5);
   document.getElementById("pLogin").style.display="none";
   document.getElementById("pMenu").style.display="block";
   /* Si solo tiene una pantalla, no tiene caso hacerle elegir... pero solo
