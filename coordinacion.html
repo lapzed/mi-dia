@@ -821,9 +821,27 @@ async function copiar(){
   catch(e){ t.select(); document.execCommand("copy") }
   document.getElementById("msgEstado").textContent="Copiado. Pégalo en el grupo.";
 }
+/* En computadora se va DIRECTO a WhatsApp Web.
+
+   `wa.me` no lleva ahi: manda a api.whatsapp.com, que primero intenta abrir la
+   aplicacion de escritorio con un enlace `whatsapp://`. Como en las maquinas
+   del area no esta instalada, Windows contesta "este archivo no tiene ninguna
+   aplicacion asociada", hay que cerrar el aviso y recien entonces tocar
+   "Continuar en WhatsApp Web". Funcionaba, pero con un error de por medio y un
+   clic de mas, cada vez.
+
+   `web.whatsapp.com/send` se queda donde tiene que estar —comprobado: no
+   redirige a api.whatsapp.com— y llega con el texto ya escrito, listo para
+   elegir el grupo.
+
+   En el telefono se deja `wa.me`: ahi la aplicacion SI existe, y mandar a
+   WhatsApp Web en un celular seria el cambio al reves. */
 function mandarWhats(){
-  const t=document.getElementById("msg").value;
-  window.open("https://wa.me/?text="+encodeURIComponent(t), "_blank");
+  const t = document.getElementById("msg").value;
+  const base = /android|iphone|ipad|ipod/i.test(navigator.userAgent)
+             ? "https://wa.me/?text="
+             : "https://web.whatsapp.com/send?text=";
+  window.open(base + encodeURIComponent(t), "_blank");
 }
 async function guardarMensaje(){
   const b=document.getElementById("btnGuardaMsg");
