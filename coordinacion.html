@@ -116,6 +116,7 @@
 
   .vacio{text-align:center;color:var(--txt2);padding:46px}
   .load{text-align:center;color:var(--txt2);padding:36px;font-size:13px}
+  .rea{background:#3A2A12;color:#F0BE6E;border:1px solid #7A5A22;white-space:nowrap}
   .modal{position:fixed;inset:0;background:rgba(5,16,28,.95);z-index:50;
     display:flex;align-items:center;justify-content:center;padding:18px}
   .box{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
@@ -184,8 +185,9 @@
 <div class="modal" id="mMsg" style="display:none">
   <div class="box" style="max-width:820px;max-height:92vh;overflow:auto">
     <h2>Mensaje a los técnicos</h2>
-    <p>Se arma con los servicios de un día. Entran los que tienen la cita
-       confirmada, los que están en PROGRAMADO y los que ya traen brigada.</p>
+    <p>Se arma con los servicios de un día. Entran todos los que siguen vivos;
+       quedan fuera los atendidos, los cancelados, los prospectos y los de
+       atención a ventas.</p>
     <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:11px">
       <div class="f"><label>Día</label>
         <input type="date" id="msgDia" onchange="verMensaje(true)"></div>
@@ -201,6 +203,34 @@
               style="margin-left:auto">Cerrar</button>
     </div>
     <div id="msgEstado" style="font-size:12px;color:var(--txt2);margin-top:9px"></div>
+  </div>
+</div>
+
+<!-- Reagendar: la visita que se reprogramo se queda; nace la que sigue. -->
+<div class="modal" id="mReag" style="display:none">
+  <div class="box">
+    <h2>Reagendar la visita</h2>
+    <p id="reagQuien" class="sub"></p>
+    <p>La visita del <b id="reagDia"></b> <b>no se toca</b>: se queda como
+       reprogramada, con su evidencia y su brigada, para que se vea dónde se
+       invirtió el recurso. Aquí nace la visita que la sustituye.</p>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end">
+      <div class="f"><label>Nueva fecha</label>
+        <input type="date" id="reagFecha"></div>
+      <div class="f"><label>Hora (si ya se acordó)</label>
+        <input type="time" id="reagHora"></div>
+    </div>
+    <div class="f" style="margin-top:9px"><label>Qué se acordó con el cliente</label>
+      <textarea id="reagNota" class="nota"
+                placeholder="lo que haya que saber para la nueva visita"></textarea></div>
+    <div class="aviso" id="reagErr" style="display:none"></div>
+    <p class="sub">La brigada la asigna Programación: la nueva visita entra en su
+       cola. La cita se vuelve a confirmar, porque el día es otro.</p>
+    <div style="display:flex;gap:8px;margin-top:11px">
+      <button class="pri" id="reagBtn" onclick="confirmarReagendar()">Crear la visita nueva</button>
+      <button onclick="document.getElementById('mReag').style.display='none'"
+              style="margin-left:auto">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -465,6 +495,7 @@ async function cargar(){
       "personal_atiende,telefono,correo,ejecutivo,tipo_servicio,etapa_actual"+
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+(co?"&coord=eq."+co:"")+
       "&order=fecha_servicio,horario_atencion&limit=600");
+    await cargarReagendados();
     pintar();
   }catch(e){
     document.getElementById("lista").innerHTML=
@@ -538,6 +569,119 @@ function verTodos(){
   if(typeof cargar==="function") cargar();
   else if(typeof cargarAt==="function") cargarAt();
   else if(typeof pintar==="function") pintar();
+}
+
+/* ================= reagendar =================
+   Una linea = una visita = una inversion. La visita que se reprogramo se queda
+   como esta; la siguiente nace aparte y se liga con `viene_de`. Mover la fecha
+   encima de la linea vieja -que es como se venia haciendo en algunos casos-
+   borra el dia que la brigada si fue, y con el la prueba del gasto.
+
+   Se empieza limpio: lo reprogramado ANTES de esta fecha es historia y no se
+   cuenta como pendiente. Lo de aqui en adelante si se persigue. */
+const DESDE_REAGENDA = "2026-09-04";
+let YA_REAGENDADO = new Set();   /* claves COORD-ID que ya tienen continuacion */
+let reag = null;
+
+async function cargarReagendados(){
+  try{
+    const d = await api("servicios?select=viene_de&viene_de=not.is.null&limit=5000");
+    YA_REAGENDADO = new Set((d||[]).map(x=>String(x.viene_de||"").replace("-","|")));
+  }catch(e){ YA_REAGENDADO = new Set() }
+}
+
+function sinReagendar(){
+  return filas.filter(function(x){
+    return (x.status||"").toUpperCase().trim()==="REPROGRAMADO"
+        && String(x.fecha_servicio||"") >= DESDE_REAGENDA
+        && !YA_REAGENDADO.has(claveDe(x));
+  });
+}
+
+function abrirReagendar(i){
+  const x = filas[i]; if(!x) return;
+  reag = x;
+  document.getElementById("reagQuien").textContent =
+    (x.nombre||"") + (limpio(x.tkt) ? "  ·  TKT " + x.tkt : "") + "  ·  " + x.coord;
+  document.getElementById("reagDia").textContent = x.fecha_servicio || "(sin fecha)";
+  document.getElementById("reagFecha").value = "";
+  document.getElementById("reagHora").value = hhmm(x.horario_atencion) || "";
+  document.getElementById("reagNota").value = "";
+  document.getElementById("reagErr").style.display = "none";
+  document.getElementById("mReag").style.display = "flex";
+}
+
+/* El id es el mayor de la tabla mas uno, como en Captura. Si dos altas caen en
+   el mismo segundo la segunda choca con la llave y se reintenta. */
+async function siguienteIdReag(){
+  const d = await api("servicios?select=id&order=id.desc&limit=1");
+  return (d && d.length ? Number(d[0].id) : 0) + 1;
+}
+
+/* Lo que hace a este trabajo ser este trabajo. Lo de la visita pasada
+   -brigada, vehiculo, viaticos, cita, mediciones- NO viaja: era de aquel dia. */
+const COPIAR_REAG = ["coord","tkt","nombre","dependencia","direccion","cp",
+  "localidad","municipio","estado","lat","long","personal_atiende","telefono",
+  "correo","ejecutivo","tipo_servicio","requerimientos","obs_captura","obs_prog",
+  "equipo","serie","obra","dias_est","dia_creacion","sitio_id","tipo_inmueble",
+  "duracion_est","tiempo_inst_est","cita_requerida"];
+
+async function confirmarReagendar(){
+  const x = reag; if(!x) return;
+  const err = document.getElementById("reagErr");
+  const btn = document.getElementById("reagBtn");
+  const fecha = document.getElementById("reagFecha").value;
+  const hora  = document.getElementById("reagHora").value;
+  const nota  = document.getElementById("reagNota").value.trim();
+  err.style.display = "none";
+  if(!fecha){
+    err.textContent = "Falta la nueva fecha."; err.style.display = "block"; return;
+  }
+  if(fecha < x.fecha_servicio){
+    err.textContent = "La nueva fecha queda antes de la visita que se reprograma. "+
+                      "Revísala.";
+    err.style.display = "block"; return;
+  }
+  btn.disabled = true; const t0 = btn.textContent; btn.textContent = "Creando…";
+  try{
+    const fila = {};
+    COPIAR_REAG.forEach(function(k){ if(x[k] !== undefined && x[k] !== null) fila[k]=x[k] });
+    fila.fecha_servicio   = fecha;
+    fila.horario_atencion = hora || null;
+    fila.status           = "PROGRAMADO";
+    fila.etapa_actual     = 2;              /* cae en la cola de Programacion */
+    fila.cita_confirmada  = null;           /* el dia es otro: se reconfirma */
+    fila.viene_de         = x.coord + "-" + x.id;
+    /* el contexto viaja con la visita nueva: quien vaya tiene que saber por que
+       se volvio */
+    const deAntes = limpio(x.obs_coord);
+    fila.obs_coord = ("Viene de la visita del " + (x.fecha_servicio||"?") +
+                      " (id " + x.id + "), que se reprogramó" +
+                      (deAntes ? ": " + deAntes : ".") +
+                      (nota ? "  ·  " + nota : "")).slice(0, 500);
+
+    let creado = false, intento = 0;
+    while(!creado && intento < 4){
+      intento++;
+      fila.id = await siguienteIdReag();
+      try{
+        await api("servicios", {method:"POST", headers:{Prefer:"return=minimal"},
+                                body:JSON.stringify(fila)});
+        creado = true;
+      }catch(e){
+        const choque = String(e).indexOf("409")>=0 || /duplicate|llave|key/i.test(String(e));
+        if(intento>=4 || !choque) throw e;
+      }
+    }
+    anotar("REAGENDA", "nueva visita id="+fila.id+" para el "+fecha+
+           " · viene de id="+x.id+" ("+(x.fecha_servicio||"?")+")", x);
+    YA_REAGENDADO.add(claveDe(x));
+    document.getElementById("mReag").style.display = "none";
+    await cargar();
+  }catch(e){
+    err.textContent = "No se pudo crear: " + String(e.message||e).slice(0,130);
+    err.style.display = "block";
+  }finally{ btn.disabled = false; btn.textContent = t0 }
 }
 
 /* ================= el mensaje a los tecnicos =================
@@ -754,7 +898,9 @@ function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
   document.getElementById("resumen").innerHTML=`
     <div class="pill"><b>${filas.length}</b>servicios en el rango</div>
     <div class="pill"><b style="color:#5BD79B">${conf}</b>con cita confirmada</div>
-    <div class="pill"><b style="color:${pend?"#F0BE6E":"#5BD79B"}">${pend}</b>por confirmar</div>`;
+    <div class="pill"><b style="color:${pend?"#F0BE6E":"#5BD79B"}">${pend}</b>por confirmar</div>
+    ${(function(){const n=sinReagendar().length; return n
+      ? '<div class="pill"><b style="color:#F0BE6E">'+n+'</b>sin reagendar</div>' : ""})()}`;
   if(!v.length){
     cont.innerHTML='<div class="vacio">Nada que coordinar aquí.</div>';
     return;
@@ -805,7 +951,12 @@ function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
             placeholder="qué dijo el cliente">${esc(x.obs_coord||"")}</textarea>
           ${limpio(x.obs_prog)||limpio(x.requerimientos)?`<div class="sub">
             ${esc([x.requerimientos,x.obs_prog].map(limpio).filter(Boolean).join(" · "))}</div>`:""}</td>
-      <td id="est${i}"></td></tr>`}).join("")}
+      <td id="est${i}">${(x.status||"").toUpperCase().trim()==="REPROGRAMADO"
+          ? (YA_REAGENDADO.has(claveDe(x))
+             ? '<span class="sub">ya reagendado</span>'
+             : '<button class="mini rea" onclick="abrirReagendar('+i+')" '+
+               'title="Crear la visita que sustituye a ésta">\u21bb Reagendar</button>')
+          : ""}</td></tr>`}).join("")}
   </tbody></table></div>`;
 }
 
@@ -992,7 +1143,9 @@ async function editar(i, campo, valor){
     document.getElementById("resumen").innerHTML=`
       <div class="pill"><b>${filas.length}</b>servicios en el rango</div>
       <div class="pill"><b style="color:#5BD79B">${conf}</b>con cita confirmada</div>
-      <div class="pill"><b style="color:${pend?"#F0BE6E":"#5BD79B"}">${pend}</b>por confirmar</div>`;
+      <div class="pill"><b style="color:${pend?"#F0BE6E":"#5BD79B"}">${pend}</b>por confirmar</div>
+      ${(function(){const n=sinReagendar().length; return n
+        ? '<div class="pill"><b style="color:#F0BE6E">'+n+'</b>sin reagendar</div>' : ""})()}`;
   }catch(e){
     x[campo]=antes;
     if(celda) celda.innerHTML='<span class="fallo">no se guardó</span>';
