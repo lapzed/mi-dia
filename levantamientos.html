@@ -671,8 +671,10 @@ async function guardarSubida(){
       if(!r.ok) throw new Error("no se pudo guardar ("+r.status+")");
       await api("evidencias",{method:"POST",
         headers:{"Content-Type":"application/json",Prefer:"return=minimal"},
+        /* `tecnico` documenta a la brigada; `subio` es quien lo cargo */
         body:JSON.stringify({coord:x.coord,servicio_id:x.id,tkt:x.tkt||"",tipo:tipo,
-                             ruta:ruta,tecnico:x.tecnico||ses.usuario})});
+                             ruta:ruta,tecnico:x.tecnico||ses.usuario,
+                             subio:(ses&&(ses.nombre||ses.usuario))||""})});
     }
     document.getElementById("mSubir").style.display="none";
   }catch(e){ err.textContent=e.message; err.style.display="block" }

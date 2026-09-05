@@ -2065,9 +2065,13 @@ async function subirArchivo(item, blob, tipo, i){
     {method:"POST", headers:Object.assign({},HDR,{"Content-Type":blob.type}),
      body:blob});
   if(!r.ok) throw new Error("storage "+r.status);
+  /* `tecnico` es la brigada que documenta; `subio`, la sesion que la cargo.
+     Para un tecnico son el mismo, pero para el administrativo de una empresa
+     externa no: el sube a nombre de sus brigadas. */
   await api("evidencias",{method:"POST",body:JSON.stringify({
     coord:item.coord, servicio_id:item.id, tkt:item.tkt||"", tipo:tipo,
-    ruta:ruta, tecnico:item.tecnico})});
+    ruta:ruta, tecnico:item.tecnico,
+    subio:(ses&&ses.nombre)||tecnico||""})});
   return ruta;
 }
 

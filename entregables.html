@@ -59,6 +59,7 @@
   .yaEv{display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px;
     background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:8px}
   .yaEt{font-size:12px;font-weight:600;flex:1}
+  .yaQuien{color:var(--txt3);font-size:10px}
   .yaSub{font-size:10.5px;color:var(--txt3)}
   .mini.quita{background:rgba(198,65,59,.18);color:#F3B0AC;padding:3px 8px}
   .mini.quita:hover{background:rgba(198,65,59,.32)}
@@ -775,7 +776,7 @@ async function cargarEvidencias(){
   const ids=[...new Set(filas.map(f=>f.id))];
   for(let i=0;i<ids.length;i+=300){          // la consulta no admite una lista sin fin
     /* ev_id para poder borrar, y ts/tecnico para saber de quien es y de cuando */
-    const e=await api("evidencias?select=ev_id,coord,servicio_id,tipo,ruta,ts,tecnico&servicio_id=in.("+
+    const e=await api("evidencias?select=ev_id,coord,servicio_id,tipo,ruta,ts,tecnico,subio&servicio_id=in.("+
                       ids.slice(i,i+300).join(",")+")&limit=5000");
     e.forEach(x=>{ const k=x.coord+"|"+x.servicio_id; (ev[k]=ev[k]||[]).push(x) });
   }
@@ -1249,7 +1250,12 @@ function pintarYaSubidas(){
                    esc(p[1])+'</option>' }).join("")+
         '</select>'+
         '<span class="yaSub">'+esc(String(e.ts||"").slice(0,10))+
-          (e.tecnico?" · "+esc(e.tecnico):"")+'</span>'+
+          (e.tecnico?" · "+esc(e.tecnico):"")+
+          /* solo cuando no es la misma persona: si coinciden, repetir el
+             nombre no dice nada y estorba en una linea que ya va apretada */
+          (limpio(e.subio) && e.subio!==e.tecnico
+             ? '<br><span class="yaQuien">subió '+esc(e.subio)+'</span>' : "")+
+          '</span>'+
         '<button class="mini quita" title="Quitar esta evidencia" '+
           'onclick="borrarEvidencia('+e.ev_id+',\''+esc(e.ruta)+'\')">🗑</button>'+
       '</div>';
@@ -1466,9 +1472,14 @@ async function guardarSubida(){
          body:f});
       if(!r.ok) throw new Error("no se pudo guardar el archivo ("+r.status+
                                 (r.status===403?"): tu cuenta no tiene permiso de subir":")"));
+      /* `tecnico` dice a QUIEN DOCUMENTA -la brigada que hizo el trabajo-, y
+         `subio` dice QUIEN LA CARGO. Aqui casi nunca son el mismo: sube el
+         area administrativa a nombre del tecnico. Guardar solo el primero
+         hacia que el rastro apuntara a quien no habia tocado el archivo. */
       await api("evidencias",{method:"POST",body:JSON.stringify({
         coord:x.coord, servicio_id:x.id, tkt:x.tkt||"", tipo:tipo,
-        ruta:ruta, tecnico:x.tecnico||ses.nombre})});
+        ruta:ruta, tecnico:x.tecnico||ses.nombre,
+        subio:(ses&&ses.nombre)||""})});
     }
     await cargarEvidencias();      // para que la fila muestre lo que ya tiene
     /* La ventana se queda abierta: casi nunca se sube una sola pieza, y
