@@ -2277,10 +2277,49 @@ async function camAbrir(campo, titulo, pista, guia){
       return true;
     }catch(e){ camPorQue = e && (e.name||e.message) }
   }
-  // no se pudo: se sigue por el camino de siempre, que recorta igual
+  /* No se pudo abrir el visor. Aqui estaba la falla que dejaba al tecnico sin
+     poder tomar NINGUNA foto:
+
+     antes se llamaba directo a `camNativo(campo)`, que hace `input.click()`
+     para caer a la camara del sistema. Pero eso ocurre DESPUES de esperar tres
+     veces a getUserMedia, y para entonces el navegador ya dio por consumido el
+     gesto del usuario: el clic sintetico se bloquea y no pasa NADA. El visor
+     parpadeaba y se cerraba, sin camara y sin explicacion.
+
+     Ahora se dice por que fallo -el motivo ya se guardaba en `camPorQue` y no
+     se mostraba en ningun lado- y se ofrece un boton de verdad. Al tocarlo
+     trae su propio gesto, y entonces la camara del sistema si abre. */
+  const av = document.getElementById("camAviso");
+  av.style.display = "block";
+  av.innerHTML = camMotivo(camPorQue) +
+    '<button style="margin-top:12px;width:100%;padding:13px;border-radius:11px;'+
+    'border:none;background:var(--acc);color:#07203a;font-weight:700;font-size:14px" '+
+    'onclick="camDesdeAviso(\'' + campo + '\')">Usar la cámara del teléfono</button>';
+  return false;
+}
+
+/* En palabras, no en clave: el nombre del error de getUserMedia no le dice
+   nada a quien esta parado en un sitio queriendo tomar una foto. */
+function camMotivo(err){
+  const e = String(err||"");
+  if(/NotAllowed|Permission/i.test(e))
+    return "No diste permiso de cámara a esta página.<br>"+
+           "<span style='color:var(--txt2)'>Puedes darlo desde el candado de la "+
+           "barra de direcciones, o usar la cámara del teléfono aquí abajo.</span>";
+  if(/NotFound|Overconstrained/i.test(e))
+    return "Este equipo no reporta una cámara que se pueda usar desde la página.";
+  if(/NotReadable|TrackStart/i.test(e))
+    return "La cámara está ocupada por otra aplicación. Ciérrala y vuelve a "+
+           "intentar, o usa la cámara del teléfono.";
+  if(/Secure|secure/i.test(e))
+    return "El visor solo funciona en una página segura (https).";
+  return "No se pudo abrir el visor" + (e ? " ("+e+")" : "") + ".";
+}
+
+/* El boton del aviso: su propio gesto, y por eso si abre la camara del sistema. */
+function camDesdeAviso(campo){
   camCerrar();
   camNativo(campo);
-  return false;
 }
 
 /* la camara del sistema, cuando la de la app no esta disponible */
