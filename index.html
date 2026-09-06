@@ -249,6 +249,38 @@
     display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
   .ayuda + .who{margin-left:10px}
 
+  /* ---------- marcar la foto ----------
+     Para dedos: los botones no bajan de 44px, que es lo que mide una yema. */
+  .mk-capa{position:fixed;inset:0;background:#06101C;z-index:1200;display:none;
+    flex-direction:column}
+  .mk-capa.on{display:flex}
+  .mk-lienzo{flex:1;position:relative;overflow:hidden;touch-action:none}
+  .mk-lienzo canvas{position:absolute;left:0;top:0}
+  .mk-barra{background:#0B2038;border-top:1px solid var(--line);padding:8px;
+    display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .mk-barra button{flex:0 0 auto;min-width:60px;min-height:48px;border-radius:12px;
+    background:#17456E;color:var(--acc);border:1px solid var(--line);
+    font-size:11.5px;font-weight:700;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:2px;padding:5px 9px}
+  .mk-barra button .ic{font-size:17px;line-height:1}
+  .mk-barra button.on{background:var(--acc);color:#07203a;border-color:var(--acc)}
+  .mk-arriba{display:flex;gap:8px;align-items:center;padding:9px 11px;
+    background:#0B2038;border-bottom:1px solid var(--line)}
+  .mk-arriba .t{font-size:13px;font-weight:700;flex:1}
+  .mk-arriba button{min-height:40px;padding:8px 13px;border-radius:10px;
+    font-size:12.5px;font-weight:700;border:none}
+  .mk-list{background:#17456E;color:var(--acc)}
+  .mk-ok{background:var(--acc);color:#07203a}
+  /* la paleta de piezas, cuando esa herramienta esta activa */
+  .mk-piezas{display:flex;gap:6px;overflow-x:auto;padding:7px 8px;background:#0F2C4A;
+    border-top:1px solid var(--line)}
+  .mk-piezas button{flex:0 0 auto;min-height:44px;padding:6px 11px;border-radius:11px;
+    background:#17456E;color:var(--txt);border:1px solid var(--line);font-size:12px;
+    font-weight:700}
+  .mk-piezas button.on{background:var(--acc);color:#07203a}
+  .mk-tip{position:absolute;left:0;right:0;bottom:8px;text-align:center;
+    font-size:11.5px;color:#EAF2FB;pointer-events:none;text-shadow:0 1px 3px #000}
+
   /* ---------- propuestas del levantamiento ---------- */
   .prop{border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-bottom:10px;
     background:#0F2C4A}
@@ -299,6 +331,11 @@
     font-size:10px;font-weight:700;color:var(--acc);text-align:center;padding:4px}
   .th .x{position:absolute;top:2px;right:2px;background:rgba(5,16,28,.85);color:#fff;
     width:19px;height:19px;border-radius:50%;font-size:12px;line-height:19px;text-align:center;cursor:pointer}
+  /* el lápiz para marcar la trayectoria; abajo, para no pelearse con la × */
+  .th .mk{position:absolute;bottom:2px;right:2px;background:rgba(5,16,28,.85);
+    color:var(--acc);width:19px;height:19px;border-radius:50%;font-size:11px;
+    line-height:19px;text-align:center;cursor:pointer}
+  .th .mk:active{background:var(--acc);color:#07203a}
   .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
     border-radius:11px;padding:10px 12px;font-size:12px;margin-bottom:12px}
 
@@ -404,6 +441,33 @@
 
 <!-- para el inventario: la camara del sistema y la galeria, cuando el visor
      con recuadro no esta disponible -->
+<!-- Marcar la foto: trayectorias y aditamentos. Ver `abrirMarcador`. -->
+<div class="mk-capa" id="mkCapa">
+  <div class="mk-arriba">
+    <div class="t" id="mkTit">Marcar</div>
+    <button class="mk-list" onclick="mkDeshacer()">↶ Deshacer</button>
+    <button class="mk-list" onclick="mkCerrar(false)">Cancelar</button>
+    <button class="mk-ok" onclick="mkCerrar(true)">Listo</button>
+  </div>
+  <div class="mk-lienzo" id="mkLienzo">
+    <canvas id="mkCv"></canvas>
+    <div class="mk-tip" id="mkTip"></div>
+  </div>
+  <div class="mk-piezas" id="mkPiezas" style="display:none"></div>
+  <div class="mk-barra">
+    <button id="mkT_flecha" class="on" onclick="mkTool('flecha')">
+      <span class="ic">↗</span>Flecha</button>
+    <button id="mkT_ruta" onclick="mkTool('ruta')">
+      <span class="ic">⌐</span>Trayectoria</button>
+    <button id="mkT_pieza" onclick="mkTool('pieza')">
+      <span class="ic">◉</span>Aditamento</button>
+    <button id="mkT_texto" onclick="mkTool('texto')">
+      <span class="ic">A</span>Texto</button>
+    <button id="mkT_mover" onclick="mkTool('mover')">
+      <span class="ic">✥</span>Mover</button>
+  </div>
+</div>
+
 <input type="file" id="inPart" accept="image/*" capture="environment"
        style="display:none" onchange="agregarPartida(this)">
 <input type="file" id="inPartGal" accept="image/*" multiple
@@ -1781,11 +1845,392 @@ function pintarCierre(){
   try{ pintarNotaMed() }catch(e){}
 }
 
+/* ================= marcar la foto =================
+   Trayectorias y aditamentos sobre la foto o sobre el plano del cliente, con
+   el dedo y en sitio. El vocabulario salio de dos levantamientos reales
+   -Crepes y Waffles, Plastonium-, no de suponerlo:
+
+     en FOTO   la trayectoria se ve DIAGONAL, porque hay perspectiva
+     en PLANO  va a ESCUADRA, porque sigue los muros
+
+   Por eso son dos herramientas de linea y no una. Forzar una sola regla
+   rompia la mitad de los casos.
+
+   Todo se guarda en coordenadas de la IMAGEN -no de la pantalla-, asi que el
+   acercamiento no deforma nada y lo exportado sale a resolucion completa.
+
+   Sin librerias, a proposito: esto se usa en sotanos sin senal, y un CDN que
+   no responde dejaria al tecnico sin poder marcar. */
+
+const MK_PIEZAS = [
+  ["TROMPETA",     "Trompeta",     "#63B3FF"],
+  ["ESTROBO",      "Estrobo",      "#F0BE6E"],
+  ["EQUIPO",       "Equipo",       "#7BE0AE"],
+  ["ANTENA",       "Antena",       "#C39BD3"],
+  ["AMPLIFICADOR", "Amplificador", "#FFB4A2"],
+  ["UPS",          "UPS",          "#9DB6D2"]
+];
+
+let mk = null;   /* {campo, i, img, anot:[], tool, pieza, vista:{z,x,y}} */
+
+function abrirMarcador(campo, i){
+  const f = cie[campo] && cie[campo][i];
+  if(!f) return;
+  const img = new Image();
+  img.onload = function(){
+    /* Las marcas se guardan aparte de la imagen, y siempre se parte de la foto
+       LIMPIA. Si se guardara solo la imagen ya marcada, al volver a abrirla las
+       marcas nuevas se apilarian encima y no habria manera de corregir una
+       flecha mal puesta: solo agregar otra al lado. */
+    mk = {campo:campo, i:i, img:img, anot:(f.anot||[]).map(function(a){
+            return JSON.parse(JSON.stringify(a)) }),
+          tool:"flecha", pieza:"TROMPETA", vista:{z:1, x:0, y:0}, arrastre:null};
+    document.getElementById("mkTit").textContent =
+      "Marcar · " + (img.width) + "×" + (img.height);
+    document.getElementById("mkCapa").classList.add("on");
+    mkPintarPiezas();
+    mkTool("flecha");
+    mkAjustar();
+  };
+  img.onerror = function(){ toast("No se pudo abrir la foto", true) };
+  img.src = f.urlLimpio || f.url;      // la de antes de marcar, si ya se marco
+}
+
+/* El lienzo se ajusta al hueco disponible y la imagen se encaja entera. */
+function mkAjustar(){
+  const cont = document.getElementById("mkLienzo");
+  const cv = document.getElementById("mkCv");
+  const r = cont.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(r.width * dpr);
+  cv.height = Math.round(r.height * dpr);
+  cv.style.width = r.width + "px";
+  cv.style.height = r.height + "px";
+  mk.dpr = dpr;
+  const esc = Math.min(r.width / mk.img.width, r.height / mk.img.height);
+  mk.base = esc;
+  mk.vista = {z:1, x:(r.width - mk.img.width*esc)/2, y:(r.height - mk.img.height*esc)/2};
+  mkDibujar();
+}
+
+/* pantalla -> imagen, y al reves. Todo lo demas trabaja en coordenadas de la
+   imagen, que es lo que hace que el acercamiento no mueva lo ya puesto. */
+function mkAImagen(px, py){
+  const e = mk.base * mk.vista.z;
+  return {x:(px - mk.vista.x)/e, y:(py - mk.vista.y)/e};
+}
+function mkAPantalla(ix, iy){
+  const e = mk.base * mk.vista.z;
+  return {x:ix*e + mk.vista.x, y:iy*e + mk.vista.y};
+}
+
+function mkTool(t){
+  mk.tool = t;
+  ["flecha","ruta","pieza","texto","mover"].forEach(function(k){
+    const b = document.getElementById("mkT_"+k);
+    if(b) b.classList.toggle("on", k===t);
+  });
+  document.getElementById("mkPiezas").style.display = (t==="pieza") ? "flex" : "none";
+  const tips = {
+    flecha:"Arrastra el dedo de donde sale a donde llega",
+    ruta:"Toca los quiebres del recorrido. Va a escuadra, como el muro",
+    pieza:"Elige el aditamento y toca dónde va",
+    texto:"Toca donde quieras poner la nota",
+    mover:"Arrastra para mover · dos dedos para acercar"
+  };
+  document.getElementById("mkTip").textContent = tips[t] || "";
+  mk.ruta = null;
+  mkDibujar();
+}
+
+function mkPintarPiezas(){
+  document.getElementById("mkPiezas").innerHTML = MK_PIEZAS.map(function(p){
+    return '<button id="mkP_'+p[0]+'" onclick="mkPieza(\''+p[0]+'\')">'+p[1]+'</button>';
+  }).join("");
+  mkPieza(mk.pieza);
+}
+function mkPieza(k){
+  mk.pieza = k;
+  MK_PIEZAS.forEach(function(p){
+    const b = document.getElementById("mkP_"+p[0]);
+    if(b) b.classList.toggle("on", p[0]===k);
+  });
+}
+
+function mkDeshacer(){
+  if(mk.ruta){ mk.ruta = null; mkDibujar(); return }   // primero la que se traza
+  mk.anot.pop();
+  mkDibujar();
+}
+
+/* ---------- dibujar ---------- */
+function mkDibujar(){
+  const cv = document.getElementById("mkCv"), c = cv.getContext("2d");
+  c.setTransform(mk.dpr,0,0,mk.dpr,0,0);
+  c.clearRect(0,0,cv.width,cv.height);
+  const e = mk.base * mk.vista.z;
+  c.save();
+  c.translate(mk.vista.x, mk.vista.y);
+  c.scale(e, e);
+  c.drawImage(mk.img, 0, 0);
+  mk.anot.forEach(function(a){ mkTrazo(c, a) });
+  if(mk.ruta) mkTrazo(c, mk.ruta, true);
+  c.restore();
+}
+
+/* El grosor se divide entre la escala para que la linea se vea igual de gruesa
+   este uno acercado o no: si no, al acercar la flecha engorda. */
+function mkTrazo(c, a, enCurso){
+  const e = mk.base * mk.vista.z;
+  const g = 6/e, col = a.color || "#2E86FF";
+  c.lineCap = "round"; c.lineJoin = "round";
+  if(a.t === "flecha"){
+    c.strokeStyle = col; c.lineWidth = g;
+    c.beginPath(); c.moveTo(a.x1,a.y1); c.lineTo(a.x2,a.y2); c.stroke();
+    const an = Math.atan2(a.y2-a.y1, a.x2-a.x1), p = 26/e*1.4;
+    c.fillStyle = col; c.beginPath();
+    c.moveTo(a.x2, a.y2);
+    c.lineTo(a.x2 - p*Math.cos(an-0.42), a.y2 - p*Math.sin(an-0.42));
+    c.lineTo(a.x2 - p*Math.cos(an+0.42), a.y2 - p*Math.sin(an+0.42));
+    c.closePath(); c.fill();
+  }
+  else if(a.t === "ruta"){
+    c.strokeStyle = col; c.lineWidth = g*1.15;
+    if(enCurso){ c.setLineDash([12/e, 8/e]) }
+    c.beginPath();
+    a.pts.forEach(function(p,i){ i ? c.lineTo(p.x,p.y) : c.moveTo(p.x,p.y) });
+    c.stroke(); c.setLineDash([]);
+    a.pts.forEach(function(p){
+      c.fillStyle = col; c.beginPath(); c.arc(p.x,p.y, g*0.9, 0, 7); c.fill();
+    });
+  }
+  else if(a.t === "pieza"){ mkGlifo(c, a, e) }
+  else if(a.t === "texto"){
+    const t = 30/e;
+    c.font = "700 " + t + "px system-ui, sans-serif";
+    const an = c.measureText(a.s).width, pad = t*0.42;
+    c.fillStyle = "rgba(255,255,255,.94)";
+    mkRedondo(c, a.x-pad, a.y-t*0.85, an+pad*2, t*1.42, t*0.34);
+    c.fill();
+    c.fillStyle = "#111"; c.textBaseline = "alphabetic";
+    c.fillText(a.s, a.x, a.y + t*0.24);
+  }
+}
+
+function mkRedondo(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+
+/* Los simbolos van dibujados, no como imagenes: asi no hay archivo que bajar y
+   funcionan sin senal. Cada uno con su color, para distinguirlos de lejos en
+   un plano lleno. */
+function mkGlifo(c, a, e){
+  const R = 34/e;
+  const def = MK_PIEZAS.find(function(p){ return p[0]===a.k }) || MK_PIEZAS[0];
+  c.save(); c.translate(a.x, a.y);
+  c.fillStyle = "rgba(10,20,32,.82)";
+  c.beginPath(); c.arc(0,0,R,0,7); c.fill();
+  c.strokeStyle = def[2]; c.lineWidth = 5/e; c.stroke();
+  c.strokeStyle = def[2]; c.fillStyle = def[2];
+  c.lineWidth = 5/e; c.lineCap = "round"; c.lineJoin = "round";
+  const u = R*0.55;
+  if(a.k === "TROMPETA"){            /* bocina: cono abierto */
+    c.beginPath(); c.moveTo(-u*0.9,-u*0.42); c.lineTo(-u*0.9,u*0.42);
+    c.lineTo(u*0.1,u*0.42); c.lineTo(u*0.95,u*0.95);
+    c.lineTo(u*0.95,-u*0.95); c.lineTo(u*0.1,-u*0.42); c.closePath(); c.stroke();
+  } else if(a.k === "ESTROBO"){       /* domo con destellos */
+    c.beginPath(); c.arc(0,u*0.3,u*0.62,Math.PI,0); c.stroke();
+    c.beginPath(); c.moveTo(-u*0.95,u*0.3); c.lineTo(u*0.95,u*0.3); c.stroke();
+    [-0.9,0,0.9].forEach(function(k){
+      c.beginPath();
+      c.moveTo(k*u*0.75, -u*0.55); c.lineTo(k*u*1.05, -u*1.0); c.stroke();
+    });
+  } else if(a.k === "EQUIPO"){        /* caja con pantalla */
+    c.strokeRect(-u*0.92,-u*0.72,u*1.84,u*1.44);
+    c.fillRect(-u*0.55,-u*0.35,u*1.1,u*0.42);
+  } else if(a.k === "ANTENA"){        /* mastil con ondas */
+    c.beginPath(); c.moveTo(0,u); c.lineTo(0,-u*0.5); c.stroke();
+    c.beginPath(); c.moveTo(-u*0.6,-u*0.5); c.lineTo(u*0.6,-u*0.5); c.stroke();
+    [0.45,0.8].forEach(function(k){
+      c.beginPath(); c.arc(0,-u*0.5,u*k,-Math.PI*0.82,-Math.PI*0.18); c.stroke();
+    });
+  } else if(a.k === "AMPLIFICADOR"){  /* caja con triangulo */
+    c.strokeRect(-u*0.92,-u*0.72,u*1.84,u*1.44);
+    c.beginPath(); c.moveTo(-u*0.35,-u*0.4); c.lineTo(u*0.5,0);
+    c.lineTo(-u*0.35,u*0.4); c.closePath(); c.stroke();
+  } else {                            /* UPS: caja con rayo */
+    c.strokeRect(-u*0.92,-u*0.72,u*1.84,u*1.44);
+    c.beginPath(); c.moveTo(u*0.16,-u*0.45); c.lineTo(-u*0.3,u*0.06);
+    c.lineTo(u*0.02,u*0.06); c.lineTo(-u*0.16,u*0.5);
+    c.lineTo(u*0.32,-u*0.02); c.lineTo(0,-u*0.02); c.closePath(); c.fill();
+  }
+  c.restore();
+}
+
+/* ---------- el dedo ---------- */
+(function(){
+  const cont = document.getElementById("mkLienzo");
+  if(!cont) return;
+  let toques = new Map(), pinza = null;
+
+  const pos = ev => {
+    const r = cont.getBoundingClientRect();
+    return {x: ev.clientX - r.left, y: ev.clientY - r.top};
+  };
+
+  cont.addEventListener("pointerdown", function(ev){
+    if(!mk) return;
+    cont.setPointerCapture(ev.pointerId);
+    toques.set(ev.pointerId, pos(ev));
+    if(toques.size === 2){          /* dos dedos: acercar y correr */
+      const [a,b] = [...toques.values()];
+      pinza = {d: Math.hypot(a.x-b.x, a.y-b.y), z: mk.vista.z,
+               cx:(a.x+b.x)/2, cy:(a.y+b.y)/2,
+               vx: mk.vista.x, vy: mk.vista.y};
+      mk.arrastre = null;
+      return;
+    }
+    const p = pos(ev), im = mkAImagen(p.x, p.y);
+    if(mk.tool === "flecha"){
+      mk.arrastre = {t:"flecha", x1:im.x, y1:im.y, x2:im.x, y2:im.y};
+    } else if(mk.tool === "mover"){
+      mk.arrastre = {t:"__mover", px:p.x, py:p.y, vx:mk.vista.x, vy:mk.vista.y};
+    }
+  });
+
+  cont.addEventListener("pointermove", function(ev){
+    if(!mk || !toques.has(ev.pointerId)) return;
+    toques.set(ev.pointerId, pos(ev));
+    if(pinza && toques.size === 2){
+      const [a,b] = [...toques.values()];
+      const d = Math.hypot(a.x-b.x, a.y-b.y);
+      const z = Math.max(1, Math.min(8, pinza.z * (d/pinza.d)));
+      /* se acerca hacia donde estan los dedos, no hacia la esquina */
+      const k = z/pinza.z;
+      mk.vista.z = z;
+      mk.vista.x = pinza.cx - (pinza.cx - pinza.vx)*k;
+      mk.vista.y = pinza.cy - (pinza.cy - pinza.vy)*k;
+      mkDibujar();
+      return;
+    }
+    if(!mk.arrastre) return;
+    const p = pos(ev);
+    if(mk.arrastre.t === "__mover"){
+      mk.vista.x = mk.arrastre.vx + (p.x - mk.arrastre.px);
+      mk.vista.y = mk.arrastre.vy + (p.y - mk.arrastre.py);
+    } else {
+      const im = mkAImagen(p.x, p.y);
+      mk.arrastre.x2 = im.x; mk.arrastre.y2 = im.y;
+    }
+    mkDibujar();
+    if(mk.arrastre.t === "flecha"){
+      const c = document.getElementById("mkCv").getContext("2d");
+      c.save();
+      c.setTransform(mk.dpr,0,0,mk.dpr,0,0);
+      c.translate(mk.vista.x, mk.vista.y);
+      const e = mk.base*mk.vista.z; c.scale(e,e);
+      mkTrazo(c, mk.arrastre);
+      c.restore();
+    }
+  });
+
+  const soltar = function(ev){
+    if(!mk) return;
+    toques.delete(ev.pointerId);
+    if(toques.size < 2) pinza = null;
+    const a = mk.arrastre; mk.arrastre = null;
+    if(a && a.t === "flecha"){
+      const lejos = Math.hypot(a.x2-a.x1, a.y2-a.y1) > mk.img.width*0.02;
+      if(lejos) mk.anot.push(a);          /* un toque suelto no deja rayita */
+      mkDibujar();
+      return;
+    }
+    if(a) { mkDibujar(); return }         /* venia de mover */
+    if(pinza || toques.size) return;
+    /* toque simple: las herramientas que ponen algo donde se toca */
+    const p = pos(ev), im = mkAImagen(p.x, p.y);
+    if(im.x < 0 || im.y < 0 || im.x > mk.img.width || im.y > mk.img.height) return;
+    if(mk.tool === "pieza"){
+      mk.anot.push({t:"pieza", k:mk.pieza, x:im.x, y:im.y});
+      mkDibujar();
+    } else if(mk.tool === "texto"){
+      const s = prompt("¿Qué dice la nota?", "");
+      if(s && s.trim()){ mk.anot.push({t:"texto", x:im.x, y:im.y, s:s.trim()}); }
+      mkDibujar();
+    } else if(mk.tool === "ruta"){
+      /* a escuadra: cada tramo nuevo sale horizontal o vertical del anterior,
+         el que quede mas cerca. Asi la trayectoria sigue el muro sola. */
+      if(!mk.ruta){ mk.ruta = {t:"ruta", pts:[{x:im.x,y:im.y}]} }
+      else{
+        const u = mk.ruta.pts[mk.ruta.pts.length-1];
+        const dx = Math.abs(im.x-u.x), dy = Math.abs(im.y-u.y);
+        mk.ruta.pts.push(dx > dy ? {x:im.x, y:u.y} : {x:u.x, y:im.y});
+        mk.ruta.pts.push({x:im.x, y:im.y});
+      }
+      mkDibujar();
+    }
+  };
+  cont.addEventListener("pointerup", soltar);
+  cont.addEventListener("pointercancel", function(ev){
+    toques.delete(ev.pointerId); pinza = null; mk && (mk.arrastre = null);
+  });
+  window.addEventListener("resize", function(){ if(mk) mkAjustar() });
+})();
+
+/* ---------- guardar ---------- */
+async function mkCerrar(guardar){
+  const capa = document.getElementById("mkCapa");
+  if(!guardar || !mk){ capa.classList.remove("on"); mk = null; return }
+  if(mk.ruta && mk.ruta.pts.length > 1) mk.anot.push(mk.ruta);
+  mk.ruta = null;
+  const f0 = cie[mk.campo][mk.i];
+  /* Sin marcas: se vuelve a la foto original. Asi "deshacer todo y Listo" es
+     la manera de quitar lo marcado, sin un boton aparte que aprender. */
+  if(!mk.anot.length){
+    if(f0.limpio){
+      try{ URL.revokeObjectURL(f0.url) }catch(e){}
+      f0.blob = f0.limpio; f0.url = f0.urlLimpio;
+      f0.limpio = null; f0.urlLimpio = null; f0.anot = null; f0.marcada = false;
+      pintarCierre();
+    }
+    capa.classList.remove("on"); mk = null; return;
+  }
+  try{
+    /* se pinta a resolucion completa, no a la del lienzo de la pantalla */
+    const cv = document.createElement("canvas");
+    cv.width = mk.img.width; cv.height = mk.img.height;
+    const c = cv.getContext("2d");
+    c.drawImage(mk.img, 0, 0);
+    const guarda = {base:mk.base, vista:mk.vista};
+    mk.base = 1; mk.vista = {z:1, x:0, y:0};
+    mk.anot.forEach(function(a){ mkTrazo(c, a) });
+    mk.base = guarda.base; mk.vista = guarda.vista;
+    const blob = await new Promise(function(res){ cv.toBlob(res, "image/jpeg", 0.9) });
+    const f = cie[mk.campo][mk.i];
+    /* la original se guarda entera: de ella se vuelve a dibujar cada vez */
+    if(!f.limpio){ f.limpio = f.blob; f.urlLimpio = f.url }
+    else { try{ URL.revokeObjectURL(f.url) }catch(e){} }
+    f.blob = blob;
+    f.url = URL.createObjectURL(blob);
+    f.anot = mk.anot;          // para poder corregirlas despues
+    f.marcada = true;
+    toast("Foto marcada");
+  }catch(e){ toast("No se pudo guardar la marca", true) }
+  capa.classList.remove("on");
+  mk = null;
+  pintarCierre();
+}
+
 function thumbs(campo){
   return cie[campo].map((f,i)=>`<div class="th">
     ${f.tipoMime==="application/pdf"
       ? `<div class="pdf">PDF<br>${esc((f.nombre||"").slice(0,10))}</div>`
       : `<img src="${f.url}" onclick="verGrande('${f.url}','Revisa la foto',()=>quitar('${campo}',${i}))">`}
+    ${f.tipoMime==="application/pdf" ? "" :
+      `<div class="mk" onclick="abrirMarcador('${campo}',${i})"
+            title="Trazar la trayectoria y poner los aditamentos">✎</div>`}
     <div class="x" onclick="quitar('${campo}',${i})">×</div></div>`).join("");
 }
 function quitar(campo,i){ cie[campo].splice(i,1); pintarCierre() }
