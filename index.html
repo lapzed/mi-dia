@@ -2298,10 +2298,37 @@ async function camAbrir(campo, titulo, pista, guia){
   return false;
 }
 
+/* ¿Estamos DENTRO de otra app?
+
+   Cuando el tecnico abre la liga desde WhatsApp o desde la app de Google, no
+   se abre Chrome: se abre un navegador incrustado dentro de esa app. Y esos
+   NO dan camara —getUserMedia contesta "permiso negado" aunque nadie haya
+   negado nada— y encima ignoran la instruccion de abrir la camara del sistema,
+   asi que el respaldo tampoco sirve. Es un callejon sin salida, y desde el
+   codigo no hay manera de abrirla: no es un permiso que se pueda pedir.
+
+   Lo unico util es DECIRLO, en vez de dejar a alguien peleandose en un sitio
+   con una camara que nunca va a abrir. Le paso a Guillermo el 06-sep. */
+function enNavegadorDeOtraApp(){
+  const u = navigator.userAgent || "";
+  if(/; wv\)/.test(u)) return true;               // WebView de Android, el caso comun
+  if(/FBAN|FBAV|Instagram|Line\/|MicroMessenger|GSA\//.test(u)) return true;   // otras apps con navegador propio
+  /* Chrome de verdad dice "Chrome/" y ademas trae "Safari/"; un WebView pelon
+     suele traer "Version/" sin ser Safari de iOS */
+  if(/Android/.test(u) && /Version\/[\d.]+ Chrome\//.test(u)) return true;
+  return false;
+}
+
 /* En palabras, no en clave: el nombre del error de getUserMedia no le dice
    nada a quien esta parado en un sitio queriendo tomar una foto. */
 function camMotivo(err){
   const e = String(err||"");
+  if(enNavegadorDeOtraApp())
+    return "Esta pantalla se abrió <b>dentro de otra app</b> (WhatsApp, Google), "+
+           "y ahí la cámara no funciona.<br>"+
+           "<span style='color:var(--txt2)'>Ábrela en <b>Chrome</b>: toca los tres "+
+           "puntos ⋮ de arriba y elige «Abrir en Chrome». Luego, en Chrome, "+
+           "⋮ → «Agregar a pantalla de inicio» y ya siempre abre bien.</span>";
   if(/NotAllowed|Permission/i.test(e))
     return "No diste permiso de cámara a esta página.<br>"+
            "<span style='color:var(--txt2)'>Puedes darlo desde el candado de la "+
@@ -2855,6 +2882,18 @@ async function arrancarSesion(){
 }
 
 (async function(){
+  /* Se avisa AL ENTRAR y no hasta que falle la camara: si el tecnico llega al
+     sitio y lo descubre cuando ya esta parado frente al equipo, ya perdio el
+     viaje. */
+  if(enNavegadorDeOtraApp()){
+    const d = document.createElement("div");
+    d.className = "sin-red";
+    d.style.cssText = "margin:12px 16px 0";
+    d.innerHTML = "⚠️ <b>Ábrela en Chrome.</b> Esta pantalla se abrió dentro de "+
+      "otra app y así <b>la cámara no funciona</b>. Toca ⋮ arriba → «Abrir en "+
+      "Chrome», y ahí ⋮ → «Agregar a pantalla de inicio».";
+    document.body.insertBefore(d, document.body.firstChild);
+  }
   pintarPendientes();
   if(!ses){
     document.getElementById("mTec").style.display="flex";
