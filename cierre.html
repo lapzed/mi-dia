@@ -174,7 +174,9 @@
       <input id="fTkt" placeholder="11998, WALMART…" oninput="filtrarVista()"
              onkeydown="if(event.key==='Enter')buscarEnBase()"
              style="min-width:170px"></div>
-    <button class="pri" onclick="buscarEnBase()">🔎 Buscar</button>
+    <button class="pri" onclick="buscarEnBase()"
+            title="Escribir filtra lo que ya esta en pantalla; esto le pregunta a toda la base, sin importar fecha ni estatus"
+            >🔎 Buscar en toda la base</button>
     <div class="f"><label>Brigada</label>
       <select id="fTec" onchange="filtrarVista()">
         <option value="">Todas</option></select></div>
@@ -207,12 +209,10 @@
       <option value="est.jair">Jair · Levantamientos</option>
       <option value="est.alin">Alin · Instalaciones</option>
       <option value="est.ivan">Iván · Mantenimientos</option>
-      <option value="est.patricia">Patricia · Mantenimientos</option>
-      <option value="est.ximena">Ximena · Aux administrativo · Mantenimientos</option>
-      <option value="est.ariana">Ariana · CAT</option>
+      <option value="est.ximena">Ximena · Captura · Mantenimientos</option>
+      <option value="est.berenice">Berenice · CAT</option>
       <option value="est.proyectos">Karina · Proyectos especiales</option>
-      <option value="est.jenifer">Jenifer · Captura</option>
-      <option value="est.gloria">Montserrat · Aux administrativo</option>
+      <option value="est.gloria">Monse · Mantenimientos</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.jocelyn">Jocelyn · Aux administrativo · Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
@@ -363,7 +363,7 @@ function salir(){
 function nombreDe(u){
   return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
            "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Karina",
-           "est.gloria":"Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
+           "est.gloria":"Monse","est.ariana":"Ariana","est.berenice":"Berenice","est.gerencia":"Gerencia",
            "est.subgerencia":"Subgerencia"})[u] || u;
 }
 
