@@ -63,8 +63,21 @@
   .yaSub{font-size:10.5px;color:var(--txt3)}
   .mini.quita{background:rgba(198,65,59,.18);color:#F3B0AC;padding:3px 8px}
   .mini.quita:hover{background:rgba(198,65,59,.32)}
-  .filtros{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
-  .f{display:flex;flex-direction:column;gap:4px}
+  /* Todo cargado a la izquierda y del mismo tamaño. Antes el desplegable de
+     Cliente se estiraba a 320px -crece con el nombre mas largo del catalogo,
+     y hay razones sociales de ocho palabras-, empujaba a los demas y la fila
+     terminaba desparramada de orilla a orilla. Ahora cada control tiene su
+     ancho y el nombre largo se corta con puntos suspensivos: para ELEGIR no
+     hace falta leerlo entero, la lista se abre completa. */
+  .filtros{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;
+    justify-content:flex-start;margin-bottom:14px}
+  .f{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .filtros select{max-width:190px;text-overflow:ellipsis}
+  /* El campo y su boton viajan juntos: al angostarse la ventana la fila se
+     parte donde sea, y "Buscar" acababa en el renglon de abajo, lejos de la
+     caja donde se escribe. */
+  .filtros .grupo{display:flex;gap:9px;align-items:flex-end}
+  .filtros .f.ancho select,.filtros .f.ancho input{width:210px;max-width:210px}
   .f label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
   select,input{padding:9px 10px;border-radius:10px;background:#0F2C4A;color:var(--txt);
     border:1px solid var(--line);font:inherit;font-size:13px}
@@ -81,7 +94,14 @@
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
     color:var(--txt2);padding:8px 9px;border-bottom:1px solid var(--line);
-    position:sticky;top:74px;background:var(--bg)}
+    /* Nada de `sticky` aqui. El cabezal se pegaba a 74px de la barra azul y
+       funcionaba... hasta que las tablas anchas se metieron en una caja con
+       `overflow:auto` para no correr la pagina de lado en el telefono. Esa
+       caja pasa a ser la referencia del pegado, asi que el cabezal dejo de
+       medirse desde la ventana y se pego 74px abajo del INICIO DE LA TABLA:
+       ahi se quedaba, tapando el primer renglon, como si se hubiera metido
+       dentro. Se queda donde le toca, que es arriba. */
+    background:var(--bg)}
   td{padding:9px;border-bottom:1px solid rgba(29,66,103,.5);vertical-align:top}
   tr.sel td{background:rgba(99,179,255,.09)}
   .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
@@ -332,7 +352,7 @@
   </header>
 
   <div class="filtros" id="filtros" style="display:none">
-    <div class="f"><label>Cliente</label>
+    <div class="f ancho"><label>Cliente</label>
       <select id="fCli" onchange="cargar()"><option value="">Todos</option></select></div>
     <div class="f"><label>Coordinación</label>
       <select id="fCoord" onchange="cargar()">
@@ -340,11 +360,12 @@
         <option>LEV</option><option>CAT</option><option>PRY_ESP</option></select></div>
     <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
     <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargar()"></div>
-    <div class="f"><label>Buscar</label>
-      <input id="fBus" placeholder="TKT, sitio, cliente o técnico"
-             style="min-width:190px"
-             onkeydown="if(event.key==='Enter'){event.preventDefault();pintar()}"></div>
-    <button onclick="pintar()">🔎 Buscar</button>
+    <div class="grupo">
+      <div class="f ancho"><label>Buscar</label>
+        <input id="fBus" placeholder="TKT, sitio, cliente o técnico"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();pintar()}"></div>
+      <button onclick="pintar()">🔎 Buscar</button>
+    </div>
     <div class="f"><label>Evidencia</label>
       <select id="fEv" onchange="pintar()">
         <option value="">Todos</option>
@@ -354,8 +375,10 @@
       <select id="fForm" onchange="verFormato()">
         <option value="informe">Informe final (uno por sitio)</option>
         <option value="lista">Reporte de servicios (recopilación)</option></select></div>
-    <button onclick="marcarTodos()">Marcar todos</button>
-    <button class="pri" id="btnGen" onclick="generar()" disabled>Generar entregable</button>
+    <div class="grupo">
+      <button onclick="marcarTodos()">Marcar todos</button>
+      <button class="pri" id="btnGen" onclick="generar()" disabled>Generar entregable</button>
+    </div>
   </div>
 
   <!-- lo que solo aplica al informe final -->
@@ -366,8 +389,6 @@
         <option value="segundo" selected>segundo</option>
         <option value="tercer">tercer</option>
         <option value="cuarto">cuarto</option></select></div>
-    <div class="f"><label>Identificador del receptor (log)</label>
-      <input id="iIdent" value="CIV-RWT-000000+0300-0000000" size="30"></div>
     <div class="f"><label>Registro de eventos</label>
       <select id="iLog">
         <option value="si">Incluirlo</option>
@@ -2712,10 +2733,16 @@ function avisarFalla(e, cual){
   try{ console.error("informe:", e) }catch(z){}
 }
 
+/* El identificador que llevan los renglones del registro de eventos. Era una
+   caja de texto en pantalla, pero nadie la cambiaba nunca: iba siempre con el
+   mismo valor y solo estorbaba entre los controles. Si algun dia hay que
+   cambiarlo, se cambia aqui. */
+const IDENT_LOG = "CIV-RWT-000000+0300-0000000";
+
 async function generarInformes(sel){
   const btn = document.getElementById("btnGen");
   const num   = document.getElementById("iNum").value;
-  const ident = document.getElementById("iIdent").value;
+  const ident = IDENT_LOG;
   const conLog = document.getElementById("iLog").value === "si";
 
   /* 1 · los logos que falten, antes de ponerse a armar nada: si se preguntara
