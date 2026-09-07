@@ -2274,6 +2274,60 @@ const CONCEPTOS = [["equipo","Equipo receptor SARMEX ®"],["plasticas","Trompeta
   ["bocina_plafon","Bocina de plafón"],["estrobo","Luz estrobo"],
   ["antena","Antena aérea dipolo"],["amplificador","Amplificador"],["ups","Respaldo (UPS)"]];
 
+/* ---------- lo que el tecnico propuso, por area ----------
+   Son los mismos renglones que llena en la pantalla de Levantamientos, en el
+   mismo orden. Solo se imprimen los que traen algo: un informe con quince
+   renglones en cero no dice que hace falta, dice que nadie lo lleno. */
+const RENG_LEV = [
+  ["equipo","Equipo receptor"], ["amplificador","Amplificador"],
+  ["amplificador_cap","Capacidad"], ["antena","Antenas"],
+  ["plasticas","Trompetas plástico"], ["aluminio","Trompetas aluminio"],
+  ["eliptica","Dual elíptica"], ["bocina_plafon","Bocinas de plafón"],
+  ["estrobo","Estrobos"], ["ups","UPS"], ["coaxial","Coaxial (3 m)"],
+  ["pot","Cable POT (3 m)"], ["ur","Cable UR (3 m)"],
+  ["p_gruesa","Tubería gruesa (3 m)"], ["p_delgada","Tubería delgada (3 m)"],
+  ["notas","Notas"]
+];
+const SUM_LEV = ["amplificador","plasticas","aluminio","eliptica","bocina_plafon",
+                 "estrobo","ups","antena","coaxial","pot","ur","p_gruesa","p_delgada"];
+
+/* "Distinto de cero" incluye el vacio: un renglon sin llenar y uno en cero
+   dicen lo mismo -no se necesita- y ninguno de los dos merece un renglon. */
+function vivoLev(v){ const t = String(v==null?"":v).trim(); return t!=="" && t!=="0" }
+
+/* Como se llama cada area. Si el tecnico no le puso nombre, se numera: sin
+   nombre la columna no se podria distinguir de la de al lado. */
+function areaLev(p, i){ return String(p.nombre||"").trim() || ("Área " + (p.n || i+1)) }
+
+/* Las areas en una frase, ya con su preposicion: "el área de Sala", "las
+   áreas de Oficinas, Almacén y Patio". El singular y el plural se deciden
+   aqui y no en el texto, que es donde se olvidan. */
+function areasEnTexto(ps){
+  const n = ps.map(areaLev);
+  if(!n.length) return "";
+  if(n.length === 1) return "el área de " + n[0];
+  return "las áreas de " + n.slice(0, -1).join(", ") + " y " + n[n.length - 1];
+}
+
+/* La tabla de la propuesta: un renglon por concepto, una columna por area.
+   Con mas de un area se agrega el total, porque lo que se cotiza es la suma. */
+function tablaLev(ps){
+  const usados = RENG_LEV.filter(([k]) => ps.some(p => vivoLev(p[k])));
+  if(!ps.length || !usados.length) return "";
+  const varias = ps.length > 1;
+  const suma = k => {
+    let t = 0, hay = false;
+    ps.forEach(p => { const v = parseFloat(p[k]); if(!isNaN(v)){ t += v; hay = true } });
+    return hay ? String(Math.round(t * 100) / 100) : "—";
+  };
+  return `<table class="bit"><tr><th>CONCEPTO</th>
+      ${ps.map((p,i)=>`<th class="c">${esc(areaLev(p,i))}</th>`).join("")}
+      ${varias?`<th class="c">TOTAL</th>`:""}</tr>
+    ${usados.map(([k,et])=>`<tr><td>${esc(et)}</td>
+      ${ps.map(p=>`<td class="${k==="notas"?"":"c"}">${esc(vivoLev(p[k])?String(p[k]).trim():"—")}</td>`).join("")}
+      ${varias?`<td class="c">${SUM_LEV.indexOf(k)>=0?esc(suma(k)):"—"}</td>`:""}</tr>`).join("")}</table>`;
+}
+
 /* ---------- las palabras, segun a que vino el tecnico ----------
    El armado es el mismo para todos -las mismas hojas, el mismo reparto, la
    misma rejilla de fotos-, pero un levantamiento NO es un mantenimiento y el
@@ -2311,12 +2365,18 @@ const PALABRAS = {
        levantamientos, se agrega aqui y la seccion reaparece sola. */
     protocolo: null,
     bitacora:  "DATOS DEL LEVANTAMIENTO Y EVIDENCIA FOTOGRÁFICA",
-    entrada:   () => `El levantamiento técnico del inmueble se realizó en la fecha
+    /* La frase depende de si hay propuesta que enseñar: prometer "la siguiente
+       propuesta" y no poner tabla deja la hoja hablando sola. */
+    entrada:   (o, hay) => hay
+      ? `Del levantamiento técnico del inmueble resulta la siguiente
+      propuesta de equipo:`
+      : `El levantamiento técnico del inmueble se realizó en la fecha
       y con el personal que se indica:`,
     concepto:  () => `Levantamiento técnico`,
     coordina:  "Coordinador de levantamientos",
     reporte:   "REPORTE FIRMADO",
     cierre:    () => `De lo observado durante el levantamiento se concluye:`,
+    propuesta: true,
     /* La bitacora de eventos es el registro de tonos del receptor YA instalado.
        En un levantamiento todavia no hay receptor, asi que no hay log que
        contar: la seccion se calla aunque se pida el registro.
@@ -2329,14 +2389,18 @@ const PALABRAS = {
     log:       false,
     inventario: false,
     componentes: false,
-    concluye:  [
+    /* Las areas van EN la conclusion: "alertar a la totalidad del predio" es
+       una promesa que el levantamiento no hizo. El tecnico dijo en que areas,
+       y eso es lo que se ofrece. Si no quedo ninguna anotada, la frase se
+       remite a lo que si esta en el documento. */
+    concluye:  areas => [
  `Del recorrido realizado en el inmueble se determinaron los puntos de instalación del
   sistema receptor de alertamiento sísmico SARMEX ®, así como las trayectorias del cableado
   y la ubicación de los altavoces y la luz estrobo, conforme a lo señalado en el croquis y
   en la evidencia fotográfica de este documento.`,
  `La propuesta considera la cobertura de audio y la señalización visual necesarias para
-  alertar a la totalidad del predio, de acuerdo con sus áreas, niveles y condiciones
-  observadas en sitio.`,
+  alertar en ${areas || "las áreas señaladas en este documento"},
+  de acuerdo con sus niveles y condiciones observadas en sitio.`,
  `Cualquier variación en las trayectorias, alturas o puntos de montaje que se presente
   durante la instalación se acordará previamente con el cliente.`]
   }
@@ -2385,6 +2449,18 @@ async function informeDe(x, num, ident, conLog){
 
   const P = palabrasDe(x.coord);
   const ORD = esc(numeroOrdinal(num));
+
+  /* Lo que el tecnico propuso, por area. Solo se pide donde aplica, y si la
+     consulta falla el informe sale igual: mejor sin la tabla que sin informe. */
+  let props = [];
+  if(P.propuesta){
+    try{
+      props = await api("propuestas?select=*&coord=eq." + encodeURIComponent(x.coord) +
+                        "&servicio_id=eq." + x.id + "&order=n&limit=60");
+    }catch(e){ props = [] }
+  }
+  const AREAS = areasEnTexto(props);
+  const tablaProp = P.propuesta ? tablaLev(props) : "";
 
   /* 1 · portada */
   nPag = 0;
@@ -2435,8 +2511,8 @@ async function informeDe(x, num, ident, conLog){
      en el machote */
   const bloques = [], envolturas = {};
   bloques.push({k:null, h:`<h2 class="sec">${P.bitacora}</h2>
-    <p class="txt">${P.entrada(ORD)}</p>
-    ${P.inventario === false ? "" : `<table class="bit"><tr><th>CONCEPTO</th><th style="width:26mm">CANTIDAD</th></tr>
+    <p class="txt">${P.entrada(ORD, !!tablaProp)}</p>
+    ${P.inventario === false ? tablaProp : `<table class="bit"><tr><th>CONCEPTO</th><th style="width:26mm">CANTIDAD</th></tr>
       ${cant.map(([et,v])=>`<tr><td>${esc(et)}</td><td class="c">${esc(v)}</td></tr>`).join("")
         || `<tr><td colspan="2">No se registró el inventario en esta visita.</td></tr>`}</table>`}
     <table class="bit"><tr><th>FECHA INICIO</th><th>CONCEPTO</th><th>FECHA TÉRMINO</th></tr>
@@ -2600,7 +2676,7 @@ async function informeDe(x, num, ident, conLog){
   marca("CONCLUSIONES");
   cuerpo += hoja(`<h2 class="sec">CONCLUSIONES</h2>
     <p class="txt">${P.cierre(ORD)}</p>
-    ${(P.concluye || CONCLUSIONES).map(t=>`<p class="txt">${t}</p>`).join("")}
+    ${(P.concluye ? P.concluye(AREAS) : CONCLUSIONES).map(t=>`<p class="txt">${t}</p>`).join("")}
     <div class="firmas">${FIRMAS.map(([c,n])=>`<div><div class="linea"></div>
       <div class="pto">${esc(c)}</div><div class="nom">${esc(n)}</div></div>`).join("")}</div>`);
 
