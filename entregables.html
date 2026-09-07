@@ -69,6 +69,24 @@
      terminaba desparramada de orilla a orilla. Ahora cada control tiene su
      ancho y el nombre largo se corta con puntos suspensivos: para ELEGIR no
      hace falta leerlo entero, la lista se abre completa. */
+  /* ---- barra de etapas: moverse por el flujo sin volver al inicio ----
+     Aqui no estaba, y era la unica pantalla sin salida: quien llegaba a
+     Entregables solo podia cerrar sesion para ir a otro lado. */
+  .etapas{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 14px;
+    font-size:12.5px}
+  .etapas a{display:flex;align-items:center;gap:6px;text-decoration:none;
+    color:var(--txt2);background:#0F2C4A;border:1px solid var(--line);
+    border-radius:10px;padding:7px 11px;white-space:nowrap}
+  .etapas a:hover{color:var(--txt);background:#17456E}
+  .etapas a.aqui{background:var(--acc);color:#07203a;border-color:var(--acc);font-weight:700}
+  .etapas .fl{color:var(--txt3);font-size:11px}
+  .etapas .paso{padding:7px 11px;font-size:12px;background:#17456E;color:var(--acc);
+    border-radius:10px}
+  .etapas .paso:disabled{opacity:.35}
+  .etapas select{padding:6px 9px;font-size:12px;width:auto;border-radius:10px;
+    max-width:none}
+  .etapas .ini{margin-left:auto}
+
   .filtros{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;
     justify-content:flex-start;margin-bottom:14px}
   .f{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -350,6 +368,8 @@
       <div class="who" id="who" onclick="salir()"></div>
     </div>
   </header>
+
+  <div id="etapas"></div>
 
   <div class="filtros" id="filtros" style="display:none">
     <div class="f ancho"><label>Cliente</label>
@@ -674,6 +694,7 @@ function salir(){
 async function arrancar(){
   document.getElementById("mLogin").style.display="none";
   document.getElementById("filtros").style.display="flex";
+  ponerBarra();
   /* quien llega desde otra pantalla no trae `nombre` en la sesion: se resuelve
      del usuario para no saludarlo como "est.gerencia" */
   const NOMBRES={"est.gerencia":"Gerencia","est.subgerencia":"Subgerencia",
@@ -2862,6 +2883,68 @@ async function generar(){
   document.getElementById("salida").innerHTML=partes.join("");
   btn.textContent=t0; btn.disabled=false;
   setTimeout(()=>window.print(),400);
+}
+
+/* ---------- la barra de etapas ----------
+   Copia de la que ya traen Captura, Programacion, Coordinacion y Cierre. Se
+   repite el codigo a proposito: son archivos sueltos que se abren solos y sin
+   servidor; compartir un .js seria una peticion mas que puede no llegar en
+   sotano, y ahi es donde tiene que abrir. */
+const FLUJO=[["captura.html","Captura"],
+             ["programacion.html","Programa"],
+             ["coordinacion.html","Coordina"],
+             ["cierre.html","Supervisa"],
+             ["entregables.html","Entrega"]];
+const COORDS_BARRA=[["LEV","Levantamientos"],["INST","Instalaciones"],
+                    ["MANT","Mantenimientos"],["CAT","CAT"],
+                    ["PRY_ESP","Proyectos especiales"]];
+const ETAPA_AQUI=5;
+
+function coordElegida(){
+  const u=new URLSearchParams(location.search).get("coord");
+  if(u) localStorage.setItem("md_coord_sel", u);
+  return localStorage.getItem("md_coord_sel")||"";
+}
+function irEtapa(paso){
+  const i=ETAPA_AQUI-1+paso;
+  if(i<0||i>=FLUJO.length) return;
+  const c=document.getElementById("brCoord");
+  const q=c&&c.value ? "?coord="+encodeURIComponent(c.value) : "";
+  location.href=FLUJO[i][0]+q;
+}
+function cambiaCoordBarra(){
+  const c=document.getElementById("brCoord").value;
+  localStorage.setItem("md_coord_sel", c);
+  const f=document.getElementById("fCoord");
+  if(f){ f.value=c; if(typeof cargar==="function") cargar(); }
+}
+function ponerBarra(){
+  const b=document.getElementById("etapas");
+  if(!b) return;
+  const sel=coordElegida();
+  b.innerHTML=
+    '<div class="etapas">'+
+      '<button class="paso" onclick="irEtapa(-1)"'+(ETAPA_AQUI<=1?" disabled":"")+
+        '>&#9664; Etapa anterior</button>'+
+      FLUJO.map(function(f,i){
+        const aqui=(i===ETAPA_AQUI-1);
+        const q=sel?"?coord="+encodeURIComponent(sel):"";
+        return (i?'<span class="fl">&rsaquo;</span>':"")+
+          '<a href="'+f[0]+q+'"'+(aqui?' class="aqui"':"")+'>'+(i+1)+'. '+f[1]+'</a>';
+      }).join("")+
+      '<button class="paso" onclick="irEtapa(1)"'+(ETAPA_AQUI>=FLUJO.length?" disabled":"")+
+        '>Etapa siguiente &#9654;</button>'+
+      '<span class="fl">|</span>'+
+      '<select id="brCoord" onchange="cambiaCoordBarra()" title="Coordinación">'+
+        '<option value="">Todas las coordinaciones</option>'+
+        COORDS_BARRA.map(function(c){
+          return '<option value="'+c[0]+'"'+(c[0]===sel?" selected":"")+'>'+c[1]+'</option>'
+        }).join("")+
+      '</select>'+
+      '<a href="inicio.html" class="ini">&#9776; Inicio</a>'+
+    '</div>';
+  const f=document.getElementById("fCoord");
+  if(f && sel){ f.value=sel; }
 }
 
 /* ---------- arranque ---------- */

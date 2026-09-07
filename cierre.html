@@ -1011,7 +1011,12 @@ async function editar(i, campo, valor){
 const FLUJO=[["captura.html","Captura"],
              ["programacion.html","Programa"],
              ["coordinacion.html","Coordina"],
-             ["cierre.html","Supervisa"]];
+             ["cierre.html","Supervisa"],
+             /* La entrega es la quinta etapa, no un apartado suelto: el servicio
+                no termina cuando se cierra, termina cuando el cliente tiene su
+                informe. Faltaba aqui, y por eso desde Entregables no habia
+                manera de volver al flujo: la unica salida era cerrar sesion. */
+             ["entregables.html","Entrega"]];
 const COORDS_BARRA=[["LEV","Levantamientos"],["INST","Instalaciones"],
                     ["MANT","Mantenimientos"],["CAT","CAT"],
                     ["PRY_ESP","Proyectos especiales"]];

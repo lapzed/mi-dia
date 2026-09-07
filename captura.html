@@ -279,15 +279,13 @@
     <h2>Captura</h2>
     <p>Alta de servicios del área técnica.</p>
     <select id="inUsr">
-      <option value="est.jenifer">Jenifer · Captura</option>
       <option value="est.ivan">Iván · Mantenimientos</option>
-      <option value="est.patricia">Patricia · Mantenimientos</option>
-      <option value="est.ximena">Ximena · Aux administrativo · Mantenimientos</option>
+      <option value="est.ximena">Ximena · Captura · Mantenimientos</option>
       <option value="est.jair">Jair · Levantamientos</option>
       <option value="est.alin">Alin · Instalaciones</option>
       <option value="est.proyectos">Karina · Proyectos especiales</option>
-      <option value="est.ariana">Ariana · CAT</option>
-      <option value="est.gloria">Montserrat · Aux administrativo</option>
+      <option value="est.berenice">Berenice · CAT</option>
+      <option value="est.gloria">Monse · Mantenimientos</option>
       <option value="est.gerencia">Gerencia</option>
       <option value="est.jocelyn">Jocelyn · Aux administrativo · Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
@@ -429,7 +427,7 @@ function salir(){
 function nombreDe(u){
   return ({"est.jenifer":"Jenifer","est.ivan":"Iván","est.patricia":"Patricia",
            "est.jair":"Jair","est.alin":"Alin","est.proyectos":"Karina","ext.possam":"Possam","ext.sore":"Sore","est.ximena":"Ximena","est.jocelyn":"Jocelyn",
-           "est.gloria":"Montserrat","est.ariana":"Ariana","est.gerencia":"Gerencia",
+           "est.gloria":"Monse","est.ariana":"Ariana","est.berenice":"Berenice","est.gerencia":"Gerencia",
            "est.subgerencia":"Subgerencia"})[u] || u;
 }
 
@@ -1657,7 +1655,12 @@ async function arrancar(){
 const FLUJO=[["captura.html","Captura"],
              ["programacion.html","Programa"],
              ["coordinacion.html","Coordina"],
-             ["cierre.html","Supervisa"]];
+             ["cierre.html","Supervisa"],
+             /* La entrega es la quinta etapa, no un apartado suelto: el servicio
+                no termina cuando se cierra, termina cuando el cliente tiene su
+                informe. Faltaba aqui, y por eso desde Entregables no habia
+                manera de volver al flujo: la unica salida era cerrar sesion. */
+             ["entregables.html","Entrega"]];
 const COORDS_BARRA=[["LEV","Levantamientos"],["INST","Instalaciones"],
                     ["MANT","Mantenimientos"],["CAT","CAT"],
                     ["PRY_ESP","Proyectos especiales"]];
