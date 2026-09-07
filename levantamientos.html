@@ -477,8 +477,32 @@ const RENGLONES=[
   ["antena","Antenas"],["plasticas","Trompetas plástico"],["aluminio","Trompetas aluminio"],
   ["eliptica","Dual elíptica"],["bocina_plafon","Bocinas de plafón"],["estrobo","Estrobos"],
   ["ups","UPS"],["coaxial","Coaxial (3 m)"],["pot","Cable POT (3 m)"],["ur","Cable UR (3 m)"],
-  ["p_gruesa","Tubería gruesa (3 m)"],["p_delgada","Tubería delgada (3 m)"],["notas","Notas"]
+  ["p_gruesa","Tubería gruesa (3 m)"],["p_delgada","Tubería delgada (3 m)"],
+  ["fijacion","Medio de fijación"],["taquete","Taquete / anclaje"],["notas","Notas"]
 ];
+
+/* De qué se cuelga el equipo. No es un dato mas: el costo de instalar una
+   trompeta no lo manda la trompeta, lo manda de que la vas a colgar. Una uña
+   sobre muro y una mordaza sobre viga de acero no llevan el mismo material ni
+   el mismo tiempo. Antes se descubria al cotizar -o en sitio, con la brigada
+   ya arriba-.
+
+   Son DOS preguntas, no una. El MEDIO es lo que sostiene el equipo; el TAQUETE
+   es lo que muerde el muro, y no siempre van de la mano: un unicanal se ancla
+   con expansivo, una uña sobre concreto lleva rojo, y en plafon de tablaroca no
+   entra ninguno de los dos. Juntarlos en una sola lista obligaria a elegir y se
+   perderia justo el dato que cuesta dinero.
+
+   Encinchado y mordaza no perforan: ahi el taquete se queda vacio, y esta bien.
+
+   Van en lista y no en caja de texto: son valores que no cambian, y escritos a
+   mano en tres meses hay "unicanal", "uni canal" y "UNICANAL 41", y ya no se
+   puede contar cuantos sitios llevan cada cosa. Si hacen falta mas, se agregan
+   aqui y aparecen solas en la pantalla, en la ficha y en el informe. */
+const LISTAS = {
+  fijacion: ["Uña", "Unicanal", "Espárrago", "Encinchado", "Mordaza", "Taquete directo"],
+  taquete:  ["Rojo", "Expansivo", "Tablaroca", "Pijabroca"]
+};
 
 const SUMABLES=["amplificador","plasticas","aluminio","eliptica","bocina_plafon","estrobo","ups",
                 "antena","coaxial","pot","ur","p_gruesa","p_delgada"];
@@ -584,8 +608,13 @@ function pintarEditor(){
                 onclick="quitarArea(${j})">quitar</button></th>`).join("")}
       </tr>
       ${RENGLONES.map(([k,et])=>`<tr><td class="et">${et}</td>
-        ${ps.map((p,j)=>`<td><input value="${esc(p[k]==null?"":p[k])}"
-           oninput="edit.ps[${j}]['${k}']=this.value" style="width:100%"></td>`).join("")}
+        ${ps.map((p,j)=>`<td>${LISTAS[k]
+          ? `<select onchange="edit.ps[${j}]['${k}']=this.value" style="width:100%">
+               <option value="">—</option>
+               ${LISTAS[k].map(o=>`<option${o===(p[k]||"")?" selected":""}>${esc(o)}</option>`).join("")}
+             </select>`
+          : `<input value="${esc(p[k]==null?"":p[k])}"
+                    oninput="edit.ps[${j}]['${k}']=this.value" style="width:100%">`}</td>`).join("")}
       </tr>`).join("")}
     </table></div>
     ${ps.length?"":'<div class="q" style="margin-top:10px">Todavía no hay áreas capturadas. Agrega la primera.</div>'}`;
