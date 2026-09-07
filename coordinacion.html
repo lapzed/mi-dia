@@ -496,7 +496,7 @@ async function cargar(){
   try{
     filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
       "fecha_servicio,horario_atencion,status,tecnico,auxiliar,cita_confirmada,cita_requerida,"+
-      "fecha_confirmacion,medio_contacto,segurista,obs_coord,obs_prog,requerimientos,"+
+      "fecha_confirmacion,medio_contacto,segurista_vigia,obs_coord,obs_prog,requerimientos,"+
       "personal_atiende,telefono,correo,ejecutivo,tipo_servicio,etapa_actual"+
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+(co?"&coord=eq."+co:"")+
       "&order=fecha_servicio,horario_atencion&limit=600");
@@ -982,10 +982,16 @@ function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
           ${limpio(x.fecha_confirmacion)?`<div class="sub">${esc(x.fecha_confirmacion)}</div>`:""}</td>
       <td><select onchange="editar(${i},'medio_contacto',this.value)">
             ${opciones("MEDIO_CONTACTO", x.medio_contacto)}</select></td>
-      <td><select onchange="editar(${i},'segurista',this.value)">
+      <!-- Se escribe en segurista_vigia y no en segurista: eran DOS columnas
+           para la misma pregunta. Coordinacion llenaba una y la ficha imprimia
+           la otra, asi que 65 servicios decian una cosa por telefono y otra en
+           el documento. Ahora las dos puntas escriben donde se lee.
+           (Sin comillas invertidas aqui: esto vive DENTRO de una plantilla de
+           JavaScript y una sola la corta a la mitad.) -->
+      <td><select onchange="editar(${i},'segurista_vigia',this.value)">
             <option value=""></option>
-            <option${(x.segurista||"")==="SI"?" selected":""}>SI</option>
-            <option${(x.segurista||"")==="NO"?" selected":""}>NO</option></select></td>
+            <option${(x.segurista_vigia||"")==="SI"?" selected":""}>SI</option>
+            <option${(x.segurista_vigia||"")==="NO"?" selected":""}>NO</option></select></td>
       <td><select onchange="editar(${i},'status',this.value)">
             ${opciones("STATUS", x.status)}</select></td>
       <td><textarea class="nota" onchange="editar(${i},'obs_coord',this.value)"
