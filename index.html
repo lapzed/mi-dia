@@ -459,6 +459,8 @@
       <span class="ic">↗</span>Flecha</button>
     <button id="mkT_ruta" onclick="mkTool('ruta')">
       <span class="ic">⌐</span>Trayectoria</button>
+    <button id="mkT_forma" onclick="mkTool('forma')">
+      <span class="ic">▭</span>Figura</button>
     <button id="mkT_pieza" onclick="mkTool('pieza')">
       <span class="ic">◉</span>Aditamento</button>
     <button id="mkT_texto" onclick="mkTool('texto')">
@@ -1706,6 +1708,8 @@ function pintarCierre(){
       ${seccionPartidas(b.tipo)}
       <button class="b-cam solo" onclick="abrirFoto('${b.campo}','${b.titulo.replace(/'/g,"")}','${(b.pista||"").replace(/'/g,"")}')">📷 Tomar foto</button>
       <button class="liga-gal" onclick="document.getElementById('in_${b.campo}_gal').click()">${b.pdf?"o subir de la galería / un PDF":"o subir de la galería"}</button>
+      ${b.campo==="croquis" ? `<button class="liga-gal" style="color:#7BE0AE"
+          onclick="hojaEnBlanco('croquis')">o dibujar el croquis en una hoja en blanco</button>` : ""}
       ${listaYaSubido(b.tipo)}
       <!-- sin "multiple": con el, el celular ignora la orden de abrir la camara
            y saca el menu de siempre. Una foto por toma, y se repite el boton. -->
@@ -1871,7 +1875,64 @@ const MK_PIEZAS = [
   ["UPS",          "UPS",          "#9DB6D2"]
 ];
 
-let mk = null;   /* {campo, i, img, anot:[], tool, pieza, vista:{z,x,y}} */
+/* Las figuras del croquis. Un arquitecto dibuja una planta con esto: el
+   espacio, los muros que lo cierran, por donde se entra -puerta-, por donde
+   entra luz -ventana-, y los verticales -escalera, elevador, columna-.
+
+   Todas son un rectangulo girado por dentro: se mueven, se estiran y se giran
+   igual, y lo unico que cambia es como se dibujan. Un muro de tres metros y
+   uno de treinta son la misma figura estirada, no dos figuras distintas. */
+const MK_FORMAS = [
+  ["RECT",     "Espacio",  260, 180],
+  ["MURO",     "Muro",     260,  14],
+  ["PUERTA",   "Puerta",    90,  90],
+  ["VENTANA",  "Ventana",  120,  14],
+  ["ESCALERA", "Escalera", 150, 110],
+  ["ELEVADOR", "Elevador",  95,  95],
+  ["COLUMNA",  "Columna",   34,  34]
+];
+
+let mk = null;   /* {campo, i, img, anot:[], tool, pieza, forma, vista:{z,x,y}} */
+
+/* Una hoja en blanco para dibujar el croquis cuando el cliente no da plano.
+
+   Es el MISMO editor: lo unico que cambia es el fondo. Por eso el croquis en
+   blanco no fue otro programa, sino una foto que en vez de venir de la camara
+   se pinta aqui: cuadricula tenue para no dibujar a pulso, y de ahi en
+   adelante las mismas figuras, la misma trayectoria y los mismos aditamentos.
+
+   La cuadricula es guia, no medida: el croquis dice DONDE va cada cosa y por
+   donde corre la linea, no cuantos metros hay. Para medir esta el levantamiento.
+*/
+const HOJA_PASO = 40;      // el cuadro de la retícula, en pixeles de la imagen
+
+async function hojaEnBlanco(campo){
+  const cv = document.createElement("canvas");
+  cv.width = FOTO_W; cv.height = FOTO_H;
+  const c = cv.getContext("2d");
+  c.fillStyle = "#FFFFFF"; c.fillRect(0, 0, FOTO_W, FOTO_H);
+  c.strokeStyle = "#E3E8EF"; c.lineWidth = 1;
+  for(let x = HOJA_PASO; x < FOTO_W; x += HOJA_PASO){
+    c.beginPath(); c.moveTo(x + .5, 0); c.lineTo(x + .5, FOTO_H); c.stroke();
+  }
+  for(let y = HOJA_PASO; y < FOTO_H; y += HOJA_PASO){
+    c.beginPath(); c.moveTo(0, y + .5); c.lineTo(FOTO_W, y + .5); c.stroke();
+  }
+  /* cada cinco cuadros, una linea mas marcada: ayuda a no perderse */
+  c.strokeStyle = "#CDD6E2";
+  for(let x = HOJA_PASO*5; x < FOTO_W; x += HOJA_PASO*5){
+    c.beginPath(); c.moveTo(x + .5, 0); c.lineTo(x + .5, FOTO_H); c.stroke();
+  }
+  for(let y = HOJA_PASO*5; y < FOTO_H; y += HOJA_PASO*5){
+    c.beginPath(); c.moveTo(0, y + .5); c.lineTo(FOTO_W, y + .5); c.stroke();
+  }
+  /* PNG y no JPEG: son lineas finas sobre blanco, y el JPEG las ensucia */
+  const blob = await new Promise(function(res){ cv.toBlob(res, "image/png") });
+  cie[campo].push({blob:blob, url:URL.createObjectURL(blob),
+                   tipoMime:"image/png", nombre:"croquis.png", hoja:true});
+  pintarCierre();
+  abrirMarcador(campo, cie[campo].length - 1);
+}
 
 function abrirMarcador(campo, i){
   const f = cie[campo] && cie[campo][i];
@@ -1931,20 +1992,22 @@ function mkTool(t){
   if(mk.ruta && mk.ruta.pts.length > 1) mk.anot.push(mk.ruta);
   mk.ruta = null;
   mk.tool = t;
-  ["flecha","ruta","pieza","texto","mover"].forEach(function(k){
+  ["flecha","ruta","forma","pieza","texto","mover"].forEach(function(k){
     const b = document.getElementById("mkT_"+k);
     if(b) b.classList.toggle("on", k===t);
   });
   document.getElementById("mkPiezas").style.display =
-    (t==="pieza" || t==="ruta") ? "flex" : "none";
+    (t==="pieza" || t==="ruta" || t==="forma") ? "flex" : "none";
   if(t==="ruta") mkPintarEscuadra();
   else if(t==="pieza") mkPintarPiezas();
+  else if(t==="forma") mkPintarFormas();
   const tips = {
     flecha:"Arrastra el dedo de donde sale a donde llega",
     ruta:"Toca los quiebres del recorrido. Va a escuadra, como el muro",
     pieza:"Elige el aditamento y toca dónde va",
+    forma:"Elige la figura y toca dónde va · con ✥ Mover se estira y se gira",
     texto:"Toca donde quieras poner la nota",
-    mover:"Arrastra para corregir · el punto amarillo gira la trompeta"
+    mover:"Arrastra para corregir · el amarillo gira, el verde estira"
   };
   document.getElementById("mkTip").textContent = tips[t] || "";
   mk.ruta = null;
@@ -1977,6 +2040,20 @@ function mkCerrarTramo(){
   if(mk.ruta && mk.ruta.pts.length > 1) mk.anot.push(mk.ruta);
   mk.ruta = null;
   mkDibujar();
+}
+
+function mkPintarFormas(){
+  document.getElementById("mkPiezas").innerHTML = MK_FORMAS.map(function(p){
+    return '<button id="mkF_'+p[0]+'" onclick="mkForma(\''+p[0]+'\')">'+p[1]+'</button>';
+  }).join("");
+  mkForma(mk.forma || "RECT");
+}
+function mkForma(k){
+  mk.forma = k;
+  MK_FORMAS.forEach(function(p){
+    const b = document.getElementById("mkF_"+p[0]);
+    if(b) b.classList.toggle("on", p[0]===k);
+  });
 }
 
 function mkPieza(k){
@@ -2037,6 +2114,7 @@ function mkTrazo(c, a, enCurso){
       c.fillStyle = col; c.beginPath(); c.arc(p.x,p.y, g*0.9, 0, 7); c.fill();
     });
   }
+  else if(a.t === "forma"){ mkDibujarForma(c, a, e) }
   else if(a.t === "pieza"){ mkGlifo(c, a, e) }
   else if(a.t === "texto"){
     const t = 30/e;
@@ -2053,8 +2131,18 @@ function mkTrazo(c, a, enCurso){
 /* La manija de giro: separada del centro para que no se pise con la de mover.
    Va en coordenadas de imagen, a una distancia que en pantalla se mantiene
    comoda tanto encajado como acercado. */
+/* La esquina de estirar, ya girada con la figura. */
+function mkEsquina(a){
+  const g = a.ang || 0, hx = a.w/2, hy = a.h/2;
+  return {x: a.x + hx*Math.cos(g) - hy*Math.sin(g),
+          y: a.y + hx*Math.sin(g) + hy*Math.cos(g)};
+}
+
 function mkManija(a){
-  const e = mk.base * mk.vista.z, d = 62/e;
+  const e = mk.base * mk.vista.z;
+  /* En una figura la manija sale del borde: si fuera un radio fijo, en un muro
+     largo quedaria dentro del propio muro y no se podria agarrar. */
+  const d = (a.t === "forma") ? (a.w/2 + 46/e) : 62/e;
   const g = a.ang || 0;
   return {x: a.x + Math.cos(g)*d, y: a.y + Math.sin(g)*d};
 }
@@ -2067,7 +2155,20 @@ function mkTiradores(c){
     c.lineWidth = 3/e; c.strokeStyle = "#2E86FF"; c.stroke();
   };
   mk.anot.forEach(function(a){
-    if(a.t === "pieza" || a.t === "texto"){
+    if(a.t === "forma"){
+      punto(a.x, a.y);
+      const esq = mkEsquina(a);
+      c.beginPath(); c.arc(esq.x, esq.y, r*0.85, 0, 7);
+      c.fillStyle = "#7BE0AE"; c.fill();
+      c.lineWidth = 2.5/e; c.strokeStyle = "#0B2038"; c.stroke();
+      const mg = mkManija(a);
+      c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(mg.x, mg.y);
+      c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 2.5/e; c.stroke();
+      c.beginPath(); c.arc(mg.x, mg.y, r*0.85, 0, 7);
+      c.fillStyle = "#FFC61A"; c.fill();
+      c.lineWidth = 2.5/e; c.strokeStyle = "#0B2038"; c.stroke();
+    }
+    else if(a.t === "pieza" || a.t === "texto"){
       punto(a.x, a.y);
       if(a.t === "pieza" && mkGira(a.k)){
         const m = mkManija(a);
@@ -2087,6 +2188,68 @@ function mkRedondo(c,x,y,w,h,r){
   c.beginPath();
   c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
   c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+
+/* Las figuras del croquis. Todas se dibujan dentro de su propio rectangulo
+   -de -w/2 a w/2- ya girado, asi que cada una solo se preocupa por su forma.
+
+   En negro sobre la hoja, como un plano: las marcas de color -trayectoria y
+   aditamentos- tienen que leerse ENCIMA del dibujo, y si el dibujo tambien
+   fuera de color no se distinguiria que es el edificio y que es la propuesta. */
+function mkDibujarForma(c, a, e){
+  const w = a.w, h = a.h, g = 4.5/e;
+  c.save();
+  c.translate(a.x, a.y);
+  if(a.ang) c.rotate(a.ang);
+  c.lineCap = "butt"; c.lineJoin = "miter";
+  c.strokeStyle = "#1B2430"; c.fillStyle = "#1B2430"; c.lineWidth = g;
+
+  if(a.k === "RECT"){
+    c.strokeRect(-w/2, -h/2, w, h);
+  }
+  else if(a.k === "MURO"){
+    c.fillRect(-w/2, -h/2, w, h);
+  }
+  else if(a.k === "COLUMNA"){
+    c.fillRect(-w/2, -h/2, w, h);
+  }
+  else if(a.k === "VENTANA"){
+    /* como en un plano: el hueco del muro con los dos vidrios */
+    c.fillStyle = "#FFFFFF";
+    c.fillRect(-w/2, -h/2, w, h);
+    c.strokeRect(-w/2, -h/2, w, h);
+    c.strokeStyle = "#1B2430"; c.lineWidth = g*0.7;
+    c.beginPath(); c.moveTo(-w/2, 0); c.lineTo(w/2, 0); c.stroke();
+  }
+  else if(a.k === "PUERTA"){
+    /* la hoja y su barrido, que es como se dibuja una puerta */
+    c.beginPath(); c.moveTo(-w/2, h/2); c.lineTo(-w/2, -h/2 + h*0.12); c.stroke();
+    c.lineWidth = g*0.8;
+    c.beginPath(); c.arc(-w/2, h/2, w*0.95, -Math.PI/2, 0); c.stroke();
+  }
+  else if(a.k === "ESCALERA"){
+    c.strokeRect(-w/2, -h/2, w, h);
+    c.lineWidth = g*0.65;
+    const n = Math.max(3, Math.round(w/26));
+    for(let i = 1; i < n; i++){
+      const x = -w/2 + (w/n)*i;
+      c.beginPath(); c.moveTo(x, -h/2); c.lineTo(x, h/2); c.stroke();
+    }
+    /* la flecha de subida: sin ella no se sabe hacia donde sube */
+    c.lineWidth = g*0.8;
+    c.beginPath(); c.moveTo(-w/2 + w*0.12, 0); c.lineTo(w/2 - w*0.12, 0); c.stroke();
+    const p = Math.min(w, h)*0.16;
+    c.beginPath(); c.moveTo(w/2 - w*0.12, 0);
+    c.lineTo(w/2 - w*0.12 - p, -p*0.7); c.lineTo(w/2 - w*0.12 - p, p*0.7);
+    c.closePath(); c.fill();
+  }
+  else if(a.k === "ELEVADOR"){
+    c.strokeRect(-w/2, -h/2, w, h);
+    c.lineWidth = g*0.7;
+    c.beginPath(); c.moveTo(-w/2, -h/2); c.lineTo(w/2, h/2);
+    c.moveTo(w/2, -h/2); c.lineTo(-w/2, h/2); c.stroke();
+  }
+  c.restore();
 }
 
 /* Solo giran los que APUNTAN a algun lado. Una trompeta cubre hacia donde mira
@@ -2166,7 +2329,24 @@ function mkTirador(ix, iy){
      uno cree estar tocando. */
   for(let k = mk.anot.length - 1; k >= 0; k--){
     const a = mk.anot[k];
-    if(a.t === "pieza" || a.t === "texto"){
+    if(a.t === "forma"){
+      probar(a.x, a.y, function(nx, ny){ a.x = nx; a.y = ny });
+      /* la esquina estira; el giro se aplica al reves para saber cuanto mide
+         de verdad el lado que se esta jalando */
+      const esq = mkEsquina(a);
+      probar(esq.x, esq.y, function(nx, ny){
+        const dx = nx - a.x, dy = ny - a.y, g = -(a.ang || 0);
+        const lx = dx*Math.cos(g) - dy*Math.sin(g);
+        const ly = dx*Math.sin(g) + dy*Math.cos(g);
+        a.w = Math.max(12, Math.abs(lx)*2);
+        a.h = Math.max(8,  Math.abs(ly)*2);
+      });
+      const mg = mkManija(a);
+      probar(mg.x, mg.y, function(nx, ny){
+        a.ang = Math.atan2(ny - a.y, nx - a.x);
+      });
+    }
+    else if(a.t === "pieza" || a.t === "texto"){
       probar(a.x, a.y, function(nx, ny){ a.x = nx; a.y = ny });
       if(a.t === "pieza" && mkGira(a.k)){
         const m = mkManija(a);
@@ -2276,7 +2456,12 @@ function mkTirador(ix, iy){
     /* toque simple: las herramientas que ponen algo donde se toca */
     const p = pos(ev), im = mkAImagen(p.x, p.y);
     if(im.x < 0 || im.y < 0 || im.x > mk.img.width || im.y > mk.img.height) return;
-    if(mk.tool === "pieza"){
+    if(mk.tool === "forma"){
+      const def = MK_FORMAS.find(function(p){ return p[0]===mk.forma }) || MK_FORMAS[0];
+      mk.anot.push({t:"forma", k:def[0], x:im.x, y:im.y,
+                    w:def[2], h:def[3], ang:0});
+      mkDibujar();
+    } else if(mk.tool === "pieza"){
       /* Nace apuntando a la derecha, que es como esta dibujado el simbolo: asi
          lo que se ve al colocarlo es lo mismo que se vera despues. */
       mk.anot.push({t:"pieza", k:mk.pieza, x:im.x, y:im.y, ang:0});
