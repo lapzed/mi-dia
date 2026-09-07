@@ -95,20 +95,18 @@
         <option value="TECNICO">Técnico de campo</option>
       </optgroup>
       <optgroup label="Coordinaciones">
-        <option value="est.jenifer">Jenifer · Captura</option>
         <option value="est.ivan">Iván · Mantenimientos</option>
-        <option value="est.patricia">Patricia · Mantenimientos</option>
         <option value="est.jair">Jair · Levantamientos</option>
         <option value="est.alin">Alin · Instalaciones</option>
         <option value="est.proyectos">Karina · Proyectos especiales</option>
-        <option value="est.ariana">Ariana · CAT</option>
+        <option value="est.berenice">Berenice · CAT</option>
+        <option value="est.gloria">Monse · Mantenimientos</option>
       </optgroup>
       <optgroup label="Ventas">
         <option value="est.ventas">Ventas · ejecutivos de cuenta</option>
       </optgroup>
       <optgroup label="Administración">
-        <option value="est.gloria">Montserrat · Aux administrativo</option>
-        <option value="est.ximena">Ximena · Aux administrativo · Mantenimientos</option>
+        <option value="est.ximena">Ximena · Captura · Mantenimientos</option>
         <option value="est.jocelyn">Jocelyn · Aux administrativo · Gerencia</option>
         <option value="jesus.acosta">Jesús · Aux administrativo</option>
         <option value="est.subgerencia">Subgerencia</option>
@@ -181,15 +179,18 @@ const PANTALLAS={
 /* Qué pantallas le tocan a cada quien. Es lo mismo que ya podía abrir; aquí
    solo se le presenta en orden, empezando por la que más usa. */
 const DESTINOS={
-  "est.jenifer":    ["captura","coordinacion","cierre","programacion"],
   "est.ivan":       ["programacion","coordinacion","demanda","cierre","captura"],
-  "est.patricia":   ["programacion","coordinacion","demanda","cierre","captura"],
-  "est.jair":       ["levantamientos","cierre","programacion","coordinacion","captura"],
+  /* Entregables le faltaba a Jair. Es el coordinador de levantamientos, su
+     coordinacion ya tiene informe propio... y no tenia por donde generarlo: la
+     pantalla no filtra por rol -entra quien traiga sesion- pero si no aparece
+     el mosaico, la puerta no existe. */
+  "est.jair":       ["levantamientos","entregables","cierre","programacion",
+                     "coordinacion","captura"],
   "est.alin":       ["cierre","programacion","coordinacion","captura"],
   "est.proyectos":  ["proyectos","cierre","programacion","coordinacion","captura"],
-  "est.ariana":     ["cat","cierre","programacion","coordinacion","captura"],
-  "est.gloria":     ["captura","programacion","coordinacion","cierre","proyectos",
-                     "demanda","levantamientos","cat","entregables"],
+  "est.berenice":   ["cat","cierre","programacion","coordinacion","captura"],
+  "est.gloria":     ["programacion","coordinacion","demanda","cierre",
+                     "captura","proyectos","levantamientos","cat","entregables"],
   "est.ximena":     ["captura","programacion","coordinacion","cierre",
                      "demanda","entregables"],
   "est.jocelyn":    ["captura","programacion","coordinacion","cierre","proyectos",
@@ -209,8 +210,9 @@ const NOMBRES={"est.jenifer":["Jenifer","Captura"],
  "est.alin":["Alin","Coordinación de instalaciones"],
  "est.proyectos":["Karina","Proyectos especiales"],
  "est.ariana":["Ariana","CAT y centro de monitoreo"],
- "est.gloria":["Montserrat","Auxiliar administrativo"],
- "est.ximena":["Ximena","Auxiliar administrativo · Mantenimientos"],
+ "est.berenice":["Berenice","CAT y centro de monitoreo"],
+ "est.gloria":["Monse","Coordinación de mantenimientos"],
+ "est.ximena":["Ximena","Captura · Mantenimientos"],
  "est.jocelyn":["Jocelyn","Auxiliar administrativo · Gerencia"],
  "ext.sore":["Sore","Administrativo · Sore (externo)"],
  "ext.possam":["Possam","Administrativo · Possam (externo)"],
