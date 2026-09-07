@@ -1944,7 +1944,7 @@ function mkTool(t){
     ruta:"Toca los quiebres del recorrido. Va a escuadra, como el muro",
     pieza:"Elige el aditamento y toca dónde va",
     texto:"Toca donde quieras poner la nota",
-    mover:"Arrastra un punto para corregirlo · el fondo, para mover la imagen"
+    mover:"Arrastra para corregir · el punto amarillo gira la trompeta"
   };
   document.getElementById("mkTip").textContent = tips[t] || "";
   mk.ruta = null;
@@ -2050,6 +2050,15 @@ function mkTrazo(c, a, enCurso){
   }
 }
 
+/* La manija de giro: separada del centro para que no se pise con la de mover.
+   Va en coordenadas de imagen, a una distancia que en pantalla se mantiene
+   comoda tanto encajado como acercado. */
+function mkManija(a){
+  const e = mk.base * mk.vista.z, d = 62/e;
+  const g = a.ang || 0;
+  return {x: a.x + Math.cos(g)*d, y: a.y + Math.sin(g)*d};
+}
+
 function mkTiradores(c){
   const e = mk.base * mk.vista.z, r = 11/e;
   const punto = function(x, y){
@@ -2058,7 +2067,17 @@ function mkTiradores(c){
     c.lineWidth = 3/e; c.strokeStyle = "#2E86FF"; c.stroke();
   };
   mk.anot.forEach(function(a){
-    if(a.t === "pieza" || a.t === "texto") punto(a.x, a.y);
+    if(a.t === "pieza" || a.t === "texto"){
+      punto(a.x, a.y);
+      if(a.t === "pieza" && mkGira(a.k)){
+        const m = mkManija(a);
+        c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(m.x, m.y);
+        c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 2.5/e; c.stroke();
+        c.beginPath(); c.arc(m.x, m.y, r*0.85, 0, 7);
+        c.fillStyle = "#FFC61A"; c.fill();
+        c.lineWidth = 2.5/e; c.strokeStyle = "#0B2038"; c.stroke();
+      }
+    }
     else if(a.t === "flecha"){ punto(a.x1, a.y1); punto(a.x2, a.y2) }
     else if(a.t === "ruta") a.pts.forEach(function(p){ punto(p.x, p.y) });
   });
@@ -2070,6 +2089,12 @@ function mkRedondo(c,x,y,w,h,r){
   c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
 }
 
+/* Solo giran los que APUNTAN a algun lado. Una trompeta cubre hacia donde mira
+   y un estrobo alumbra hacia un lado: saber su orientacion es parte de la
+   propuesta -en el plano de Plastonium venian girados uno por uno-. Un equipo
+   o un UPS no apuntan a nada, y darles giro seria un tirador de adorno. */
+function mkGira(k){ return k === "TROMPETA" || k === "ESTROBO" }
+
 /* Los simbolos van dibujados, no como imagenes: asi no hay archivo que bajar y
    funcionan sin senal. Cada uno con su color, para distinguirlos de lejos en
    un plano lleno. */
@@ -2077,9 +2102,12 @@ function mkGlifo(c, a, e){
   const R = 34/e;
   const def = MK_PIEZAS.find(function(p){ return p[0]===a.k }) || MK_PIEZAS[0];
   c.save(); c.translate(a.x, a.y);
+  /* La rueda queda derecha; lo que gira es el simbolo de adentro. Asi se lee
+     hacia donde apunta la trompeta sin que el circulo se vea chueco. */
   c.fillStyle = "rgba(10,20,32,.82)";
   c.beginPath(); c.arc(0,0,R,0,7); c.fill();
   c.strokeStyle = def[2]; c.lineWidth = 5/e; c.stroke();
+  if(mkGira(a.k) && a.ang) c.rotate(a.ang);
   c.strokeStyle = def[2]; c.fillStyle = def[2];
   c.lineWidth = 5/e; c.lineCap = "round"; c.lineJoin = "round";
   const u = R*0.55;
@@ -2088,6 +2116,11 @@ function mkGlifo(c, a, e){
     c.lineTo(u*0.1,u*0.42); c.lineTo(u*0.95,u*0.95);
     c.lineTo(u*0.95,-u*0.95); c.lineTo(u*0.1,-u*0.42); c.closePath(); c.stroke();
   } else if(a.k === "ESTROBO"){       /* domo con destellos */
+    /* Dibujado apuntando hacia ARRIBA, pero el angulo 0 significa DERECHA -es
+       donde nace la manija de giro y hacia donde mira la trompeta-. Sin este
+       cuarto de vuelta, jalar la manija a la derecha dejaba el estrobo mirando
+       al techo: el simbolo diria una cosa y el numero otra. */
+    c.rotate(Math.PI/2);
     c.beginPath(); c.arc(0,u*0.3,u*0.62,Math.PI,0); c.stroke();
     c.beginPath(); c.moveTo(-u*0.95,u*0.3); c.lineTo(u*0.95,u*0.3); c.stroke();
     [-0.9,0,0.9].forEach(function(k){
@@ -2135,6 +2168,12 @@ function mkTirador(ix, iy){
     const a = mk.anot[k];
     if(a.t === "pieza" || a.t === "texto"){
       probar(a.x, a.y, function(nx, ny){ a.x = nx; a.y = ny });
+      if(a.t === "pieza" && mkGira(a.k)){
+        const m = mkManija(a);
+        probar(m.x, m.y, function(nx, ny){
+          a.ang = Math.atan2(ny - a.y, nx - a.x);      // apunta a donde se jala
+        });
+      }
     } else if(a.t === "flecha"){
       probar(a.x1, a.y1, function(nx, ny){ a.x1 = nx; a.y1 = ny });
       probar(a.x2, a.y2, function(nx, ny){ a.x2 = nx; a.y2 = ny });
@@ -2238,7 +2277,9 @@ function mkTirador(ix, iy){
     const p = pos(ev), im = mkAImagen(p.x, p.y);
     if(im.x < 0 || im.y < 0 || im.x > mk.img.width || im.y > mk.img.height) return;
     if(mk.tool === "pieza"){
-      mk.anot.push({t:"pieza", k:mk.pieza, x:im.x, y:im.y});
+      /* Nace apuntando a la derecha, que es como esta dibujado el simbolo: asi
+         lo que se ve al colocarlo es lo mismo que se vera despues. */
+      mk.anot.push({t:"pieza", k:mk.pieza, x:im.x, y:im.y, ang:0});
       mkDibujar();
     } else if(mk.tool === "texto"){
       const s = prompt("¿Qué dice la nota?", "");
