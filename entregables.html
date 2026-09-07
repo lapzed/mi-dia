@@ -584,18 +584,20 @@ async function renovar(){
    con el usuario de su estación. La base ya se encarga de que cada quien vea
    solo su coordinación; gerencia y subgerencia ven las cinco. */
 const ESTACIONES=[
-  ["est.jenifer","Jenifer · Captura"], ["est.ivan","Iván · Mantenimientos"],
-  ["est.patricia","Patricia · Mantenimientos"], ["est.jair","Jair · Levantamientos"],
-  ["est.alin","Alin · Instalaciones"], ["est.proyectos","Karina · Proyectos especiales"],
-  ["est.ariana","Ariana · CAT"],
-  ["est.ximena","Ximena · Aux administrativo · Mantenimientos"]
+  ["est.ivan","Iván · Mantenimientos"],
+  ["est.jair","Jair · Levantamientos"],
+  ["est.alin","Alin · Instalaciones"],
+  ["est.proyectos","Karina · Proyectos especiales"],
+  ["est.ximena","Ximena · Captura · Mantenimientos"],
+  ["est.berenice","Berenice · CAT"],
+  ["est.gloria","Monse · Mantenimientos"]
 ];
 /* los auxiliares y el mando van con el área administrativa, no con las
    coordinaciones */
 const ADMIN_FIJOS=[
   ["jesus.acosta","Jesús · Aux administrativo"],
-  ["est.gloria","Montserrat · Aux administrativo"],
-  ["est.subgerencia","Subgerencia"], ["est.gerencia","Gerencia"],
+  ["est.subgerencia","Subgerencia"],
+  ["est.gerencia","Gerencia"],
   ["est.jocelyn","Jocelyn · Aux administrativo · Gerencia"]
 ];
 
@@ -654,9 +656,9 @@ async function arrancar(){
   /* quien llega desde otra pantalla no trae `nombre` en la sesion: se resuelve
      del usuario para no saludarlo como "est.gerencia" */
   const NOMBRES={"est.gerencia":"Gerencia","est.subgerencia":"Subgerencia",
-    "est.gloria":"Montserrat","est.jenifer":"Jenifer","est.ivan":"Iván",
+    "est.gloria":"Monse","est.jenifer":"Jenifer","est.ivan":"Iván",
     "est.patricia":"Patricia","est.jair":"Jair","est.alin":"Alin",
-    "est.ariana":"Ariana","est.proyectos":"Karina","ext.possam":"Possam","ext.sore":"Sore","est.ximena":"Ximena","est.jocelyn":"Jocelyn",
+    "est.ariana":"Ariana","est.berenice":"Berenice","est.proyectos":"Karina","ext.possam":"Possam","ext.sore":"Sore","est.ximena":"Ximena","est.jocelyn":"Jocelyn",
     "jesus.acosta":"Jesús"};
   document.getElementById("who").innerHTML="Salir<b>"+
     esc(ses.nombre||NOMBRES[ses.usuario]||ses.usuario)+"</b>";
@@ -2272,6 +2274,77 @@ const CONCEPTOS = [["equipo","Equipo receptor SARMEX ®"],["plasticas","Trompeta
   ["bocina_plafon","Bocina de plafón"],["estrobo","Luz estrobo"],
   ["antena","Antena aérea dipolo"],["amplificador","Amplificador"],["ups","Respaldo (UPS)"]];
 
+/* ---------- las palabras, segun a que vino el tecnico ----------
+   El armado es el mismo para todos -las mismas hojas, el mismo reparto, la
+   misma rejilla de fotos-, pero un levantamiento NO es un mantenimiento y el
+   documento no puede decir que lo es. Hasta hoy el machote traia la palabra
+   "mantenimiento" escrita en nueve lugares, asi que un levantamiento salia
+   titulado "SERVICIO DE MANTENIMIENTO" y concluyendo sobre un equipo que
+   todavia no esta instalado.
+
+   Aqui esta lo unico que cambia: el texto. MANT conserva palabra por palabra
+   lo que ya decia -no se toca el documento que la empresa ya entrega- y lo que
+   no tenga entrada propia cae en MANT, como hasta ahora. */
+const PALABRAS = {
+  MANT: {
+    portada:   o => `${o} SERVICIO DE MANTENIMIENTO<br>
+      RECEPTOR DE ALERTA SÍSMICA SARMEX ®`,
+    protocolo: "PROTOCOLO DE MANTENIMIENTO",
+    bitacora:  "BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA",
+    entrada:   o => `El ${o} servicio de mantenimiento por contrato
+      contempla el servicio a:`,
+    concepto:  o => `${o} servicio de mantenimiento`,
+    coordina:  "Coordinador de mantenimiento",
+    reporte:   "REPORTE DE MANTENIMIENTO",
+    cierre:    o => `De lo observado durante el ${o} servicio de
+      mantenimiento se concluye:`,
+    concluye:  null,           // usa CONCLUSIONES, las de siempre
+    log:       true,
+    inventario: true,
+    componentes: true
+  },
+  LEV: {
+    portada:   () => `LEVANTAMIENTO TÉCNICO<br>PARA EL SISTEMA DE ALERTA SÍSMICA SARMEX ®`,
+    /* Sin protocolo: el unico texto que hay es el de mantenimiento y empieza
+       diciendo "durante nuestro servicio de mantenimiento". Ponerlo con otro
+       titulo seria el mismo error con otra tapa. Cuando exista el de
+       levantamientos, se agrega aqui y la seccion reaparece sola. */
+    protocolo: null,
+    bitacora:  "DATOS DEL LEVANTAMIENTO Y EVIDENCIA FOTOGRÁFICA",
+    entrada:   () => `El levantamiento técnico del inmueble se realizó en la fecha
+      y con el personal que se indica:`,
+    concepto:  () => `Levantamiento técnico`,
+    coordina:  "Coordinador de levantamientos",
+    reporte:   "REPORTE FIRMADO",
+    cierre:    () => `De lo observado durante el levantamiento se concluye:`,
+    /* La bitacora de eventos es el registro de tonos del receptor YA instalado.
+       En un levantamiento todavia no hay receptor, asi que no hay log que
+       contar: la seccion se calla aunque se pida el registro.
+
+       Y por lo mismo no hay inventario que atender ni hojas por componente:
+       esas traen la redaccion del mantenimiento -"se remueve la suciedad por
+       medio de aire comprimido"- sobre un equipo que aun no se instala. Las
+       fotos del levantamiento van todas a la rejilla de evidencia, que es como
+       ya salian. */
+    log:       false,
+    inventario: false,
+    componentes: false,
+    concluye:  [
+ `Del recorrido realizado en el inmueble se determinaron los puntos de instalación del
+  sistema receptor de alertamiento sísmico SARMEX ®, así como las trayectorias del cableado
+  y la ubicación de los altavoces y la luz estrobo, conforme a lo señalado en el croquis y
+  en la evidencia fotográfica de este documento.`,
+ `La propuesta considera la cobertura de audio y la señalización visual necesarias para
+  alertar a la totalidad del predio, de acuerdo con sus áreas, niveles y condiciones
+  observadas en sitio.`,
+ `Cualquier variación en las trayectorias, alturas o puntos de montaje que se presente
+  durante la instalación se acordará previamente con el cliente.`]
+  }
+};
+function palabrasDe(coord){
+  return PALABRAS[(coord||"").toUpperCase()] || PALABRAS.MANT;
+}
+
 function numeroOrdinal(num){
   return ({primer:"1er", segundo:"2do", tercer:"3er", cuarto:"4to"})[num] || num;
 }
@@ -2310,11 +2383,13 @@ async function informeDe(x, num, ident, conLog){
   const marca = t => secs.push({t:t, p:nPag+1});
   const logoCli = await logoDe(x.dependencia);
 
+  const P = palabrasDe(x.coord);
+  const ORD = esc(numeroOrdinal(num));
+
   /* 1 · portada */
   nPag = 0;
   cuerpo += hoja(`
-    <h1>${esc(numeroOrdinal(num).toUpperCase())} SERVICIO DE MANTENIMIENTO<br>
-      RECEPTOR DE ALERTA SÍSMICA SARMEX ®${limpio(x.equipo)?" "+esc(limpio(x.equipo)):""}</h1>
+    <h1>${P.portada(ORD.toUpperCase())}${limpio(x.equipo)?" "+esc(limpio(x.equipo)):""}</h1>
     ${logoCli?`<div class="logo-cli"><img src="${logoCli}"></div>`:""}
     <div class="pieport">
       <div class="sitio">${esc((x.nombre||"").toUpperCase())}</div>
@@ -2328,8 +2403,9 @@ async function informeDe(x, num, ident, conLog){
   cuerpo += HUECO;
   nPag++;                                  // la hoja del índice ocupa su número
 
-  /* 3 · protocolo de mantenimiento */
-  marca("PROTOCOLO DE MANTENIMIENTO");
+  /* 3 · protocolo de actuación, si esa coordinación tiene el suyo */
+  if(P.protocolo){
+  marca(P.protocolo);
   /* Se reparte parrafo por parrafo y con las hojas equilibradas: repartir por
      bloques dejaba una hoja llena y la siguiente a un tercio, porque el primer
      apartado es mucho mas largo que los otros dos. El titulo nunca se queda
@@ -2344,11 +2420,12 @@ async function informeDe(x, num, ident, conLog){
       piezas.push((k===0&&b.t?`<h3 class="sub2">${b.t}</h3>`:"")+`<p class="txt">${txt}</p>`);
     });
   });
-  repartirEnHojas(piezas, `<h2 class="sec">PROTOCOLO DE MANTENIMIENTO</h2>`, null)
+  repartirEnHojas(piezas, `<h2 class="sec">${P.protocolo}</h2>`, null)
     .forEach(h => { cuerpo += hoja(h) });
+  }
 
   /* 4 · bitácora de trabajo y evidencia fotográfica */
-  marca("BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA");
+  marca(P.bitacora);
   const cant = CONCEPTOS
     .map(([k,et])=>[et, k==="equipo" ? (limpio(x.equipo)?"1":"") : limpio(x[k])])
     .filter(([,v])=>v && v!=="0");
@@ -2357,18 +2434,17 @@ async function informeDe(x, num, ident, conLog){
      que los componentes, para que la primera actividad quepa aqui mismo como
      en el machote */
   const bloques = [], envolturas = {};
-  bloques.push({k:null, h:`<h2 class="sec">BITÁCORA DE TRABAJO Y EVIDENCIA FOTOGRÁFICA</h2>
-    <p class="txt">El ${esc(numeroOrdinal(num))} servicio de mantenimiento por contrato
-      contempla el servicio a:</p>
-    <table class="bit"><tr><th>CONCEPTO</th><th style="width:26mm">CANTIDAD</th></tr>
+  bloques.push({k:null, h:`<h2 class="sec">${P.bitacora}</h2>
+    <p class="txt">${P.entrada(ORD)}</p>
+    ${P.inventario === false ? "" : `<table class="bit"><tr><th>CONCEPTO</th><th style="width:26mm">CANTIDAD</th></tr>
       ${cant.map(([et,v])=>`<tr><td>${esc(et)}</td><td class="c">${esc(v)}</td></tr>`).join("")
-        || `<tr><td colspan="2">No se registró el inventario en esta visita.</td></tr>`}</table>
+        || `<tr><td colspan="2">No se registró el inventario en esta visita.</td></tr>`}</table>`}
     <table class="bit"><tr><th>FECHA INICIO</th><th>CONCEPTO</th><th>FECHA TÉRMINO</th></tr>
       <tr><td class="c">${esc(fecha)}</td>
-          <td class="c">${esc(numeroOrdinal(num))} servicio de mantenimiento</td>
+          <td class="c">${P.concepto(ORD)}</td>
           <td class="c">${esc(fecha)}</td></tr></table>
     <table class="bit"><tr><th colspan="2">PERSONAL DE TRABAJO</th></tr>
-      ${limpio(x.coordinador)?`<tr><td>Coordinador de mantenimiento</td>
+      ${limpio(x.coordinador)?`<tr><td>${P.coordina}</td>
         <td>${esc(x.coordinador)}</td></tr>`:""}
       <tr><td>Técnico encargado</td><td>${esc(limpio(x.tecnico)||"—")}</td></tr>
       ${limpio(x.auxiliar)?`<tr><td>Técnico auxiliar</td><td>${esc(x.auxiliar)}</td></tr>`:""}
@@ -2424,7 +2500,7 @@ async function informeDe(x, num, ident, conLog){
      ubicacion es la de el, y por eso no se pregunta aparte */
   const ubicDe = id => limpio(ubic[id]) ||
     (SIN_UBICACION.indexOf(id) >= 0 ? limpio(ubic.EQUIPO) : "");
-  for(const c of COMPONENTES){
+  for(const c of (P.componentes === false ? [] : COMPONENTES)){
     const suyas = fotos.filter(f=>f.partida===c.id && f.clase!=="REPORTE");
     if(!suyas.length && !hayEn(c)) continue;
     suyas.forEach(f=>usada.add(f));
@@ -2502,7 +2578,7 @@ async function informeDe(x, num, ident, conLog){
   }
 
   /* 5 · bitácora de eventos */
-  if(conLog){
+  if(conLog && P.log !== false){
     marca("DETALLE DE BITÁCORA DE EVENTOS");
     const antes=nPag;
     const hl=hojaLog(x, ident);
@@ -2512,9 +2588,9 @@ async function informeDe(x, num, ident, conLog){
 
   /* 6 · el reporte que firmó el cliente */
   if(rep.length){
-    marca("REPORTE DE MANTENIMIENTO");
+    marca(P.reporte);
     rep.forEach((f,k)=>{
-      cuerpo += hoja(`<h2 class="sec" style="text-align:center">REPORTE DE MANTENIMIENTO</h2>
+      cuerpo += hoja(`<h2 class="sec" style="text-align:center">${P.reporte}</h2>
         <div class="rej sola"><figure><img src="${f.url}">
         ${rep.length>1?`<figcaption>Hoja ${k+1} de ${rep.length}</figcaption>`:""}</figure></div>`, "rep");
     });
@@ -2523,9 +2599,8 @@ async function informeDe(x, num, ident, conLog){
   /* 7 · conclusiones */
   marca("CONCLUSIONES");
   cuerpo += hoja(`<h2 class="sec">CONCLUSIONES</h2>
-    <p class="txt">De lo observado durante el ${esc(numeroOrdinal(num))} servicio de
-      mantenimiento se concluye:</p>
-    ${CONCLUSIONES.map(t=>`<p class="txt">${t}</p>`).join("")}
+    <p class="txt">${P.cierre(ORD)}</p>
+    ${(P.concluye || CONCLUSIONES).map(t=>`<p class="txt">${t}</p>`).join("")}
     <div class="firmas">${FIRMAS.map(([c,n])=>`<div><div class="linea"></div>
       <div class="pto">${esc(c)}</div><div class="nom">${esc(n)}</div></div>`).join("")}</div>`);
 
