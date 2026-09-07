@@ -793,7 +793,10 @@ async function cargar(){
      leian. */
   "volt_linea,volt_fuente,volt_bateria,volt_salida,amperaje,obs_medicion,"+
   "coordinador,software_ver,ubicaciones,"+
-  "plasticas,aluminio,eliptica,bocina_plafon,estrobo,antena,amplificador,ups"+
+  "plasticas,aluminio,eliptica,bocina_plafon,estrobo,antena,amplificador,ups,"+
+  /* las condiciones del inmueble: van al informe del levantamiento, que es de
+     donde sale la cotizacion */
+  "tipo_inmueble,segurista_vigia,equipo_especial,altura,horario_inst,tiempo_inst_est"+
   "&status=eq.ATENDIDO"+
         "&order=fecha_atencion.desc,dependencia";
   if(cli) q+="&dependencia=eq."+encodeURIComponent(cli);
@@ -2351,6 +2354,30 @@ function areasEnTexto(ps){
   return "las áreas de " + n.slice(0, -1).join(", ") + " y " + n[n.length - 1];
 }
 
+/* Lo que el inmueble exige para poder instalar. Va en el informe porque de ahi
+   sale la cotizacion: una plataforma rentada y un segurista pagado cuestan mas
+   que las trompetas, y hasta hoy ese dato se quedaba en la base sin llegar al
+   documento que ve quien cotiza.
+
+   Solo se imprimen los renglones que traen algo, igual que la propuesta. La
+   altura "NA" se trata como vacia: es lo que escribia el sistema viejo cuando
+   no aplicaba. */
+function tablaCondiciones(x){
+  const alt = limpio(x.altura);
+  const filas = [
+    ["Tipo de inmueble",            limpio(x.tipo_inmueble)],
+    ["Requiere segurista o vigía",  limpio(x.segurista_vigia)],
+    ["Equipo especializado",        limpio(x.equipo_especial)],
+    ["Altura de trabajo",           (alt && alt.toUpperCase()!=="NA") ? alt+" m" : ""],
+    ["Horario en que dejan instalar", limpio(x.horario_inst)],
+    ["Tiempo estimado de instalación", limpio(x.tiempo_inst_est) ? limpio(x.tiempo_inst_est)+" min" : ""],
+    ["Requerimientos del sitio",    limpio(x.requerimientos)]
+  ].filter(function(f){ return f[1] });
+  if(!filas.length) return "";
+  return `<table class="bit"><tr><th colspan="2">CONDICIONES PARA LA INSTALACIÓN</th></tr>
+    ${filas.map(f=>`<tr><td>${esc(f[0])}</td><td>${esc(f[1])}</td></tr>`).join("")}</table>`;
+}
+
 /* La tabla de la propuesta: un renglon por concepto, una columna por area.
    Con mas de un area se agrega el total, porque lo que se cotiza es la suma. */
 function tablaLev(ps){
@@ -2419,6 +2446,7 @@ const PALABRAS = {
     reporte:   "REPORTE FIRMADO",
     cierre:    () => `De lo observado durante el levantamiento se concluye:`,
     propuesta: true,
+    condiciones: true,
     /* La bitacora de eventos es el registro de tonos del receptor YA instalado.
        En un levantamiento todavia no hay receptor, asi que no hay log que
        contar: la seccion se calla aunque se pida el registro.
@@ -2567,7 +2595,7 @@ async function informeDe(x, num, ident, conLog){
       <tr><td>Técnico encargado</td><td>${esc(limpio(x.tecnico)||"—")}</td></tr>
       ${limpio(x.auxiliar)?`<tr><td>Técnico auxiliar</td><td>${esc(x.auxiliar)}</td></tr>`:""}
       ${limpio(x.personal_atiende)?`<tr><td>Personal encargado del inmueble</td>
-        <td>${esc(x.personal_atiende)}</td></tr>`:""}</table>`});
+        <td>${esc(x.personal_atiende)}</td></tr>`:""}</table>${P.condiciones ? tablaCondiciones(x) : ""}`});
 
   /* una hoja por componente: la actividad a la izquierda, su foto a la derecha.
      Se intento pegar el primero debajo de las tablas, como en el machote, pero

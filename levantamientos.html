@@ -434,7 +434,8 @@ async function cargar(){
   const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
   let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,fecha_servicio,"+
         "fecha_atencion,tecnico,tipo_inmueble,requerimientos,obs_coord,tiempo_inst_est,"+
-        "segurista_vigia,status&coord=eq.LEV&order=fecha_atencion.desc,nombre";
+        "segurista_vigia,equipo_especial,altura,horario_inst,"+
+        "status&coord=eq.LEV&order=fecha_atencion.desc,nombre";
   if(de) q+="&fecha_servicio=gte."+de;
   if(a)  q+="&fecha_servicio=lte."+a;
   try{
@@ -560,6 +561,8 @@ function pintar(){ pintarCinta();
           ${[limpio(x.tipo_inmueble)&&"Inmueble: "+x.tipo_inmueble,
              limpio(x.tiempo_inst_est)&&"Tiempo estimado: "+x.tiempo_inst_est,
              limpio(x.segurista_vigia)&&"Segurista/vigía: "+x.segurista_vigia,
+             limpio(x.equipo_especial)&&"Equipo: "+x.equipo_especial,
+             limpio(x.horario_inst)&&"Horario: "+x.horario_inst,
              limpio(x.requerimientos)&&"Requiere: "+x.requerimientos,
              limpio(x.obs_coord)&&"Nota: "+x.obs_coord]
             .filter(Boolean).map(t=>`<div class="lev-sub">${esc(t)}</div>`).join("")}
@@ -743,6 +746,9 @@ function hojaFicha(x, ps){
       ${limpio(x.tipo_inmueble)?`<tr><td class="et">Tipo de inmueble</td><td>${esc(x.tipo_inmueble)}</td></tr>`:""}
       ${limpio(x.segurista_vigia)?`<tr><td class="et">Requiere segurista o vigía</td><td>${esc(x.segurista_vigia)}</td></tr>`:""}
       ${limpio(x.tiempo_inst_est)?`<tr><td class="et">Tiempo estimado de instalación</td><td>${esc(x.tiempo_inst_est)} min</td></tr>`:""}
+      ${limpio(x.altura)&&limpio(x.altura)!=="NA"?`<tr><td class="et">Altura de trabajo</td><td>${esc(x.altura)} m</td></tr>`:""}
+      ${limpio(x.equipo_especial)?`<tr><td class="et">Equipo especializado</td><td>${esc(x.equipo_especial)}</td></tr>`:""}
+      ${limpio(x.horario_inst)?`<tr><td class="et">Horario en que dejan instalar</td><td>${esc(x.horario_inst)}</td></tr>`:""}
     </table>
     <p style="font-size:11.5px;margin:0 0 3mm"><b>${ps.length}</b>
       ${ps.length===1?"equipo necesario":"equipos necesarios"} para alertar a todo el inmueble.</p>

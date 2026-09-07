@@ -297,6 +297,12 @@
   .pc-tit{font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;
     margin:11px 0 6px}
   .pc-tit span{text-transform:none;letter-spacing:0;color:var(--txt3)}
+  /* Lo que hay que llevar: se marcan varios, asi que son botones que se
+     prenden y no una lista de la que se elige uno. Del tamano de una yema. */
+  .eqs{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 4px}
+  .eqs button{min-height:42px;padding:8px 13px;border-radius:11px;font-size:12.5px;
+    font-weight:700;background:#17456E;color:var(--txt);border:1px solid var(--line)}
+  .eqs button.on{background:var(--acc);color:#07203a;border-color:var(--acc)}
   .pcs{display:flex;flex-wrap:wrap;gap:7px}
   .pc{display:flex;flex-direction:column;gap:3px}
   .pc span{font-size:11px;color:var(--txt2)}
@@ -780,7 +786,10 @@ async function cargar(){
       "cp,localidad,municipio,estado,equipo,serie,materiales,obs_captura,"+
       "log_estado,log_saltos,log_ultimo,canal,senal_barras,volt_fuente,obs_medicion,"+
       "volt_salida,coordinador,software_ver,ubicaciones,"+
-      "avance_tec,avance_coord,avance_ts"+
+      "avance_tec,avance_coord,avance_ts,"+
+      /* las condiciones del inmueble: lo que ya se sepa se le muestra al
+         tecnico para que corrija, en vez de preguntarselo otra vez */
+      "segurista_vigia,equipo_especial,altura,horario_inst,tiempo_inst_est"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
     guardarSemanaLocal();
@@ -1244,6 +1253,20 @@ function abrirCierre(coord, id, modo){
      interviene el equipo. El conteo de aditamentos sale del "Antes", que es lo
      que hay instalado; en las otras dos son la prueba del trabajo. */
   /* el levantamiento termina en una propuesta: es su producto */
+  /* Lo que encarece una instalacion no siempre es el equipo: es la plataforma
+     que hay que rentar, el segurista que hay que pagar, o que el inmueble solo
+     deje trabajar en domingo. Lo sabe QUIEN ESTA AHI, y hasta hoy se preguntaba
+     por telefono desde Coordinacion a alguien que no lo esta viendo.
+     Se arranca con lo que ya traiga el servicio: si Coordinacion lo averiguo
+     antes, el tecnico corrige en vez de escribir de cero. */
+  cie.cond = ((coord||"").toUpperCase()==="LEV") ? {
+    segurista_vigia: limpio(srv.segurista_vigia) || "",
+    equipo_especial: limpio(srv.equipo_especial) || "",
+    altura:          limpio(srv.altura) || "",
+    horario_inst:    limpio(srv.horario_inst) || "",
+    tiempo_inst_est: limpio(srv.tiempo_inst_est) || ""
+  } : null;
+
   cie.propuestas = ((coord||"").toUpperCase()==="LEV" &&
                     (modo==="ATENDIDO" || modo==="REGULARIZAR")) ? [propNueva(1)] : null;
   /* Lo que hay instalado lo captura la coordinación, pero quien lo ve es el
@@ -1378,6 +1401,15 @@ const PROP_CABLE = [
   ["p_gruesa","Tubería gruesa"], ["p_delgada","Tubería delgada"]
 ];
 
+/* De que se cuelga y con que se ancla. Lo mismo que pregunta la pantalla de
+   Jair, aqui: el que esta parado frente al muro es el que sabe si es tablaroca.
+   En lista para que no lleguen escritos de siete maneras. */
+const PROP_LISTAS = {
+  fijacion: ["Uña", "Unicanal", "Espárrago", "Encinchado", "Mordaza", "Taquete directo"],
+  taquete:  ["Rojo", "Expansivo", "Tablaroca", "Pijabroca"]
+};
+const PROP_FIJA = [["fijacion","Medio de fijación"], ["taquete","Taquete / anclaje"]];
+
 function propNueva(n){ return {n:n, nombre:"", notas:""} }   // el nombre es el área
 function propAgregar(){
   cie.propuestas.push(propNueva(cie.propuestas.length+1));
@@ -1389,6 +1421,24 @@ function propQuitar(i){
   pintarCierre();
 }
 function propCampo(i, campo, v){ cie.propuestas[i][campo] = v }
+
+/* Lo que hay que llevar o rentar. Se pueden marcar varios -una nave pide
+   plataforma Y arnes- asi que son botones que se prenden, no una lista de la
+   que se elige uno. Se guardan separados por " · " para que el informe los
+   imprima tal cual. */
+const EQUIPO_ESP = ["Plataforma", "Andamio", "Escalera de extensión",
+                    "Arnés y línea de vida", "Grúa o pluma", "Ninguno"];
+function condCampo(k, v){ if(cie.cond) cie.cond[k] = v }
+function condEquipo(op){
+  if(!cie.cond) return;
+  const hay = (cie.cond.equipo_especial||"").split(" · ").filter(Boolean);
+  const i = hay.indexOf(op);
+  if(i >= 0) hay.splice(i, 1);
+  else if(op === "Ninguno") hay.length = 0, hay.push(op);
+  else { const j = hay.indexOf("Ninguno"); if(j >= 0) hay.splice(j, 1); hay.push(op) }
+  cie.cond.equipo_especial = hay.join(" · ");
+  pintarCierre();
+}
 
 /* ---------- inventario: una foto por pieza, en cada etapa ----------
    La misma lista de piezas se lleva en el antes, el durante y el despues; lo
@@ -1664,6 +1714,13 @@ function pintarCierre(){
       <div class="pcs">${PROP_PIEZAS.map(c=>campoProp(i,p,c,"48%")).join("")}</div>
       <div class="pc-tit">Cableado <span>(tramos de 3 m)</span></div>
       <div class="pcs">${PROP_CABLE.map(c=>campoProp(i,p,c,"48%")).join("")}</div>
+      <div class="pc-tit">Cómo se sujeta <span>(de esto depende el costo)</span></div>
+      <div class="pcs">${PROP_FIJA.map(([k,et])=>`
+        <label class="pc" style="width:48%"><span>${et}</span>
+          <select onchange="propCampo(${i},'${k}',this.value)">
+            <option value="">—</option>
+            ${PROP_LISTAS[k].map(o=>`<option${o===(p[k]||"")?" selected":""}>${esc(o)}</option>`).join("")}
+          </select></label>`).join("")}</div>
       <label class="pc" style="width:100%"><span>Notas de esta propuesta</span>
         <textarea rows="2" oninput="propCampo(${i},'notas',this.value)">${esc(p.notas||"")}</textarea></label>
     </div>`;
@@ -1693,6 +1750,46 @@ function pintarCierre(){
                </div>
                <div class="esp" id="espAvance">${textoAvance(v)}</div>`}
       </div>`;
+  };
+
+  /* Las condiciones para instalar. Van ARRIBA de las sonorizaciones a
+     proposito: son del inmueble entero, no de un area, y es lo primero que se
+     ve al llegar -si hay que meter plataforma, se nota desde la puerta-. */
+  const seccionCond = () => {
+    if(!cie.cond) return "";
+    const c = cie.cond;
+    const marcados = (c.equipo_especial||"").split(" · ").filter(Boolean);
+    const listo = !!(c.segurista_vigia && c.equipo_especial);
+    return `
+    <div class="lbl">Condiciones para instalar
+      <span class="req ${listo?"listo":""}">${listo?"listo":"sirve para cotizar"}</span></div>
+    <p class="pista">Lo que va a costar de más y solo se ve estando aquí. Si el
+       cliente ya lo dijo por teléfono, corrige lo que no cuadre.</p>
+    <div class="prop">
+      <div class="pc-tit">¿Hace falta segurista o vigía?</div>
+      <div class="eqs">
+        ${["SI","NO"].map(o=>`<button class="${c.segurista_vigia===o?"on":""}"
+           onclick="condCampo('segurista_vigia','${c.segurista_vigia===o?"":o}');pintarCierre()"
+           >${o==="SI"?"Sí hace falta":"No hace falta"}</button>`).join("")}
+      </div>
+      <div class="pc-tit">Equipo especializado <span>(marca todo lo que se necesite)</span></div>
+      <div class="eqs">
+        ${EQUIPO_ESP.map(o=>`<button class="${marcados.indexOf(o)>=0?"on":""}"
+           onclick="condEquipo('${o.replace(/'/g,"\'")}')">${esc(o)}</button>`).join("")}
+      </div>
+      <div class="pcs">
+        <label class="pc" style="width:48%"><span>Altura de trabajo (m)</span>
+          <input inputmode="decimal" value="${esc(c.altura)}"
+                 oninput="condCampo('altura',this.value)"></label>
+        <label class="pc" style="width:48%"><span>Tiempo estimado (min)</span>
+          <input inputmode="numeric" value="${esc(c.tiempo_inst_est)}"
+                 oninput="condCampo('tiempo_inst_est',this.value)"></label>
+        <label class="pc" style="width:100%"><span>¿En qué horario dejan instalar?</span>
+          <input value="${esc(c.horario_inst)}"
+                 placeholder="Solo domingos · 20:00 a 06:00 · fuera de oficina"
+                 oninput="condCampo('horario_inst',this.value)"></label>
+      </div>
+    </div>`;
   };
 
   const seccionProp = () => !cie.propuestas ? "" : `
@@ -1833,6 +1930,7 @@ function pintarCierre(){
       ${cie.inv?seccionInv():""}
       ${cie.log?seccionLog():""}
       ${cie._bloques.map(bloque).join("")}
+      ${seccionCond()}
       ${seccionProp()}
       ${seccionAvance()}
     `}
@@ -3090,6 +3188,16 @@ async function guardarCierre(s, modo, com){
     body.avance_tec = (modo==="FIN_OBRA") ? 100 : Number(cie.avancePct||0);
     body.avance_ts  = new Date().toISOString().slice(0,16).replace("T"," ");
     if(com) body.avance_nota = com;
+  }
+  /* Las condiciones del inmueble. Solo se manda lo que tenga algo: un campo
+     vacio no debe BORRAR lo que Coordinacion averiguo por telefono; si el
+     tecnico lo dejo en blanco es que no lo reviso, no que no aplique. */
+  if(cie.cond){
+    ["segurista_vigia","equipo_especial","altura","horario_inst","tiempo_inst_est"]
+      .forEach(function(k){
+        const v = (cie.cond[k]||"").toString().trim();
+        if(v) body[k] = v;
+      });
   }
   if(cie.log && cie.log.estado){
     body.log_estado = cie.log.estado;
