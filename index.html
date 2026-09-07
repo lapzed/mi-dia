@@ -2389,13 +2389,71 @@ function camRecorte(){
           sw:mar.width/esc, sh:mar.height/esc};
 }
 
+/* Esperar a que el video tenga un cuadro DE VERDAD.
+   `videoWidth` ya trae valor en cuanto llegan los metadatos, antes de que se
+   haya decodificado una sola imagen. Disparar en ese momento pinta NEGRO, y es
+   lo que le salio a Guillermo en Android. */
+function camEsperarCuadro(v){
+  return new Promise(function(res){
+    let listo = false;
+    const ya = function(){ if(!listo){ listo = true; res() } };
+    if(v.requestVideoFrameCallback){ v.requestVideoFrameCallback(ya) }
+    else { requestAnimationFrame(function(){ requestAnimationFrame(ya) }) }
+    setTimeout(ya, 500);      // por si el navegador no llama a ninguno
+  });
+}
+
+/* El cuadro completo recortado al centro, cuando el recuadro amarillo no da
+   una region valida. Mas vale una foto bien tomada que una negra. */
+function camRecorteCentro(v){
+  const obj = FOTO_W / FOTO_H;
+  let sw = v.videoWidth, sh = Math.round(sw / obj);
+  if(sh > v.videoHeight){ sh = v.videoHeight; sw = Math.round(sh * obj) }
+  return {sx:(v.videoWidth - sw)/2, sy:(v.videoHeight - sh)/2, sw:sw, sh:sh};
+}
+
+/* ¿Salio negra? Se miran pocos pixeles repartidos: no hace falta revisar el
+   millon para saber que no hay imagen. El umbral es bajo a proposito -casi
+   negro puro- para no confundir un sotano oscuro con una foto vacia. */
+function camSalioNegra(c){
+  try{
+    const g = c.getContext("2d");
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let claros = 0, mirados = 0;
+    for(let i = 0; i < d.length; i += 4 * 501){
+      mirados++;
+      if(d[i] + d[i+1] + d[i+2] > 30) claros++;
+    }
+    return mirados > 20 && claros / mirados < 0.01;
+  }catch(e){ return false }
+}
+
 async function camDisparar(){
   const v = document.getElementById("camVideo");
   if(!v.videoWidth) return;
-  const r = camRecorte();
+  await camEsperarCuadro(v);
+  let r = camRecorte();
+  /* Si el recuadro no da una region valida -lado cero, o fuera del video- se
+     usa el cuadro completo. Un `drawImage` con origen fuera del video pinta
+     negro sin quejarse. */
+  const malo = !(r.sw > 4 && r.sh > 4) || !isFinite(r.sx) || !isFinite(r.sy) ||
+               r.sx < -2 || r.sy < -2 ||
+               r.sx + r.sw > v.videoWidth + 2 || r.sy + r.sh > v.videoHeight + 2;
+  if(malo) r = camRecorteCentro(v);
   const c = document.createElement("canvas");
   c.width = FOTO_W; c.height = FOTO_H;
-  c.getContext("2d").drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, FOTO_W, FOTO_H);
+  const g = c.getContext("2d");
+  g.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, FOTO_W, FOTO_H);
+  /* Un reintento: si el primer cuadro llego vacio, el siguiente casi siempre
+     ya trae imagen. */
+  if(camSalioNegra(c)){
+    await camEsperarCuadro(v);
+    await new Promise(function(res){ setTimeout(res, 120) });
+    g.clearRect(0, 0, FOTO_W, FOTO_H);
+    g.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, FOTO_W, FOTO_H);
+    if(camSalioNegra(c))
+      toast("La foto salió negra. Vuelve a intentar, o usa la cámara del teléfono.", true);
+  }
   const blob = await new Promise(res=>c.toBlob(res, "image/jpeg", 0.72));
   const foto = {blob:blob, url:URL.createObjectURL(blob),
                 tipoMime:"image/jpeg", nombre:"foto.jpg"};
