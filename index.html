@@ -178,6 +178,11 @@
   .cam-marco{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:86%;aspect-ratio:4/3;border:3px solid #FFC61A;border-radius:8px;
     box-shadow:0 0 0 3000px rgba(0,0,0,.45);pointer-events:none}
+  /* El formato que firma el cliente es una HOJA, y una hoja es mas alta que
+     ancha: con el recuadro de 4:3 se le cortaban el encabezado y las firmas,
+     justo lo que hay que probar. Aqui el recuadro manda al alto -la pantalla
+     del telefono tambien es vertical- y toma la proporcion del oficio. */
+  .cam-marco.hoja{width:auto;height:82%;aspect-ratio:216/330}
   /* guia de adentro: cuanto debe ocupar la pieza. El marco fija el tamano de la
      foto; la guia dice si se pide detalle (llenarla) o ubicacion (dejar
      alrededor lo que la rodea) */
@@ -2554,6 +2559,19 @@ function quitar(campo,i){ cie[campo].splice(i,1); pintarCierre() }
    recuadro amarillo. Asi el informe deja de verse disparejo y basta una foto
    por partida en vez de varias "por si acaso". */
 const FOTO_W = 1200, FOTO_H = 900;      // 4:3, el mismo que el recuadro
+
+/* El reporte firmado no es una foto: es un DOCUMENTO.
+   Todas las coordinaciones piden el mismo bloque -"Formato que firmo el
+   cliente"-, y ese formato se imprime en oficio vertical. Recortarlo a 4:3
+   acostado le quitaba el encabezado y las firmas, que es exactamente lo que el
+   papel viene a probar. Va a 8.5x13 pulgadas y con mas resolucion: aqui hay que
+   leer letra manuscrita, no reconocer un equipo. */
+const HOJA_W = 1275, HOJA_H = 1950;     // oficio vertical, a 150 puntos
+function esFormato(campo){ return campo === "reportes" }
+function medidaDe(campo){
+  return esFormato(campo) ? {w:HOJA_W, h:HOJA_H, q:0.82}
+                          : {w:FOTO_W, h:FOTO_H, q:0.72};
+}
 let camStream = null, camDestino = null, camFrontal = false, camPendiente = null;
 let camPorQue = "";     // por que no abrio, para poder decirlo
 let camGuiaAct = null;  // cuanto debe ocupar la pieza en el encuadre actual
@@ -2568,6 +2586,7 @@ async function camAbrir(campo, titulo, pista, guia){
   document.getElementById("camTit").textContent = titulo || "";
   if(pista) document.getElementById("camPista").textContent = pista;
   camGuiaAct = guia || null;
+  document.querySelector(".cam-marco").classList.toggle("hoja", esFormato(campo));
   const g = document.getElementById("camGuia");
   if(guia){ g.style.display="block"; g.style.width=guia+"%"; g.style.aspectRatio="4/3" }
   else g.style.display="none";
@@ -2720,7 +2739,8 @@ function camEsperarCuadro(v){
 /* El cuadro completo recortado al centro, cuando el recuadro amarillo no da
    una region valida. Mas vale una foto bien tomada que una negra. */
 function camRecorteCentro(v){
-  const obj = FOTO_W / FOTO_H;
+  const m = medidaDe(camDestino && camDestino.campo);
+  const obj = m.w / m.h;
   let sw = v.videoWidth, sh = Math.round(sw / obj);
   if(sh > v.videoHeight){ sh = v.videoHeight; sw = Math.round(sh * obj) }
   return {sx:(v.videoWidth - sw)/2, sy:(v.videoHeight - sh)/2, sw:sw, sh:sh};
@@ -2754,21 +2774,22 @@ async function camDisparar(){
                r.sx < -2 || r.sy < -2 ||
                r.sx + r.sw > v.videoWidth + 2 || r.sy + r.sh > v.videoHeight + 2;
   if(malo) r = camRecorteCentro(v);
+  const m = medidaDe(camDestino && camDestino.campo);
   const c = document.createElement("canvas");
-  c.width = FOTO_W; c.height = FOTO_H;
+  c.width = m.w; c.height = m.h;
   const g = c.getContext("2d");
-  g.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, FOTO_W, FOTO_H);
+  g.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, m.w, m.h);
   /* Un reintento: si el primer cuadro llego vacio, el siguiente casi siempre
      ya trae imagen. */
   if(camSalioNegra(c)){
     await camEsperarCuadro(v);
     await new Promise(function(res){ setTimeout(res, 120) });
-    g.clearRect(0, 0, FOTO_W, FOTO_H);
-    g.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, FOTO_W, FOTO_H);
+    g.clearRect(0, 0, m.w, m.h);
+    g.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, m.w, m.h);
     if(camSalioNegra(c))
       toast("La foto salió negra. Vuelve a intentar, o usa la cámara del teléfono.", true);
   }
-  const blob = await new Promise(res=>c.toBlob(res, "image/jpeg", 0.72));
+  const blob = await new Promise(res=>c.toBlob(res, "image/jpeg", m.q));
   const foto = {blob:blob, url:URL.createObjectURL(blob),
                 tipoMime:"image/jpeg", nombre:"foto.jpg"};
   // primero se ve en grande: en la miniatura no se nota si salió movida
@@ -2854,7 +2875,7 @@ async function agregarPartida(input){
   const files = [...input.files]; input.value = "";
   for(const f of files){
     try{
-      const blob = await recortarCentro(f);
+      const blob = await recortarCentro(f, "partidas");
       cie.partidas[etapa][pid].push({blob:blob, url:URL.createObjectURL(blob),
         tipoMime:blob.type||"image/jpeg", nombre:f.name, variante:variante});
     }catch(e){ toast("No se pudo leer una imagen", true) }
@@ -2864,24 +2885,25 @@ async function agregarPartida(input){
 
 /* Las que llegan de la galeria se recortan al centro con la misma proporcion,
    para que no desentonen con las tomadas con el recuadro. */
-async function recortarCentro(file){
+async function recortarCentro(file, campo){
   if(file.type==="application/pdf") return file;
   const img = await createImageBitmap(file);
-  const objetivo = FOTO_W / FOTO_H;
+  const m = medidaDe(campo);
+  const objetivo = m.w / m.h;
   let sw = img.width, sh = Math.round(img.width / objetivo);
   if(sh > img.height){ sh = img.height; sw = Math.round(img.height * objetivo) }
   const c = document.createElement("canvas");
-  c.width = FOTO_W; c.height = FOTO_H;
+  c.width = m.w; c.height = m.h;
   c.getContext("2d").drawImage(img, Math.round((img.width-sw)/2),
-    Math.round((img.height-sh)/2), sw, sh, 0, 0, FOTO_W, FOTO_H);
-  return await new Promise(r=>c.toBlob(r, "image/jpeg", 0.72));
+    Math.round((img.height-sh)/2), sw, sh, 0, 0, m.w, m.h);
+  return await new Promise(r=>c.toBlob(r, "image/jpeg", m.q));
 }
 
 async function agregar(input, campo){
   const files=[...input.files]; input.value="";
   for(const f of files){
     try{
-      const blob=await recortarCentro(f);
+      const blob=await recortarCentro(f, campo);
       cie[campo].push({blob:blob, url:URL.createObjectURL(blob),
                        tipoMime:blob.type, nombre:f.name});
     }catch(e){ toast("No se pudo leer una imagen",true) }
