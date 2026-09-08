@@ -99,7 +99,7 @@
         <option value="est.jair">Jair · Levantamientos</option>
         <option value="est.alin">Alin · Instalaciones</option>
         <option value="est.proyectos">Karina · Proyectos especiales</option>
-        <option value="est.berenice">Berenice · CAT</option>
+        <option value="est.ariana">Berenice · CAT</option>
         <option value="est.gloria">Monse · Mantenimientos</option>
       </optgroup>
       <optgroup label="Ventas">
@@ -188,7 +188,11 @@ const DESTINOS={
                      "coordinacion","captura"],
   "est.alin":       ["cierre","programacion","coordinacion","captura"],
   "est.proyectos":  ["proyectos","cierre","programacion","coordinacion","captura"],
-  "est.berenice":   ["cat","cierre","programacion","coordinacion","captura"],
+  /* La estacion del CAT la toma Berenice, pero la CUENTA sigue siendo
+     `est.ariana`: es la que existe en la base, con su clave. No se crea una
+     nueva a nombre de Berenice porque entonces habria una puerta que no abre.
+     Solo cambia el nombre que se muestra. */
+  "est.ariana":     ["cat","cierre","programacion","coordinacion","captura"],
   "est.gloria":     ["programacion","coordinacion","demanda","cierre",
                      "captura","proyectos","levantamientos","cat","entregables"],
   "est.ximena":     ["captura","programacion","coordinacion","cierre",
@@ -209,8 +213,7 @@ const NOMBRES={"est.jenifer":["Jenifer","Captura"],
  "est.jair":["Jair","Coordinación de levantamientos"],
  "est.alin":["Alin","Coordinación de instalaciones"],
  "est.proyectos":["Karina","Proyectos especiales"],
- "est.ariana":["Ariana","CAT y centro de monitoreo"],
- "est.berenice":["Berenice","CAT y centro de monitoreo"],
+ "est.ariana":["Berenice","CAT y centro de monitoreo"],
  "est.gloria":["Monse","Coordinación de mantenimientos"],
  "est.ximena":["Ximena","Captura · Mantenimientos"],
  "est.jocelyn":["Jocelyn","Auxiliar administrativo · Gerencia"],
