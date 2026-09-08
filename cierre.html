@@ -244,10 +244,22 @@ const DOMINIO="mdcontrol.local";
 const BUCKET="evidencias";
 
 /* Cada coordinador abre en la suya; gerencia y subgerencia ven todas. Es lo
-   mismo que su rol en la estación: INTEGRAL sobre su coordinación. */
-const SUYA={"est.jair":"Jair","est.alin":"Alin","est.ariana":"Ariana",
-            "est.proyectos":"Karina","ext.possam":"Possam","ext.sore":"Sore","est.ximena":"Ximena","est.jocelyn":"Jocelyn","est.ivan":"Iván","est.patricia":"Patricia",
-            "est.jenifer":"Jenifer"};
+   mismo que su rol en la estación: INTEGRAL sobre su coordinación.
+
+   Esto guardaba NOMBRES —"Jair", "Alin", "Ariana"— y se los daba a un filtro
+   que solo entiende claves de coordinación: MANT, INST, LEV, PRY_ESP, CAT.
+   Ninguno coincidía, asi que el select se quedaba en "Todas" y el
+   preseleccionado no ocurrió nunca, para nadie. Ahora van las claves.
+
+   Quien no tiene una sola coordinación no aparece aquí: Jenifer captura de
+   todas y Jocelyn es de gerencia. Para ellas "Todas" es lo correcto, no un
+   descuido. */
+const SUYA={"est.jair":"LEV", "est.alin":"INST", "est.berenice":"CAT",
+            "est.proyectos":"PRY_ESP",
+            "est.ivan":"MANT", "est.patricia":"MANT", "est.gloria":"MANT",
+            "est.ximena":"MANT",
+            /* los externos trabajan por contrato de mantenimiento */
+            "ext.possam":"MANT", "ext.sore":"MANT"};
 
 const LLAVES_SESION=["md_capt", "md_prog", "md_coord", "md_cierre", "md_cat", "md_lev", "md_sup", "md_ventas", "md_demanda", "md_ses", "md_web", "md_tec"];
 
