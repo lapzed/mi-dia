@@ -335,18 +335,30 @@
   .tres input:nth-child(3){flex:1}
   .pista{font-size:11.5px;color:var(--txt3);margin:-4px 0 8px}
   .thumbs{display:flex;gap:7px;flex-wrap:wrap;margin:-4px 0 12px}
-  .th{position:relative;width:66px;height:66px;border-radius:9px;overflow:hidden;
+  /* 78 y no 66: los dos botones viven ENCIMA de la foto y a 66 no cabian sin
+     taparla. */
+  .th{position:relative;width:78px;height:78px;border-radius:9px;overflow:hidden;
     border:1px solid var(--line);background:#0F2C4A}
   .th img{width:100%;height:100%;object-fit:cover}
   .th .pdf{display:flex;align-items:center;justify-content:center;height:100%;
     font-size:10px;font-weight:700;color:var(--acc);text-align:center;padding:4px}
-  .th .x{position:absolute;top:2px;right:2px;background:rgba(5,16,28,.85);color:#fff;
-    width:19px;height:19px;border-radius:50%;font-size:12px;line-height:19px;text-align:center;cursor:pointer}
+  /* Median 19px. La regla de esta app es que ningun boton baje de 44 -lo que
+     mide una yema- y estos dos se la saltaban por mucho: Ricardo tenia que
+     atinarle a un punto de 3mm encima de la foto. Siguen siendo chicos porque
+     la miniatura lo es, pero ahora se ven y se tocan: 26 de caja, 40 de area
+     tocable con el `::after` invisible que los rodea. */
+  .th .x{position:absolute;top:3px;right:3px;background:rgba(5,16,28,.9);color:#fff;
+    width:26px;height:26px;border-radius:50%;font-size:15px;line-height:26px;
+    text-align:center;cursor:pointer;border:1.5px solid rgba(255,255,255,.5)}
   /* el lápiz para marcar la trayectoria; abajo, para no pelearse con la × */
-  .th .mk{position:absolute;bottom:2px;right:2px;background:rgba(5,16,28,.85);
-    color:var(--acc);width:19px;height:19px;border-radius:50%;font-size:11px;
-    line-height:19px;text-align:center;cursor:pointer}
-  .th .mk:active{background:var(--acc);color:#07203a}
+  .th .mk{position:absolute;bottom:3px;right:3px;background:var(--acc);
+    color:#07203a;width:26px;height:26px;border-radius:50%;font-size:14px;
+    line-height:26px;text-align:center;cursor:pointer;font-weight:700;
+    box-shadow:0 1px 4px rgba(0,0,0,.55)}
+  .th .mk:active{background:#fff}
+  /* el area que responde al dedo, mas grande que el circulo que se ve */
+  .th .x::after,.th .mk::after{content:"";position:absolute;left:-7px;top:-7px;
+    right:-7px;bottom:-7px;border-radius:50%}
   .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
     border-radius:11px;padding:10px 12px;font-size:12px;margin-bottom:12px}
 
@@ -2305,53 +2317,68 @@ function mkDibujarForma(c, a, e){
   c.translate(a.x, a.y);
   if(a.ang) c.rotate(a.ang);
   c.lineCap = "butt"; c.lineJoin = "miter";
-  c.strokeStyle = "#1B2430"; c.fillStyle = "#1B2430"; c.lineWidth = g;
 
-  if(a.k === "RECT"){
-    c.strokeRect(-w/2, -h/2, w, h);
-  }
-  else if(a.k === "MURO"){
-    c.fillRect(-w/2, -h/2, w, h);
-  }
-  else if(a.k === "COLUMNA"){
-    c.fillRect(-w/2, -h/2, w, h);
-  }
-  else if(a.k === "VENTANA"){
-    /* como en un plano: el hueco del muro con los dos vidrios */
-    c.fillStyle = "#FFFFFF";
-    c.fillRect(-w/2, -h/2, w, h);
-    c.strokeRect(-w/2, -h/2, w, h);
-    c.strokeStyle = "#1B2430"; c.lineWidth = g*0.7;
-    c.beginPath(); c.moveTo(-w/2, 0); c.lineTo(w/2, 0); c.stroke();
-  }
-  else if(a.k === "PUERTA"){
-    /* la hoja y su barrido, que es como se dibuja una puerta */
-    c.beginPath(); c.moveTo(-w/2, h/2); c.lineTo(-w/2, -h/2 + h*0.12); c.stroke();
-    c.lineWidth = g*0.8;
-    c.beginPath(); c.arc(-w/2, h/2, w*0.95, -Math.PI/2, 0); c.stroke();
-  }
-  else if(a.k === "ESCALERA"){
-    c.strokeRect(-w/2, -h/2, w, h);
-    c.lineWidth = g*0.65;
-    const n = Math.max(3, Math.round(w/26));
-    for(let i = 1; i < n; i++){
-      const x = -w/2 + (w/n)*i;
-      c.beginPath(); c.moveTo(x, -h/2); c.lineTo(x, h/2); c.stroke();
+  /* Se dibuja DOS veces: primero un contorno blanco mas grueso, luego la linea
+     negra encima. Sobre la hoja en blanco el halo no se nota y queda un plano
+     como debe ser; sobre una foto -un muro de ladrillo, un plafon oscuro- es
+     lo unico que separa la figura del fondo.
+
+     Sin esto la figura estaba puesta y no se veia, que para el tecnico es lo
+     mismo que no haberla puesto. La trayectoria y los aditamentos nunca
+     tuvieron el problema porque van en color. */
+  const capas = [{tinta:"rgba(255,255,255,.92)", crece:g*1.9},
+                 {tinta:"#1B2430",               crece:0}];
+
+  capas.forEach(function(capa){
+    const o = capa.crece/2;                 // cuanto se sale el halo por lado
+    c.strokeStyle = capa.tinta; c.fillStyle = capa.tinta;
+    c.lineWidth = g + capa.crece;
+
+    if(a.k === "RECT"){
+      c.strokeRect(-w/2, -h/2, w, h);
     }
-    /* la flecha de subida: sin ella no se sabe hacia donde sube */
-    c.lineWidth = g*0.8;
-    c.beginPath(); c.moveTo(-w/2 + w*0.12, 0); c.lineTo(w/2 - w*0.12, 0); c.stroke();
-    const p = Math.min(w, h)*0.16;
-    c.beginPath(); c.moveTo(w/2 - w*0.12, 0);
-    c.lineTo(w/2 - w*0.12 - p, -p*0.7); c.lineTo(w/2 - w*0.12 - p, p*0.7);
-    c.closePath(); c.fill();
-  }
-  else if(a.k === "ELEVADOR"){
-    c.strokeRect(-w/2, -h/2, w, h);
-    c.lineWidth = g*0.7;
-    c.beginPath(); c.moveTo(-w/2, -h/2); c.lineTo(w/2, h/2);
-    c.moveTo(w/2, -h/2); c.lineTo(-w/2, h/2); c.stroke();
-  }
+    else if(a.k === "MURO" || a.k === "COLUMNA"){
+      c.fillRect(-w/2 - o, -h/2 - o, w + o*2, h + o*2);
+    }
+    else if(a.k === "VENTANA"){
+      /* como en un plano: el hueco del muro con los dos vidrios */
+      c.strokeRect(-w/2, -h/2, w, h);
+      if(!capa.crece){
+        c.fillStyle = "#FFFFFF";
+        c.fillRect(-w/2 + g/2, -h/2 + g/2, w - g, h - g);
+        c.strokeStyle = "#1B2430"; c.lineWidth = g*0.7;
+        c.beginPath(); c.moveTo(-w/2, 0); c.lineTo(w/2, 0); c.stroke();
+      }
+    }
+    else if(a.k === "PUERTA"){
+      /* la hoja y su barrido, que es como se dibuja una puerta */
+      c.beginPath(); c.moveTo(-w/2, h/2); c.lineTo(-w/2, -h/2 + h*0.12); c.stroke();
+      c.lineWidth = g*0.8 + capa.crece;
+      c.beginPath(); c.arc(-w/2, h/2, w*0.95, -Math.PI/2, 0); c.stroke();
+    }
+    else if(a.k === "ESCALERA"){
+      c.strokeRect(-w/2, -h/2, w, h);
+      c.lineWidth = g*0.65 + capa.crece;
+      const n = Math.max(3, Math.round(w/26));
+      for(let i = 1; i < n; i++){
+        const x = -w/2 + (w/n)*i;
+        c.beginPath(); c.moveTo(x, -h/2); c.lineTo(x, h/2); c.stroke();
+      }
+      /* la flecha de subida: sin ella no se sabe hacia donde sube */
+      c.lineWidth = g*0.8 + capa.crece;
+      c.beginPath(); c.moveTo(-w/2 + w*0.12, 0); c.lineTo(w/2 - w*0.12, 0); c.stroke();
+      const p = Math.min(w, h)*0.16;
+      c.beginPath(); c.moveTo(w/2 - w*0.12 + o, 0);
+      c.lineTo(w/2 - w*0.12 - p - o, -p*0.7 - o); c.lineTo(w/2 - w*0.12 - p - o, p*0.7 + o);
+      c.closePath(); c.fill();
+    }
+    else if(a.k === "ELEVADOR"){
+      c.strokeRect(-w/2, -h/2, w, h);
+      c.lineWidth = g*0.7 + capa.crece;
+      c.beginPath(); c.moveTo(-w/2, -h/2); c.lineTo(w/2, h/2);
+      c.moveTo(w/2, -h/2); c.lineTo(-w/2, h/2); c.stroke();
+    }
+  });
   c.restore();
 }
 
