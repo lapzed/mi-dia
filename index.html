@@ -406,12 +406,18 @@
 <div class="modal" id="mTec" style="display:none">
   <div class="box">
     <h2>Entrar</h2>
-    <p class="sub">Busca tu nombre en la lista y escribe la clave que te dio el área técnica.</p>
-    <select id="selUsr" onchange="document.getElementById('inPwd').focus()">
-      <option value="">Cargando…</option>
-    </select>
-    <input id="inUsr" placeholder="o escribe tu usuario" autocapitalize="none"
-           autocorrect="off" autocomplete="username" style="display:none">
+    <p class="sub">Escribe el usuario y la clave que te dio el área técnica. Solo
+       la primera vez: después este teléfono lo recuerda.</p>
+    <!-- Sin "nombre.apellido" en la pista: no es la regla. jose.jaime,
+         diego.armando, ana.luisa y luis.angel son nombre y segundo nombre, y
+         esa leyenda los mandaba a teclear un usuario que no existe. -->
+    <!-- Ya no hay lista de nombres. Para llenarla habia que leer las cuentas
+         SIN haber entrado, y eso dejaba la lista completa de usuarios validos
+         -35, con nombre y rol- a cualquiera en internet con la llave publica del
+         sitio. Supabase lo marco como falla critica el 31-ago-2026. -->
+    <input id="inUsr" placeholder="usuario (ej. ricardo.escobar)" autocapitalize="none"
+           autocorrect="off" autocomplete="username" spellcheck="false"
+           onkeydown="if(event.key==='Enter')document.getElementById('inPwd').focus()">
     <input id="inPwd" type="password" placeholder="clave" autocomplete="current-password"
            onkeydown="if(event.key==='Enter')entrar()">
     <div class="aviso" id="errLogin" style="display:none"></div>
@@ -649,34 +655,27 @@ async function renovar(){
   }catch(e){ return false }
 }
 
-/* el desplegable se llena antes de entrar: es lo unico que la base deja leer
-   sin sesion, y trae solo usuario y nombre */
+/* Antes esto llenaba una lista con todo el personal, leida de la base SIN
+   sesion. Ya no: la lista de usuarios validos no se le da a quien no ha
+   entrado. En su lugar se escribe el usuario, y el telefono recuerda el
+   ultimo que entro -el tecnico usa SU telefono, asi que lo escribe una vez-.
+   De paso ya no depende de la red: abre igual en sotano. */
 async function llenarUsuarios(){
-  const sel=document.getElementById("selUsr");
-  try{
-    const l=await api("login_usuarios?select=usuario,nombre&order=nombre");
-    sel.innerHTML='<option value="">Elige tu nombre…</option>'+
-      l.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("")+
-      '<option value="__otro">Otro (escribir usuario)</option>';
-    const ult=localStorage.getItem("md_ultimo");
-    if(ult && l.some(u=>u.usuario===ult)) sel.value=ult;
-  }catch(e){
-    // sin internet no hay lista: que pueda teclear su usuario
-    sel.style.display="none";
-    document.getElementById("inUsr").style.display="";
-  }
+  const inp = document.getElementById("inUsr");
+  let ult = "";
+  try{ ult = localStorage.getItem("md_ultimo") || "" }catch(e){}
+  inp.value = ult;
+  setTimeout(function(){
+    document.getElementById(ult ? "inPwd" : "inUsr").focus();
+  }, 60);
 }
 
 async function entrar(){
-  const sel=document.getElementById("selUsr");
   const inp=document.getElementById("inUsr");
-  if(sel.value==="__otro"){                 // alguien recien dado de alta
-    sel.style.display="none"; inp.style.display=""; inp.focus(); return;
-  }
-  const u=((sel.value || inp.value)||"").trim().toLowerCase();
+  const u=(inp.value||"").trim().toLowerCase();
   const p=document.getElementById("inPwd").value||"";
   const err=document.getElementById("errLogin");
-  if(!u||!p){ err.style.display="block"; err.textContent="Elige tu nombre y escribe tu clave."; return }
+  if(!u||!p){ err.style.display="block"; err.textContent="Escribe tu usuario y tu clave."; return }
   err.style.display="none";
   try{
     const correo = u.indexOf("@")>0 ? u : u+"@"+DOMINIO;
@@ -701,11 +700,9 @@ function pedirTecnico(){                  // cerrar sesion / cambiar de usuario
   localStorage.removeItem("md_tec");
   localStorage.removeItem("md_tecnico");
   localStorage.removeItem("md_variantes");
-  /* Salir devuelve al MENU, no a la lista de esta pantalla. Esa lista sale de
-     `login_usuarios`, que trae solo al personal —tecnicos, ventas, externos—:
-     las coordinaciones y la gerencia no estan ahi, viven en el menu. Quien
-     cerraba sesion aqui se quedaba viendo puros tecnicos y sin forma de entrar
-     con otra cuenta.
+  /* Salir devuelve al MENU, no al acceso de esta pantalla: aqui entran los
+     tecnicos, pero las coordinaciones y la gerencia viven en el menu. Quien
+     cerraba sesion aqui se quedaba sin forma de entrar con otra cuenta.
 
      Tambien se suelta la sesion del menu: "salir" es salir de todo, no cambiar
      de pantalla con la misma cuenta puesta. */

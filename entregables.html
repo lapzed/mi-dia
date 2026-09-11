@@ -643,28 +643,16 @@ const ADMIN_FIJOS=[
 ];
 
 async function llenarUsuarios(){
+  /* Antes se completaba con los administrativos leidos de la base SIN sesion,
+     y eso dejaba la lista de cuentas a la vista de cualquiera. No hacia falta:
+     el unico administrativo es Jesus y ya viene fijo, igual que las
+     estaciones. Asi la pantalla abre sin preguntarle nada a la base. */
   const sel=document.getElementById("selUsr");
   const est=ESTACIONES.map(([u,n])=>`<option value="${u}">${esc(n)}</option>`).join("");
   const fijos=ADMIN_FIJOS.map(([u,n])=>`<option value="${u}">${esc(n)}</option>`).join("");
-  try{
-    const l=await api("login_usuarios?select=usuario,nombre,rol&order=nombre");
-    /* los que ya vienen con etiqueta propia no se repiten */
-    const puestos=ADMIN_FIJOS.map(([u])=>u);
-    const adm=l.filter(u=>u.rol==="ADMINISTRATIVO" && puestos.indexOf(u.usuario)<0);
-    /* Las empresas externas NO entran aquí: los informes los genera el área.
-       Ellos suben la evidencia de sus técnicos desde Mi día y nada más, que es
-       lo prudente con personal que rota. */
-    sel.innerHTML='<option value="">Elige tu nombre…</option>'+
-      '<optgroup label="Área administrativa">'+
-        adm.map(u=>`<option value="${esc(u.usuario)}">${esc(u.nombre||u.usuario)}</option>`).join("")+
-        fijos+'</optgroup>'+
-      '<optgroup label="Coordinaciones">'+est+'</optgroup>';
-  }catch(e){
-    // sin conexión igual se puede entrar: las estaciones no dependen de la consulta
-    sel.innerHTML='<option value="">Elige tu nombre…</option>'+
-      '<optgroup label="Área administrativa">'+fijos+'</optgroup>'+
-      '<optgroup label="Coordinaciones">'+est+'</optgroup>';
-  }
+  sel.innerHTML='<option value="">Elige tu nombre…</option>'+
+    '<optgroup label="Área administrativa">'+fijos+'</optgroup>'+
+    '<optgroup label="Coordinaciones">'+est+'</optgroup>';
 }
 async function entrar(){
   const u=(document.getElementById("selUsr").value||"").trim().toLowerCase();
