@@ -69,6 +69,13 @@
      terminaba desparramada de orilla a orilla. Ahora cada control tiene su
      ancho y el nombre largo se corta con puntos suspensivos: para ELEGIR no
      hace falta leerlo entero, la lista se abre completa. */
+  /* Lo que es para moverse por la pantalla no va al papel. La regla de
+     impresion de abajo esconde encabezado, filtros y tabla, pero se escribio
+     ANTES de que existieran la barra de etapas y el panel de pedidos, y los
+     dos salian impresos arriba del informe. Va aqui y no en esa regla porque
+     aquella vive dentro del candado del informe. */
+  @media print{ #etapas,#pedidos{display:none !important} }
+
   /* ---- barra de etapas: moverse por el flujo sin volver al inicio ----
      Aqui no estaba, y era la unica pantalla sin salida: quien llegaba a
      Entregables solo podia cerrar sesion para ir a otro lado. */
