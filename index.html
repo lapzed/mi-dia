@@ -3021,10 +3021,106 @@ async function recortarCentro(file, campo){
   return await new Promise(r=>c.toBlob(r, "image/jpeg", m.q));
 }
 
+/* ---------- el plano del cliente, en PDF ----------
+   El cliente manda su plano en PDF y el tecnico de levantamiento necesita
+   trazarle encima la trayectoria y poner los aditamentos. El marcador dibuja
+   sobre una IMAGEN, y un PDF no lo es: por eso el lapiz no aparecia y el plano
+   se quedaba sin marcar -en toda la base no habia un solo PDF subido-.
+
+   Solucion: al subirlo, cada hoja se convierte en imagen AQUI, en el telefono.
+   Desde ese momento es una foto mas y todo lo que ya existe sirve sin tocarlo:
+   el lapiz, los aditamentos, las figuras, el informe.
+
+   - No se recorta a 4:3 ni a oficio: un plano es de la medida que es, y
+     recortarlo se come muros.
+   - Lado largo de 2000 px: los planos traen letra chica y al subir la imagen NO
+     se vuelve a reducir. Con menos, las cotas dejan de leerse.
+   - Fondo blanco antes de pintar: un PDF sin fondo sale NEGRO en JPEG.
+   - Tope de 10 hojas: un juego completo de planos de obra tiene 40, y ninguna
+     brigada va a marcar 40 hojas; se avisa cuantas se tomaron.
+   - Solo en LEVANTAMIENTOS, que es quien lo pidio. En las demas coordinaciones
+     un PDF se sigue subiendo como PDF, igual que siempre.
+   - Si no carga el lector -primera vez y sin senal- el PDF se sube tal cual:
+     antes perder la marca que perder el plano. */
+const PDFJS_URL    = "./lib/pdfjs/pdf.min.js";
+const PDFJS_WORKER = "./lib/pdfjs/pdf.worker.min.js";
+const PDF_MAX_HOJAS = 10;
+const PDF_LADO      = 2000;
+let pdfjsPromesa = null;
+
+/* El lector pesa 1.4 MB: se pide solo la primera vez que alguien sube un PDF,
+   no al abrir la app. El service worker lo guarda y la siguiente abre sin red. */
+function cargarPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if(pdfjsPromesa) return pdfjsPromesa;
+  pdfjsPromesa = new Promise(function(ok, mal){
+    const sc = document.createElement("script");
+    sc.src = PDFJS_URL;
+    sc.onload = function(){
+      if(!window.pdfjsLib){ pdfjsPromesa = null; mal(new Error("sin pdfjsLib")); return }
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      ok(window.pdfjsLib);
+    };
+    sc.onerror = function(){ pdfjsPromesa = null; mal(new Error("no cargo pdf.js")) };
+    document.head.appendChild(sc);
+  });
+  return pdfjsPromesa;
+}
+
+async function pdfAHojas(file){
+  const lib = await cargarPdfJs();
+  const datos = new Uint8Array(await file.arrayBuffer());
+  const doc = await lib.getDocument({data: datos}).promise;
+  const total = doc.numPages;
+  const n = Math.min(total, PDF_MAX_HOJAS);
+  const hojas = [];
+  for(let p = 1; p <= n; p++){
+    const pag = await doc.getPage(p);
+    const v1 = pag.getViewport({scale: 1});
+    const vp = pag.getViewport({scale: PDF_LADO / Math.max(v1.width, v1.height)});
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+    const g = cv.getContext("2d");
+    g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, cv.width, cv.height);
+    /* intent "print" y no el de pantalla: el de pantalla avanza cuadro por
+       cuadro con requestAnimationFrame, y el navegador congela eso en cuanto la
+       pagina deja de verse. Si el tecnico sube el plano y se va a WhatsApp -o se
+       le apaga la pantalla- la conversion se quedaba detenida a media hoja.
+       Comprobado: con la pagina oculta, "display" nunca termina; "print" si. */
+    await pag.render({canvasContext: g, viewport: vp, intent: "print"}).promise;
+    hojas.push(await new Promise(function(r){ cv.toBlob(r, "image/jpeg", 0.85) }));
+    pag.cleanup();
+  }
+  doc.destroy();
+  return {hojas: hojas, total: total};
+}
+
 async function agregar(input, campo){
   const files=[...input.files]; input.value="";
+  const esLev = !!(cie && cie.srv) && (cie.srv.coord||"").toUpperCase()==="LEV";
   for(const f of files){
     try{
+      if(esLev && f.type==="application/pdf"){
+        try{
+          toast("Convirtiendo el PDF para poder marcarlo…");
+          const r = await pdfAHojas(f);
+          const base = (f.name||"plano.pdf").replace(/\.pdf$/i, "");
+          r.hojas.forEach(function(b, k){
+            cie[campo].push({blob:b, url:URL.createObjectURL(b), tipoMime:"image/jpeg",
+                             nombre: base+" · hoja "+(k+1)+".jpg", dePdf:true});
+          });
+          if(r.total > r.hojas.length)
+            toast("El PDF trae "+r.total+" hojas; se tomaron las primeras "+
+                  r.hojas.length+".", true);
+          else
+            toast(r.hojas.length===1 ? "Listo: toca ✎ para marcar el plano."
+                                     : "Listo: "+r.hojas.length+" hojas. Toca ✎ en la que vayas a marcar.");
+          continue;
+        }catch(e){
+          toast("No se pudo abrir el PDF para marcarlo; se sube tal cual.", true);
+          /* y sigue por el camino de siempre: antes perder la marca que el plano */
+        }
+      }
       const blob=await recortarCentro(f, campo);
       cie[campo].push({blob:blob, url:URL.createObjectURL(blob),
                        tipoMime:blob.type, nombre:f.name});

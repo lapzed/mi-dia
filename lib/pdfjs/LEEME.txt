@@ -1,0 +1,17 @@
+PDF.js 3.11.174 (build UMD, expone window.pdfjsLib)
+Origen: https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/
+Licencia: Apache-2.0 (Mozilla). Se conserva el encabezado de licencia en cada archivo.
+
+Para que sirve: en Mi dia, cuando un tecnico de LEVANTAMIENTOS sube el plano del
+cliente en PDF, cada hoja se convierte en imagen dentro del telefono para poder
+marcarle trayectorias, aditamentos y figuras.
+
+Por que vive aqui y no se pide al CDN: el tecnico trabaja con senal mala. Estos
+archivos son del mismo sitio, asi que el service worker los guarda la primera
+vez que se usan y despues abren sin red.
+
+No estan en la lista SHELL de sw.js a proposito: pesan 1.4 MB y solo los baja
+quien de verdad marca un PDF, no todos los telefonos en cada version.
+
+Si se cambia de version: v4 en adelante ya no trae build UMD (solo .mjs) y
+rompe la carga con <script>. Quedarse en 3.x o reescribir la carga.
