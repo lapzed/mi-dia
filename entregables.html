@@ -791,7 +791,9 @@ async function cargar(){
   "plasticas,aluminio,eliptica,bocina_plafon,estrobo,antena,amplificador,ups,"+
   /* las condiciones del inmueble: van al informe del levantamiento, que es de
      donde sale la cotizacion */
-  "tipo_inmueble,segurista_vigia,equipo_especial,altura,horario_inst,tiempo_inst_est"+
+  "tipo_inmueble,segurista_vigia,equipo_especial,altura,horario_inst,tiempo_inst_est,"+
+  /* el cuestionario que captura la estacion VBA, que vive en el servicio */
+  "eq_especializado,tipo,amplificador_cap,coaxial,pot,ur,p_gruesa,p_delgada,f_zapa,materiales"+
   "&status=eq.ATENDIDO"+
         "&order=fecha_atencion.desc,dependencia";
   if(cli) q+="&dependencia=eq."+encodeURIComponent(cli);
@@ -2326,14 +2328,41 @@ const RENG_LEV = [
   ["estrobo","Estrobos"], ["ups","UPS"], ["coaxial","Coaxial (3 m)"],
   ["pot","Cable POT (3 m)"], ["ur","Cable UR (3 m)"],
   ["p_gruesa","Tubería gruesa (3 m)"], ["p_delgada","Tubería delgada (3 m)"],
-  ["fijacion","Medio de fijación"], ["taquete","Taquete / anclaje"], ["notas","Notas"]
+  ["fijacion","Medio de fijación"], ["taquete","Taquete / anclaje"],
+  ["f_zapa","Fijación zapa"], ["materiales","Materiales"], ["notas","Notas"]
 ];
 const SUM_LEV = ["amplificador","plasticas","aluminio","eliptica","bocina_plafon",
-                 "estrobo","ups","antena","coaxial","pot","ur","p_gruesa","p_delgada"];
+                 "estrobo","ups","antena","coaxial","pot","ur","p_gruesa","p_delgada","f_zapa"];
 
 /* "Distinto de cero" incluye el vacio: un renglon sin llenar y uno en cero
    dicen lo mismo -no se necesita- y ninguno de los dos merece un renglon. */
 function vivoLev(v){ const t = String(v==null?"":v).trim(); return t!=="" && t!=="0" }
+
+/* Lo que captura la estacion VBA. Jair llena el cuestionario en la VBA y la
+   VBA lo guarda en el SERVICIO, no en `propuestas` -que solo llena la web-. Por
+   eso 75 levantamientos con todo capturado salian con la hoja 3 vacia. Si no
+   hay propuesta por area se arma una con lo del servicio; si la hay, esa manda. */
+const CUEST_VBA = ["equipo","amplificador","amplificador_cap","antena","plasticas","aluminio",
+  "eliptica","bocina_plafon","estrobo","ups","coaxial","pot","ur","p_gruesa","p_delgada",
+  "f_zapa","materiales"];
+function propuestaDeServicio(x){
+  const p = {n:1, nombre:"Inmueble", _deServicio:true};
+  let hay = false;
+  CUEST_VBA.forEach(function(k){ if(vivoLev(x[k])){ p[k] = String(x[k]).trim(); hay = true } });
+  return hay ? [p] : [];
+}
+
+/* Equipo especializado como lo guarda la VBA: `eq_especializado` dice si hace
+   falta y `tipo` dice cual. "SÍ · ARNES". `equipo_especial` -la columna que abrio
+   la web y nadie lleno- solo si lo demas esta vacio. */
+function eqEspecializadoTexto(x){
+  const si = String(x.eq_especializado||"").trim();
+  const cual = String(x.tipo||"").trim();
+  const norm = /^s[ií]$/i.test(si) ? "SÍ" : /^no$/i.test(si) ? "NO" : si;
+  const partes = [norm, cual].filter(function(t){ return t && t !== "-" });
+  if(partes.length) return partes.join(" · ");
+  return limpio(x.equipo_especial);
+}
 
 /* Como se llama cada area. Si el tecnico no le puso nombre, se numera: sin
    nombre la columna no se podria distinguir de la de al lado. */
@@ -2362,7 +2391,7 @@ function tablaCondiciones(x){
   const filas = [
     ["Tipo de inmueble",            limpio(x.tipo_inmueble)],
     ["Requiere segurista o vigía",  limpio(x.segurista_vigia)],
-    ["Equipo especializado",        limpio(x.equipo_especial)],
+    ["Equipo especializado",        eqEspecializadoTexto(x)],
     ["Altura de trabajo",           (alt && alt.toUpperCase()!=="NA") ? alt+" m" : ""],
     ["Horario en que dejan instalar", limpio(x.horario_inst)],
     ["Tiempo estimado de instalación", limpio(x.tiempo_inst_est) ? limpio(x.tiempo_inst_est)+" min" : ""],
@@ -2388,7 +2417,7 @@ function tablaLev(ps){
       ${ps.map((p,i)=>`<th class="c">${esc(areaLev(p,i))}</th>`).join("")}
       ${varias?`<th class="c">TOTAL</th>`:""}</tr>
     ${usados.map(([k,et])=>`<tr><td>${esc(et)}</td>
-      ${ps.map(p=>`<td class="${k==="notas"?"":"c"}">${esc(vivoLev(p[k])?String(p[k]).trim():"—")}</td>`).join("")}
+      ${ps.map(p=>`<td class="${k==="notas"||k==="materiales"?"":"c"}">${esc(vivoLev(p[k])?String(p[k]).trim():"—")}</td>`).join("")}
       ${varias?`<td class="c">${SUM_LEV.indexOf(k)>=0?esc(suma(k)):"—"}</td>`:""}</tr>`).join("")}</table>`;
 }
 
@@ -2524,7 +2553,12 @@ async function informeDe(x, num, ident, conLog){
                         "&servicio_id=eq." + x.id + "&order=n&limit=60");
     }catch(e){ props = [] }
   }
-  const AREAS = areasEnTexto(props);
+  /* Sin propuesta por area, la del cuestionario de la VBA. Las areas en la
+     conclusion solo se nombran si son areas de verdad: "el área de Inmueble" no
+     dice nada, y ahi la frase se remite a lo señalado en el documento. */
+  const reales = props.length;
+  if(P.propuesta && !reales) props = propuestaDeServicio(x);
+  const AREAS = reales ? areasEnTexto(props) : "";
   const tablaProp = P.propuesta ? tablaLev(props) : "";
 
   /* 1 · portada */

@@ -434,7 +434,11 @@ async function cargar(){
   const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
   let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,fecha_servicio,"+
         "fecha_atencion,tecnico,tipo_inmueble,requerimientos,obs_coord,tiempo_inst_est,"+
-        "segurista_vigia,equipo_especial,altura,horario_inst,"+
+        "segurista_vigia,equipo_especial,eq_especializado,tipo,altura,horario_inst,"+
+        /* el cuestionario que llena Jair en la estacion VBA: vive en el servicio,
+           no en `propuestas`, y sin esto la ficha salia vacia en 75 levantamientos */
+        "equipo,amplificador,amplificador_cap,antena,plasticas,aluminio,eliptica,"+
+        "bocina_plafon,estrobo,ups,coaxial,pot,ur,p_gruesa,p_delgada,f_zapa,materiales,"+
         "status&coord=eq.LEV&order=fecha_atencion.desc,nombre";
   if(de) q+="&fecha_servicio=gte."+de;
   if(a)  q+="&fecha_servicio=lte."+a;
@@ -506,7 +510,52 @@ const LISTAS = {
 };
 
 const SUMABLES=["amplificador","plasticas","aluminio","eliptica","bocina_plafon","estrobo","ups",
-                "antena","coaxial","pot","ur","p_gruesa","p_delgada"];
+                "antena","coaxial","pot","ur","p_gruesa","p_delgada","f_zapa"];
+
+/* ---------- lo que captura la estacion VBA ----------
+   Jair llena el cuestionario del levantamiento en la estacion VBA, y la VBA lo
+   guarda en el SERVICIO: una sola columna por concepto. Esta pantalla buscaba
+   la propuesta en `propuestas` -una fila por area-, que solo llena la web, y
+   por eso 75 levantamientos con todo capturado salian vacios en la ficha.
+
+   Cuando un servicio no tiene propuesta por area, se arma una con lo del
+   servicio, como una sola columna "Inmueble". Si tiene propuesta por area, esa
+   manda, igual que antes.
+
+   Solo para MOSTRAR. El editor sigue trabajando sobre `propuestas`: si le
+   pasaramos esta fila armada, al guardar intentaria escribir f_zapa y
+   materiales en una tabla que no tiene esas columnas. */
+const CUEST_VBA = ["equipo","amplificador","amplificador_cap","antena","plasticas","aluminio",
+  "eliptica","bocina_plafon","estrobo","ups","coaxial","pot","ur","p_gruesa","p_delgada",
+  "f_zapa","materiales"];
+function propsDe(x){
+  const reales = props[llave(x)]||[];
+  if(reales.length) return reales;
+  const p = {n:1, nombre:"Inmueble", _deServicio:true};
+  let hay = false;
+  CUEST_VBA.forEach(function(k){
+    const v = limpio(x[k]);
+    if(v && v !== "0"){ p[k] = v; hay = true }
+  });
+  return hay ? [p] : [];
+}
+/* La ficha muestra dos renglones que la VBA captura y `propuestas` no tiene.
+   Van en una lista APARTE de RENGLONES porque RENGLONES tambien arma el editor. */
+const RENGLONES_FICHA = RENGLONES.slice(0, -1)
+  .concat([["f_zapa","Fijación zapa"],["materiales","Materiales"]], RENGLONES.slice(-1));
+
+/* Equipo especializado como lo guarda la VBA: `eq_especializado` dice si hace
+   falta (SI / NO / No verificado) y `tipo` dice cual (ARNES, DC3, ALTURA). Se
+   juntan: "SÍ · ARNES". `equipo_especial` es la columna que abrio la web el
+   07-sep y nadie lleno; se lee solo si lo demas esta vacio. */
+function eqEspecializadoTexto(x){
+  const si = String(x.eq_especializado||"").trim();
+  const cual = String(x.tipo||"").trim();
+  const norm = /^s[ií]$/i.test(si) ? "SÍ" : /^no$/i.test(si) ? "NO" : si;
+  const partes = [norm, cual].filter(function(t){ return t && t !== "-" });
+  if(partes.length) return partes.join(" · ");
+  return String(x.equipo_especial||"").trim();
+}
 
 function suma(ps,k){
   const t=ps.reduce((a,p)=>a+(parseFloat(p[k])||0),0);
@@ -531,12 +580,12 @@ function pintar(){ pintarCinta();
   const cli=document.getElementById("fCli").value;
   const fp=document.getElementById("fProp").value;
   let v=filas.filter(x=>!cli||(x.dependencia||"").trim()===cli);
-  if(fp==="con")  v=v.filter(x=>(props[llave(x)]||[]).length>0);
-  if(fp==="comp") v=v.filter(x=>(props[llave(x)]||[]).length>1);
-  if(fp==="sin")  v=v.filter(x=>!(props[llave(x)]||[]).length);
+  if(fp==="con")  v=v.filter(x=>propsDe(x).length>0);
+  if(fp==="comp") v=v.filter(x=>propsDe(x).length>1);
+  if(fp==="sin")  v=v.filter(x=>!propsDe(x).length);
 
-  const con=filas.filter(x=>(props[llave(x)]||[]).length>0).length;
-  const equipos=filas.reduce((a,x)=>a+(props[llave(x)]||[]).length,0);
+  const con=filas.filter(x=>propsDe(x).length>0).length;
+  const equipos=filas.reduce((a,x)=>a+propsDe(x).length,0);
   document.getElementById("resumen").innerHTML=
     `<div class="pill"><b>${filas.length}</b>levantamientos</div>
      <div class="pill"><b style="color:#5BD79B">${con}</b>ya levantados</div>
@@ -548,7 +597,7 @@ function pintar(){ pintarCinta();
     return;
   }
   document.getElementById("lista").innerHTML=v.map(x=>{
-    const ps=props[llave(x)]||[];
+    const ps=propsDe(x);
     return `<div class="lev">
       <div class="lev-cab">
         <div>
@@ -561,7 +610,7 @@ function pintar(){ pintarCinta();
           ${[limpio(x.tipo_inmueble)&&"Inmueble: "+x.tipo_inmueble,
              limpio(x.tiempo_inst_est)&&"Tiempo estimado: "+x.tiempo_inst_est,
              limpio(x.segurista_vigia)&&"Segurista/vigía: "+x.segurista_vigia,
-             limpio(x.equipo_especial)&&"Equipo: "+x.equipo_especial,
+             eqEspecializadoTexto(x)&&"Eq. especializado: "+eqEspecializadoTexto(x),
              limpio(x.horario_inst)&&"Horario: "+x.horario_inst,
              limpio(x.requerimientos)&&"Requiere: "+x.requerimientos,
              limpio(x.obs_coord)&&"Nota: "+x.obs_coord]
@@ -733,7 +782,7 @@ async function guardarSubida(){
 
 /* ---------- ficha para el cliente ---------- */
 function hojaFicha(x, ps){
-  const usados=RENGLONES.filter(([k])=>ps.some(p=>limpio(p[k])));
+  const usados=RENGLONES_FICHA.filter(([k])=>ps.some(p=>limpio(p[k])));
   return `<div class="hoja">
     <div class="marca"><img src="${LOGO}"></div>
     <h1>Propuesta de instalación del sistema de alerta sísmica</h1>
@@ -747,7 +796,7 @@ function hojaFicha(x, ps){
       ${limpio(x.segurista_vigia)?`<tr><td class="et">Requiere segurista o vigía</td><td>${esc(x.segurista_vigia)}</td></tr>`:""}
       ${limpio(x.tiempo_inst_est)?`<tr><td class="et">Tiempo estimado de instalación</td><td>${esc(x.tiempo_inst_est)} min</td></tr>`:""}
       ${limpio(x.altura)&&limpio(x.altura)!=="NA"?`<tr><td class="et">Altura de trabajo</td><td>${esc(x.altura)} m</td></tr>`:""}
-      ${limpio(x.equipo_especial)?`<tr><td class="et">Equipo especializado</td><td>${esc(x.equipo_especial)}</td></tr>`:""}
+      ${eqEspecializadoTexto(x)?`<tr><td class="et">Equipo especializado</td><td>${esc(eqEspecializadoTexto(x))}</td></tr>`:""}
       ${limpio(x.horario_inst)?`<tr><td class="et">Horario en que dejan instalar</td><td>${esc(x.horario_inst)}</td></tr>`:""}
     </table>
     <p style="font-size:11.5px;margin:0 0 3mm"><b>${ps.length}</b>
@@ -766,7 +815,7 @@ function hojaFicha(x, ps){
 }
 function ficha(coord,id){
   const x=filas.find(s=>s.coord===coord&&s.id===id);
-  const ps=props[llave(x)]||[];
+  const ps=propsDe(x);
   document.getElementById("salida").innerHTML=hojaFicha(x,ps);
   setTimeout(()=>window.print(),300);
 }
@@ -774,11 +823,11 @@ function imprimirTodas(){
   const cli=document.getElementById("fCli").value;
   const fp=document.getElementById("fProp").value;
   let v=filas.filter(x=>!cli||(x.dependencia||"").trim()===cli);
-  if(fp==="con")  v=v.filter(x=>(props[llave(x)]||[]).length>0);
-  if(fp==="comp") v=v.filter(x=>(props[llave(x)]||[]).length>1);
-  v=v.filter(x=>(props[llave(x)]||[]).length);
+  if(fp==="con")  v=v.filter(x=>propsDe(x).length>0);
+  if(fp==="comp") v=v.filter(x=>propsDe(x).length>1);
+  v=v.filter(x=>propsDe(x).length);
   if(!v.length){ alert("No hay levantamientos con propuesta en lo que estás viendo."); return }
-  document.getElementById("salida").innerHTML=v.map(x=>hojaFicha(x,props[llave(x)])).join("");
+  document.getElementById("salida").innerHTML=v.map(x=>hojaFicha(x,propsDe(x))).join("");
   setTimeout(()=>window.print(),400);
 }
 
