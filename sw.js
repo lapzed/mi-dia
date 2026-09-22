@@ -12,11 +12,11 @@
    Ahora es al reves: se sirve lo guardado de inmediato y la copia se refresca
    por detras. La app abre siempre, y como el CACHE cambia en cada publicacion,
    una version nueva se recoge igual. */
-const CACHE  = "mdcontrol-v200";
+const CACHE  = "mdcontrol-v201";
 const LIMITE = 8000;   // lo que se espera a la red cuando no hay copia guardada
 
 const SHELL = ["./inicio.html", "./index.html", "./entregables.html", "./manifest.json",
-               "./ayuda.html", "./levantamientos.html", "./supervision.html", "./demanda.html", "./tablero.html", "./proyectos.html", "./ventas.html", "./programacion.html", "./coordinacion.html", "./captura.html", "./cierre.html", "./cat.html", "./icon-192.png", "./icon-512.png"];
+               "./ayuda.html", "./levantamientos.html", "./supervision.html", "./semana.html", "./demanda.html", "./tablero.html", "./proyectos.html", "./ventas.html", "./programacion.html", "./coordinacion.html", "./captura.html", "./cierre.html", "./cat.html", "./icon-192.png", "./icon-512.png"];
 
 /* Uno por uno y aguantando fallas. `addAll` es todo-o-nada: en datos moviles
    basta que UNO de los dieciocho no baje para que no se guarde NINGUNO, y el

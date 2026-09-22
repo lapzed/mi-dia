@@ -150,6 +150,7 @@ const DOMINIO="mdcontrol.local";
 const LLAVES={"proyectos.html":"md_pry", "tablero.html":"md_tablero", "demanda.html":"md_demanda", "captura.html":"md_capt", "programacion.html":"md_prog",
   "coordinacion.html":"md_coord", "cierre.html":"md_cierre", "cat.html":"md_cat",
   "supervision.html":"md_sup", "ventas.html":"md_ventas", "levantamientos.html":"md_lev",
+  "semana.html":"md_prog",
   "entregables.html":"md_ses",
     /* Mi dia tiene su PROPIA llave —no comparte md_ses con entregables, para no
        heredar la sesion de quien haya entrado antes en ese equipo—. Faltaba
@@ -163,6 +164,7 @@ const LLAVES={"proyectos.html":"md_pry", "tablero.html":"md_tablero", "demanda.h
 const PANTALLAS={
   captura:      ["captura.html",      "📝", "Captura", "Dar de alta servicios nuevos"],
   programacion: ["programacion.html", "📅", "Programación", "Asignar brigada y mandar el mensaje"],
+  semana:       ["semana.html",       "🗓", "Semana", "La semana de cada técnico, como la agenda de papel"],
   coordinacion: ["coordinacion.html", "📞", "Coordinación", "Confirmar citas con el cliente"],
   cierre:       ["cierre.html",       "✅", "Cierre", "Cerrar servicios y pedir el informe"],
   levantamientos:["levantamientos.html","📐","Levantamientos", "Propuestas, croquis y fichas"],
@@ -179,35 +181,35 @@ const PANTALLAS={
 /* Qué pantallas le tocan a cada quien. Es lo mismo que ya podía abrir; aquí
    solo se le presenta en orden, empezando por la que más usa. */
 const DESTINOS={
-  "est.ivan":       ["programacion","coordinacion","demanda","cierre","captura"],
+  "est.ivan":       ["programacion","semana","coordinacion","demanda","cierre","captura"],
   /* Entregables le faltaba a Jair. Es el coordinador de levantamientos, su
      coordinacion ya tiene informe propio... y no tenia por donde generarlo: la
      pantalla no filtra por rol -entra quien traiga sesion- pero si no aparece
      el mosaico, la puerta no existe. */
-  "est.jair":       ["levantamientos","entregables","cierre","programacion",
+  "est.jair":       ["levantamientos","semana","entregables","cierre","programacion",
                      "coordinacion","captura"],
-  "est.alin":       ["cierre","programacion","coordinacion","captura"],
-  "est.proyectos":  ["proyectos","cierre","programacion","coordinacion","captura"],
+  "est.alin":       ["cierre","semana","programacion","coordinacion","captura"],
+  "est.proyectos":  ["proyectos","semana","cierre","programacion","coordinacion","captura"],
   /* La estacion del CAT la toma Berenice, pero la CUENTA sigue siendo
      `est.ariana`: es la que existe en la base, con su clave. No se crea una
      nueva a nombre de Berenice porque entonces habria una puerta que no abre.
      Solo cambia el nombre que se muestra. */
-  "est.ariana":     ["cat","cierre","programacion","coordinacion","captura"],
-  "est.gloria":     ["programacion","coordinacion","demanda","cierre",
+  "est.ariana":     ["cat","semana","cierre","programacion","coordinacion","captura"],
+  "est.gloria":     ["programacion","semana","coordinacion","demanda","cierre",
                      "captura","proyectos","levantamientos","cat","entregables"],
   "est.ximena":     ["captura","programacion","coordinacion","cierre",
                      "demanda","entregables"],
   /* Supervision de primera: Jocelyn supervisa lo que mandan las coordinaciones.
      Estaba en su lista de acceso de la pantalla pero no en su menu, asi que no
      tenia por donde entrar. */
-  "est.jocelyn":    ["supervision","captura","programacion","coordinacion","cierre",
+  "est.jocelyn":    ["supervision","semana","captura","programacion","coordinacion","cierre",
                      "proyectos","demanda","levantamientos","cat","entregables"],
   "ext.sore":        ["dia"],
   "ext.possam":      ["dia"],
   "jesus.acosta":   ["entregables"],
   "est.ventas":     ["ventas"],
-  "est.gerencia":   ["tablero","supervision","demanda","proyectos","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
-  "est.subgerencia":["tablero","supervision","demanda","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
+  "est.gerencia":   ["tablero","supervision","semana","demanda","proyectos","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"],
+  "est.subgerencia":["tablero","supervision","semana","demanda","ventas","cierre","programacion","coordinacion","captura","cat","entregables","levantamientos"]
 };
 
 const NOMBRES={"est.jenifer":["Jenifer","Captura"],
