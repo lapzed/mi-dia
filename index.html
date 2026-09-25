@@ -90,6 +90,16 @@
   .etapas .falta{background:rgba(232,163,61,.15);color:#F0BE6E}
 
   .acts{display:flex;gap:7px;margin:11px 0 0 6px;flex-wrap:wrap}
+  /* salí / llegué / terminé */
+  .pasos{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:11px 0 0 6px}
+  .pasos .hecho{font-size:11px;font-weight:700;color:#5BD79B;background:rgba(30,142,90,.16);
+    padding:4px 9px;border-radius:20px;white-space:nowrap}
+  .pasos .b-paso{background:var(--acc);color:#07203A;flex:1;justify-content:center;
+    font-size:13.5px;padding:11px 12px}
+  .pasos .listo{font-size:11.5px;color:var(--txt2);flex:1}
+  .pasos .deshacer{font-size:11px;color:var(--txt3);background:none;padding:4px 6px;
+    text-decoration:underline;font-weight:400}
+  .pasos .pend{font-size:10.5px;color:#F0BE6E}
   button{font:inherit;border:none;border-radius:10px;padding:9px 12px;font-size:12.5px;
     font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
   .b-map,.b-tel{background:#17456E;color:var(--acc)}
@@ -798,11 +808,14 @@ async function cargar(){
       "avance_tec,avance_coord,avance_ts,"+
       /* las condiciones del inmueble: lo que ya se sepa se le muestra al
          tecnico para que corrija, en vez de preguntarselo otra vez */
-      "segurista_vigia,equipo_especial,eq_especializado,tipo,altura,horario_inst,tiempo_inst_est"+
+      "segurista_vigia,equipo_especial,eq_especializado,tipo,altura,horario_inst,tiempo_inst_est,"+
+      "sale_ts,llega_ts,termina_ts"+
       "&fecha_servicio=gte."+isoDe(a)+"&fecha_servicio=lte."+isoDe(b)+
       "&order=fecha_servicio,horario_atencion&limit=500");
+    aplicarPasosPendientes();
     guardarSemanaLocal();
     document.getElementById("sinRed").innerHTML="";
+    enviarPasos();
     // estos son adorno: si fallan, la lista se ve igual
     try{ await marcarEquipo() }catch(e){}
     try{ await marcarEvidencias() }catch(e){}
@@ -843,6 +856,7 @@ addEventListener("online", async ()=>{
   if(reintentando || !ses || !tecnico) return;
   reintentando = true;
   try{ await cargar(); sincronizar(false) }catch(e){}
+  enviarPasos();
   reintentando = false;
 });
 
@@ -1016,6 +1030,7 @@ function pintar(){
         ).join(" · ")}</div>`:""}
       ${nt?`<div class="nota">⚠️ ${esc(nt)}</div>`:""}
       ${ficha(x)}
+      ${pasosDe(x, cerrado)}
       ${(cerrado||Object.keys(x._ev||{}).length)?`<div class="etapas">${
         (esObra(x)
           ? Object.keys(x._ev||{}).map(t=>`<span class="ok">✓ ${esc(NOMBRE_TIPO[t]||t)}</span>`)
@@ -1039,6 +1054,109 @@ function pintar(){
       </div>
     </div>`;
   }).join("");
+}
+
+/* ============ salí / llegué / terminé ============
+   El libro pide al coordinador monitorear al técnico antes, durante y después
+   del servicio, y eso era preguntar por WhatsApp: ¿vas en camino?, ¿ya
+   llegaste?, ¿ya terminaste? Con tres toques el técnico lo dice una vez y
+   Coordinación ve sola a quién se le hizo tarde.
+
+   Solo en los servicios de HOY y sin cerrar. Se marca por la función
+   marcar_paso (pasos_campo.sql), que deja marcar también al auxiliar.
+
+   Sin señal el toque no se pierde: se guarda en el teléfono con la hora en
+   que se tocó y se manda al volver la señal. La base respeta esa hora. */
+const PASOS = [
+  {k:"sale_ts",    paso:"SALE",    boton:"🚐 Salí al sitio", hecho:"Salí"},
+  {k:"llega_ts",   paso:"LLEGA",   boton:"📍 Llegué",        hecho:"Llegué"},
+  {k:"termina_ts", paso:"TERMINA", boton:"🏁 Terminé",       hecho:"Terminé"}
+];
+const COLA_PASOS = "md_pasos_cola";
+function colaPasos(){ try{ return JSON.parse(localStorage.getItem(COLA_PASOS)||"[]") }catch(e){ return [] } }
+function guardarColaPasos(c){ try{ localStorage.setItem(COLA_PASOS, JSON.stringify(c)) }catch(e){} }
+
+function horaCorta(ts){
+  if(!ts) return "";
+  const d=new Date(ts);
+  return isNaN(d) ? "" : d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false});
+}
+
+function pasosDe(x, cerrado){
+  if(cerrado || x.fecha_servicio!==hoyISO()) return "";
+  const k=llave(x);
+  const pend=colaPasos().some(q=>q.k===k);
+  const hechos=PASOS.filter(p=>x[p.k]);
+  const sig=PASOS.find(p=>!x[p.k]);
+  return `<div class="pasos">
+    ${hechos.map(p=>`<span class="hecho">✓ ${p.hecho} ${esc(horaCorta(x[p.k]))}</span>`).join("")}
+    ${sig ? `<button class="b-paso" onclick="marcarPaso('${x.coord}',${x.id},'${sig.paso}')">${sig.boton}</button>`
+          : `<span class="listo">Ahora ciérralo con su evidencia ↓</span>`}
+    ${hechos.length ? `<button class="deshacer" onclick="marcarPaso('${x.coord}',${x.id},'DESHACER')">deshacer</button>` : ""}
+    ${pend ? `<span class="pend">sin señal: se manda al volver</span>` : ""}
+  </div>`;
+}
+
+function aplicarPaso(s, paso, cuando){
+  if(paso==="DESHACER"){
+    const ult=[...PASOS].reverse().find(p=>s[p.k]);
+    if(ult) s[ult.k]=null;
+    return;
+  }
+  const p=PASOS.find(z=>z.paso===paso);
+  if(p) s[p.k]=cuando;
+}
+
+/* lo tocado sin señal todavía no está en la base: al recargar se vuelve a
+   poner encima para que el técnico no vea desaparecer su toque */
+function aplicarPasosPendientes(){
+  colaPasos().forEach(q=>{
+    const s=(semana||[]).find(z=>llave(z)===q.k);
+    if(s) aplicarPaso(s, q.paso, q.cuando);
+  });
+}
+
+function marcarPaso(coord, id, paso){
+  const s=(semana||[]).find(z=>z.coord===coord && z.id===id);
+  if(!s) return;
+  const cuando=new Date().toISOString();
+  aplicarPaso(s, paso, cuando);
+  const c=colaPasos();
+  c.push({k:llave(s), coord:coord, id:id, paso:paso, cuando:cuando, tkt:s.tkt||""});
+  guardarColaPasos(c);
+  /* la copia del teléfono se actualiza sin moverle la hora de descarga: esa
+     hora es la que dice el aviso de "estás viendo lo del …" */
+  try{
+    const g=leerSemanaLocal();
+    if(g){ g.filas=semana; localStorage.setItem("md_semana", JSON.stringify(g)) }
+  }catch(e){}
+  pintar();
+  enviarPasos();
+}
+
+let enviandoPasos=false;
+async function enviarPasos(){
+  if(enviandoPasos || !ses) return;
+  enviandoPasos=true;
+  try{
+    let c=colaPasos();
+    while(c.length){
+      const q=c[0];
+      try{
+        await api("rpc/marcar_paso",{method:"POST",
+          headers:{Prefer:"return=representation"},
+          body:JSON.stringify({p_coord:q.coord, p_id:q.id, p_paso:q.paso, p_cuando:q.cuando})});
+        anotar("APP: "+q.paso, "id="+q.id, {coord:q.coord, tkt:q.tkt});
+      }catch(e){
+        if(e.red) break;                      // sin señal: se intenta después
+        /* la base lo rechazó (no es de su brigada, o la función aún no existe):
+           reintentarlo para siempre no lo arregla */
+        toast("No se pudo marcar "+q.paso.toLowerCase()+": "+String(e.message||e).slice(0,70), true);
+      }
+      c=colaPasos(); c.shift(); guardarColaPasos(c);
+    }
+  }finally{ enviandoPasos=false }
+  pintar();
 }
 
 /* ============ hoja de cierre ============

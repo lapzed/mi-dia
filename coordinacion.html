@@ -61,6 +61,24 @@
   .cinta.ambar{background:rgba(232,163,61,.11);border-color:rgba(232,163,61,.45);color:#F5CE93}
   .cinta.rojo{background:rgba(198,65,59,.12);border-color:rgba(198,65,59,.45);color:#F3B0AC}
   .cinta .foco{font-size:19px;line-height:1}
+  /* hoy en campo: los pasos que marca el tecnico en Mi dia */
+  .campo{background:var(--card);border:1px solid var(--line);border-radius:13px;
+    padding:12px 14px;margin-bottom:12px}
+  .campo .cab{display:flex;gap:8px 14px;align-items:baseline;flex-wrap:wrap}
+  .campo .cab b{font-size:14px}
+  .campo .chips{display:flex;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--txt2)}
+  .campo .chips span{background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+  .campo .act{margin-left:auto;font-size:11px;color:var(--txt3)}
+  .campo ul{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
+  .campo li{display:grid;grid-template-columns:48px minmax(0,1fr) minmax(0,1.2fr);gap:10px;
+    align-items:baseline;font-size:12.5px;padding:6px 9px;border-radius:9px;
+    border-left:3px solid transparent;background:rgba(255,255,255,.02)}
+  .campo li.rojo{border-left-color:var(--bad)} .campo li.ambar{border-left-color:var(--warn)}
+  .campo li .h{font-weight:800;font-variant-numeric:tabular-nums}
+  .campo li .por{color:#F5CE93} .campo li.rojo .por{color:#F3B0AC}
+  .campo .ok{color:#9EE7C2;font-size:12.5px;margin-top:8px}
+  .campo .uso{font-size:11px;color:var(--txt3);margin-top:8px}
+  @media (max-width:640px){ .campo li{grid-template-columns:44px 1fr} .campo li .por{grid-column:2} }
   .cinta b{font-weight:800}
   .cinta .det{color:var(--txt2);font-size:12px}
   .cinta a{margin-left:auto;color:inherit;font-weight:700;text-decoration:none;
@@ -145,12 +163,13 @@
 
   <div id="etapas"></div>
   <div id="cinta"></div>
+  <div id="campo"></div>
 
   <div class="barra" id="barra" style="display:none">
     <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
     <div class="f"><label>Hasta</label><input type="date" id="fA" onchange="cargar()"></div>
     <div class="f"><label>Coordinación</label>
-      <select id="fCoord" onchange="cargar()">
+      <select id="fCoord" onchange="cargar();cargarCampo()">
         <option value="">Todas</option>
         <option>MANT</option><option>INST</option><option>LEV</option>
         <option>PRY_ESP</option><option>CAT</option>
@@ -424,6 +443,96 @@ async function arrancar(){
   document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
   await cargarCatalogos(); await cargarEjecutivos();
   cargar();
+  cargarCampo();
+  setInterval(cargarCampo, 5*60*1000);   // el campo cambia solo; esto no se recarga a mano
+}
+
+/* ---------- hoy en campo ----------
+   El libro pide monitorear al tecnico antes, durante y despues del servicio.
+   Antes era preguntar por WhatsApp; ahora el tecnico marca Sali / Llegue /
+   Termine en Mi dia (pasos_campo.sql) y aqui se ve SOLO lo que se atraso.
+
+   Reglas (hora = la de la cita):
+     rojo   paso la hora + 15 min y no ha llegado
+     ambar  falta media hora para la cita y no ha salido
+     ambar  lleva mas de 3 h en sitio (MANT, LEV, CAT; una instalacion dura el dia)
+     ambar  termino hace mas de una hora y no ha cerrado con evidencia */
+const CAMPO_CERRADO = ["ATENDIDO","REPROGRAMADO","CONTINUIDAD"];
+const CAMPO_FUERA   = ["CANCELADO","PROSPECTO","ATENCION VENTAS"];
+const CAMPO_MAX_SITIO = {MANT:180, LEV:180, CAT:180};
+function citaHoy(h){
+  const m=String(h||"").match(/^(\d{1,2}):(\d{2})/);
+  if(!m) return null;
+  const d=new Date(); d.setHours(+m[1], +m[2], 0, 0); return d;
+}
+function horaDe(ts){
+  const d=new Date(ts);
+  return isNaN(d)?"":d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false});
+}
+function minutos(n){ n=Math.round(n); return n<60 ? n+" min" : Math.floor(n/60)+" h"+(n%60?" "+(n%60)+" min":"") }
+function atrasoCampo(x, ahora){
+  const cita=citaHoy(x.horario_atencion), hc=hhmm(x.horario_atencion);
+  const st=(x.status||"").toUpperCase().trim();
+  if(CAMPO_CERRADO.indexOf(st)>=0) return null;
+  if(x.termina_ts){
+    const m=(ahora-new Date(x.termina_ts))/60000;
+    return m>60 ? {c:"ambar", t:"Terminó a las "+horaDe(x.termina_ts)+" y no ha cerrado con evidencia"} : null;
+  }
+  if(x.llega_ts){
+    const lim=CAMPO_MAX_SITIO[x.coord], m=(ahora-new Date(x.llega_ts))/60000;
+    return (lim && m>lim) ? {c:"ambar", t:"Lleva "+minutos(m)+" en sitio (llegó "+horaDe(x.llega_ts)+")"} : null;
+  }
+  if(!cita) return null;
+  if(ahora-cita > 15*60000)
+    return {c:"rojo", t:"Cita a las "+hc+" y no ha llegado"+
+      (x.sale_ts ? " · salió "+horaDe(x.sale_ts) : " · no marcó salida")};
+  if(!x.sale_ts && cita-ahora < 30*60000)
+    return {c:"ambar", t:"Cita a las "+hc+" y no ha salido"};
+  return null;
+}
+async function cargarCampo(){
+  const c=document.getElementById("campo");
+  if(!c) return;
+  const co=document.getElementById("fCoord").value;
+  let f;
+  try{
+    f=await api("servicios?select=id,coord,tkt,nombre,horario_atencion,status,tecnico,"+
+      "sale_ts,llega_ts,termina_ts&fecha_servicio=eq."+hoyISO()+(co?"&coord=eq."+co:"")+
+      "&order=horario_atencion&limit=400");
+  }catch(e){ c.innerHTML=""; return }      // sin las columnas nuevas todavia: no se muestra
+  f=(f||[]).filter(x=>CAMPO_FUERA.indexOf((x.status||"").toUpperCase().trim())<0);
+  if(!f.length){ c.innerHTML=""; return }
+  const ahora=new Date();
+  const cerr=x=>CAMPO_CERRADO.indexOf((x.status||"").toUpperCase().trim())>=0;
+  const n={sin:0, camino:0, sitio:0, term:0, cerr:0};
+  f.forEach(x=>{
+    if(cerr(x)) n.cerr++;
+    else if(x.termina_ts) n.term++;
+    else if(x.llega_ts) n.sitio++;
+    else if(x.sale_ts) n.camino++;
+    else n.sin++;
+  });
+  const usan=f.filter(x=>x.sale_ts||x.llega_ts||x.termina_ts).length;
+  const tarde=f.map(x=>({x:x, a:atrasoCampo(x, ahora)})).filter(z=>z.a)
+    .sort((p,q)=>(p.a.c==="rojo"?0:1)-(q.a.c==="rojo"?0:1));
+  c.innerHTML='<div class="campo"><div class="cab"><b>Hoy en campo</b>'+
+    '<div class="chips">'+
+      (n.sin?'<span>'+n.sin+' sin salir</span>':"")+
+      (n.camino?'<span>'+n.camino+' en camino</span>':"")+
+      (n.sitio?'<span>'+n.sitio+' en sitio</span>':"")+
+      (n.term?'<span>'+n.term+(n.term>1?' terminados':' terminado')+' sin cerrar</span>':"")+
+      (n.cerr?'<span>'+n.cerr+(n.cerr>1?' cerrados':' cerrado')+'</span>':"")+'</div>'+
+    '<span class="act">actualizado '+horaDe(ahora)+' · cada 5 min</span></div>'+
+    (tarde.length
+      ? '<ul>'+tarde.map(z=>'<li class="'+z.a.c+'"><span class="h">'+
+          esc(hhmm(z.x.horario_atencion)||"—")+'</span><span><b>'+esc((z.x.nombre||"").slice(0,40))+'</b>'+
+          '<span class="sub"> · '+esc(z.x.coord)+(z.x.tkt?" TKT "+esc(z.x.tkt):"")+' · '+
+          esc(limpio(z.x.tecnico)||"sin brigada")+'</span></span>'+
+          '<span class="por">'+esc(z.a.t)+'</span></li>').join("")+'</ul>'
+      : '<div class="ok">Nadie atrasado. Solo aparece aquí lo que se sale de tiempo.</div>')+
+    '<div class="uso">'+usan+' de '+f.length+' servicios de hoy tienen al menos un paso marcado en Mi día.'+
+    (usan<f.length/2?' Mientras la brigada no use los botones, sus servicios salen como "no ha salido".':"")+
+    '</div></div>';
 }
 function semanaCampos(){
   document.getElementById("fDe").value=hoyISO();
