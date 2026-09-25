@@ -408,7 +408,7 @@
 
   <!-- servicios de atrás que quedaron sin fotos -->
   <button class="b-atras" id="btnAtras" onclick="abrirAtras()" style="display:none">
-    🗂️ Servicios pasados sin evidencia</button>
+    🗂️ Servicios cerrados sin evidencia</button>
   <div id="atras" style="display:none"></div>
 </div>
 
@@ -816,6 +816,7 @@ async function cargar(){
     guardarSemanaLocal();
     document.getElementById("sinRed").innerHTML="";
     enviarPasos();
+    contarSinEvidencia();
     // estos son adorno: si fallan, la lista se ve igual
     try{ await marcarEquipo() }catch(e){}
     try{ await marcarEvidencias() }catch(e){}
@@ -1444,24 +1445,50 @@ async function abrirAtras(){
   document.getElementById("lista").style.display = atras.abierto ? "none" : "";
   document.getElementById("sum").style.display   = atras.abierto ? "none" : "";
   cont.style.display = atras.abierto ? "block" : "none";
-  document.getElementById("btnAtras").textContent = atras.abierto
-    ? "◀ Volver a mi día" : "🗂️ Servicios pasados sin evidencia";
-  if(!atras.abierto) return;
+  if(!atras.abierto){ textoBtnAtras(); contarSinEvidencia(); return }
+  document.getElementById("btnAtras").textContent = "◀ Volver a mi día";
   cont.innerHTML = '<div class="load">Buscando lo que quedó sin fotos…</div>';
   try{
-    // lo mío ya viene filtrado por la base; solo lo cerrado y de fecha vieja
-    const tope = isoDe(new Date(Date.now() - 8*86400000));
-    const srv = await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
-      "fecha_servicio,fecha_atencion,tecnico,serie,status"+
-      "&status=eq.ATENDIDO&fecha_servicio=lt."+tope+
-      "&order=fecha_servicio.desc&limit=600");
-    const evs = await api("evidencias?select=coord,servicio_id&limit=5000");
-    const con = new Set(evs.map(e=>e.coord+"|"+e.servicio_id));
-    atras.filas = srv.filter(s=>!con.has(s.coord+"|"+s.id));
+    atras.filas = await buscarSinEvidencia();
     pintarAtras();
   }catch(e){
     cont.innerHTML = '<div class="vacio">No se pudo consultar: '+esc(e.message)+'</div>';
   }
+}
+
+/* Lo mío cerrado sin una sola foto. Desde el 25-sep-2026 entra tambien lo de
+   esta semana (antes solo lo de hace mas de 8 dias): la coordinacion cierra en
+   la oficina lo que el tecnico mando por WhatsApp, y lo reciente es justo lo
+   que todavia tiene las fotos en el telefono. La evidencia se pide por los ids
+   de esos servicios y no la tabla entera, que ya pasa de dos mil renglones. */
+async function buscarSinEvidencia(){
+  const srv = await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
+    "fecha_servicio,fecha_atencion,tecnico,serie,status"+
+    "&status=eq.ATENDIDO&fecha_servicio=lte."+hoyISO()+
+    "&order=fecha_servicio.desc&limit=600");
+  const con = new Set();
+  for(const co of [...new Set(srv.map(x=>x.coord))]){
+    const ids = srv.filter(x=>x.coord===co).map(x=>x.id);
+    for(let i=0; i<ids.length; i+=150){
+      const evs = await api("evidencias?select=coord,servicio_id&coord=eq."+co+
+        "&servicio_id=in.("+ids.slice(i,i+150).join(",")+")");
+      evs.forEach(e=>con.add(e.coord+"|"+e.servicio_id));
+    }
+  }
+  return srv.filter(x=>!con.has(x.coord+"|"+x.id));
+}
+
+/* El boton dice cuantos le faltan: "pasados sin evidencia" sin numero no
+   invitaba a abrirlo. */
+function textoBtnAtras(){
+  const b=document.getElementById("btnAtras");
+  if(!b || atras.abierto) return;
+  b.textContent = atras.n ? "🗂️ "+atras.n+" servicio"+(atras.n>1?"s":"")+" cerrado"+
+      (atras.n>1?"s":"")+" sin evidencia" : "🗂️ Servicios cerrados sin evidencia";
+}
+async function contarSinEvidencia(){
+  try{ atras.n = (await buscarSinEvidencia()).length }catch(e){ return }
+  textoBtnAtras();
 }
 
 function pintarAtras(){
@@ -1475,7 +1502,7 @@ function pintarAtras(){
   }
   cont.innerHTML = `
     <div class="sum">${atras.filas.length} servicio(s) tuyos cerrados sin una sola foto.
-      Sube lo que tengas guardado en el celular.</div>
+      Sube lo que tengas guardado en el celular: los de esta semana todavía los tienes.</div>
     <div class="f-mes">
       <select onchange="atras.mes=this.value;pintarAtras()">
         <option value="">Todos los meses</option>

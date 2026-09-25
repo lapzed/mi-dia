@@ -120,6 +120,14 @@
   .guardado{color:#5BD79B;font-size:11px}
   .fallo{color:#F0A9A5;font-size:11px}
   tr.viejo td{background:rgba(198,65,59,.07)}
+  /* candado suave: cerrado sin la evidencia que pide su coordinacion */
+  tr.sinev td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+  .ev .sinev{color:#F3B0AC;font-weight:700;margin-top:3px}
+  .porTec{background:var(--card);border:1px solid rgba(198,65,59,.4);border-radius:12px;
+    padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--txt2)}
+  .porTec b{color:#F3B0AC}
+  .porTec .t{display:inline-block;margin:4px 6px 0 0;padding:2px 9px;border-radius:20px;
+    background:rgba(198,65,59,.12);color:var(--txt);white-space:nowrap}
   .dias{font-weight:700}
 
   .vacio{text-align:center;color:var(--txt2);padding:46px}
@@ -196,9 +204,27 @@
   </div>
 
   <div class="resumen" id="resumen"></div>
+  <div id="porTec"></div>
   <div id="hallados"></div>
   <div id="atorados"></div>
   <div id="lista"><div class="load">Entra para cerrar tus servicios.</div></div>
+</div>
+
+<!-- subir lo que el tecnico mando por WhatsApp -->
+<div class="modal" id="mSubir" style="display:none">
+  <div class="box" style="max-width:430px">
+    <h2>Agregar evidencia</h2>
+    <p><b id="subSitio"></b><br><span id="subFecha"></span></p>
+    <label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">¿Qué es?</label>
+    <select id="subEtapa"></select>
+    <label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin:9px 0 4px">Archivos</label>
+    <input id="subFile" type="file" accept="image/*,application/pdf" multiple>
+    <div class="aviso" id="subErr" style="display:none"></div>
+    <button class="pri" id="subBtn" style="width:100%;justify-content:center"
+            onclick="guardarSubida()">Guardar</button>
+    <button style="width:100%;justify-content:center;margin-top:8px"
+            onclick="document.getElementById('mSubir').style.display='none'">Cancelar</button>
+  </div>
 </div>
 
 <div class="modal" id="mLogin">
@@ -739,6 +765,7 @@ function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
     <div class="pill"><b>${filas.length}</b>en el rango</div>
     <div class="pill"><b style="color:${ab?"#F0BE6E":"#5BD79B"}">${ab}</b>sin cerrar</div>
     <div class="pill"><b style="color:${sinEv?"#F0BE6E":"#5BD79B"}">${sinEv}</b>cerrados sin evidencia</div>`;
+  pintarPorTecnico();
   if(!v.length){ cont.innerHTML='<div class="vacio">Nada pendiente aquí.</div>'; return }
   cont.innerHTML=`<div class="tabla"><table><thead><tr>
     <th class="selcol"><input type="checkbox" id="selTodo"
@@ -749,7 +776,8 @@ function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
     </tr></thead><tbody>
     ${v.map(x=>{
       const i=filas.indexOf(x), d=dias(x.fecha_servicio), viejo=abierto(x)&&d>30;
-      return `<tr class="${viejo?"viejo":""}" data-i="${i}">
+      const se=cerrado(x)&&!completo(x);
+      return `<tr class="${viejo?"viejo":""}${se?" sinev":""}" data-i="${i}">
       <td class="selcol"><input type="checkbox" ${SEL.has(claveDe(x))?"checked":""}
           onchange="marcarUno(${i},this.checked)"></td>
       <td><span class="dias">${esc(x.fecha_servicio||"")}</span>
@@ -770,13 +798,92 @@ function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
             onchange="editar(${i},'fecha_atencion',this.value)"></td>
       <td>${celdaAvance(x, i)}</td>
       <td class="ev">${evidencia(x).map(e=>
-        `<div class="${e.ok?"si":"no"}">${e.ok?"✓":"○"} ${esc(e.t.toLowerCase())}</div>`).join("")}</td>
+        `<div class="${e.ok?"si":"no"}">${e.ok?"✓":"○"} ${esc(e.t.toLowerCase())}</div>`).join("")}
+        ${se?'<div class="sinev">cerrado sin evidencia</div>':""}
+        ${completo(x)?"":`<button class="mini" style="margin-top:4px" onclick="abrirSubir(${i})">+ fotos</button>`}</td>
       <td><textarea class="nota" onchange="editar(${i},'obs_coord',this.value)"
             placeholder="por qué se cierra así">${esc(x.obs_coord||"")}</textarea>
         ${limpio(x.obs_prog)?`<div class="sub">${esc(x.obs_prog)}</div>`:""}</td>
       <td>${informe(x,i)}</td>
       <td id="est${i}"></td></tr>`}).join("")}
   </tbody></table></div>`;
+}
+
+/* ---------- candado suave de evidencia (25-sep-2026) ----------
+   Del 1-ago al 25-sep se cerraron 587 mantenimientos y solo 15 tenian
+   evidencia en la base: el tecnico la manda por WhatsApp y aqui se cierra en
+   lote. Se decidio no bloquear el cierre, sino que quede a la vista:
+     - el renglon cerrado sin evidencia se marca en rojo;
+     - arriba se cuenta por brigada, para saber a quien pedirsela;
+     - el tecnico lo ve pendiente en Mi dia ("Servicios sin evidencia");
+     - y aqui mismo se sube lo que llego por WhatsApp (+ fotos). */
+function pintarPorTecnico(){
+  const c=document.getElementById("porTec");
+  if(!c) return;
+  const cuenta={};
+  filas.filter(x=>cerrado(x)&&!completo(x)).forEach(x=>{
+    const t=limpio(x.tecnico)||"sin brigada";
+    cuenta[t]=(cuenta[t]||0)+1;
+  });
+  const orden=Object.entries(cuenta).sort((a,b)=>b[1]-a[1]);
+  if(!orden.length){ c.innerHTML=""; return }
+  c.innerHTML='<div class="porTec"><b>Cerrados sin evidencia, por brigada</b> (en el rango elegido). '+
+    'El técnico los ve pendientes en Mi día; si la mandó por WhatsApp, súbela con <b>+ fotos</b>.<br>'+
+    orden.map(([t,n])=>'<span class="t">'+esc(t)+' · '+n+'</span>').join("")+'</div>';
+}
+
+const NOMBRE_EV={ANTES:"Antes del servicio", DURANTE:"Durante el servicio",
+  DESPUES:"Después del servicio", REPORTE:"Reporte firmado",
+  LEVANTAMIENTO:"Fotos del levantamiento", CROQUIS:"Croquis de lo propuesto",
+  ATENCION:"Fotos de la atención", AVANCE:"Avance del día"};
+let subir=null;
+function abrirSubir(i){
+  const x=filas[i]; if(!x) return;
+  subir={i:i, srv:x};
+  const tipos=pideDe(x.coord).slice();
+  if(tipos.indexOf("ANTES")>=0) tipos.splice(1,0,"DURANTE");
+  if(x.obra && tipos.indexOf("AVANCE")<0) tipos.push("AVANCE");
+  const tiene=EV[x.coord+"|"+x.id]||new Set();
+  document.getElementById("subEtapa").innerHTML=tipos.map(t=>
+    '<option value="'+t+'">'+esc(NOMBRE_EV[t]||t)+(tiene.has(t)?" (ya hay)":"")+'</option>').join("");
+  const falta=tipos.find(t=>!tiene.has(t));
+  if(falta) document.getElementById("subEtapa").value=falta;
+  document.getElementById("subSitio").textContent=(x.nombre||"")+(x.tkt?" · TKT "+x.tkt:"");
+  document.getElementById("subFecha").textContent=
+    (x.fecha_servicio||"—")+" · "+(limpio(x.tecnico)||"sin brigada");
+  document.getElementById("subErr").style.display="none";
+  document.getElementById("subFile").value="";
+  document.getElementById("mSubir").style.display="flex";
+}
+async function guardarSubida(){
+  const inp=document.getElementById("subFile"), err=document.getElementById("subErr");
+  const btn=document.getElementById("subBtn");
+  if(!inp.files.length){ err.textContent="Elige al menos un archivo"; err.style.display="block"; return }
+  const tipo=document.getElementById("subEtapa").value, x=subir.srv;
+  btn.disabled=true;
+  try{
+    for(let i=0;i<inp.files.length;i++){
+      btn.textContent="Subiendo "+(i+1)+"/"+inp.files.length+"…";
+      const f=inp.files[i];
+      const ext=f.type==="application/pdf"?"pdf":"jpg";
+      const ruta=x.coord+"/"+(x.tkt||("id"+x.id))+"/"+Date.now()+"_"+tipo+"_"+i+"."+ext;
+      const r=await conTiempoArchivo(SUPA_URL+"/storage/v1/object/"+BUCKET+"/"+ruta,
+        {method:"POST",headers:Object.assign({},hdr(),{"Content-Type":f.type||"image/jpeg"}),body:f});
+      if(!r.ok) throw new Error("no se pudo guardar el archivo ("+r.status+")");
+      await api("evidencias",{method:"POST",
+        headers:{"Content-Type":"application/json",Prefer:"return=minimal"},
+        /* `tecnico` documenta a la brigada; `subio` es quien lo cargo */
+        body:JSON.stringify({coord:x.coord,servicio_id:x.id,tkt:x.tkt||"",tipo:tipo,
+                             ruta:ruta,tecnico:x.tecnico||"",
+                             subio:nombreDe(ses&&ses.usuario)})});
+    }
+    const k=x.coord+"|"+x.id;
+    (EV[k]=EV[k]||new Set()).add(tipo);
+    anotar("SUBE EVIDENCIA", "ID="+x.id+" · "+tipo+" · "+inp.files.length+" archivo(s)", x);
+    document.getElementById("mSubir").style.display="none";
+    pintar();
+  }catch(e){ err.textContent=e.message; err.style.display="block" }
+  finally{ btn.disabled=false; btn.textContent="Guardar" }
 }
 
 /* ---------- cerrar el dia en lote ----------
@@ -900,8 +1007,10 @@ async function aplicarLote(){
 
   SEL.clear();
   document.getElementById("loteNota").value="";
-  aviso.textContent = fallo ? ("se guardaron "+ok+", fallaron "+fallo)
-                            : ("listo, "+ok+" guardados");
+  const sinEvLote = est==="ATENDIDO" ? v.filter(x=>!completo(x)).length : 0;
+  aviso.textContent = (fallo ? ("se guardaron "+ok+", fallaron "+fallo)
+                             : ("listo, "+ok+" guardados")) +
+    (sinEvLote ? " · "+sinEvLote+" sin evidencia: los técnicos los ven pendientes en Mi día" : "");
   setTimeout(()=>{ aviso.textContent="" }, 6000);
   pintar();
 }
@@ -1002,7 +1111,13 @@ async function editar(i, campo, valor){
     Object.assign(x, cuerpo);
     anotar(campo==="status" ? "AVANZA A "+valor : "GUARDAR",
            "ID="+x.id+" · "+campo+" = "+(valor||"(vacío)"), x);
-    if(celda){ celda.innerHTML='<span class="guardado">✓</span>';
+    if(campo==="status" && valor==="ATENDIDO" && !completo(x)){
+      /* candado suave: se deja cerrar, pero se dice en que queda */
+      pintar();
+      const c2=document.getElementById("est"+i);
+      if(c2) c2.innerHTML='<span class="fallo" title="El técnico lo ve pendiente en Mi día hasta que suba las fotos">'+
+        'cerrado sin evidencia</span>';
+    }else if(celda){ celda.innerHTML='<span class="guardado">✓</span>';
       setTimeout(()=>{ if(celda) celda.innerHTML="" },2500) }
     const ab=filas.filter(abierto).length, se=filas.filter(y=>cerrado(y)&&!completo(y)).length;
     document.getElementById("resumen").innerHTML=`
