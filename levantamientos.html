@@ -62,6 +62,7 @@
   .tag{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;
     background:#17456E;color:var(--acc);white-space:nowrap}
   .tag.no{background:rgba(232,163,61,.15);color:#F0BE6E}
+  .tag.sinfoto{background:rgba(198,65,59,.16);color:#F3B0AC}
 
   .comp{overflow-x:auto;margin-top:12px}
   .comp table{width:100%;border-collapse:collapse;font-size:13px;min-width:420px}
@@ -147,6 +148,7 @@
   </header>
 
   <div id="cinta"></div>
+  <div id="cintaEv"></div>
 
   <div class="filtros" id="filtros" style="display:none">
     <div class="f"><label>Cliente</label>
@@ -159,6 +161,11 @@
         <option value="con">Ya levantados</option>
         <option value="comp">De varios equipos</option>
         <option value="sin">Sin capturar</option></select></div>
+    <div class="f"><label>Fotos</label>
+      <select id="fEvid" onchange="pintar()">
+        <option value="">Todos</option>
+        <option value="sin">Sin fotos</option>
+        <option value="con">Con fotos</option></select></div>
     <button class="pri" onclick="imprimirTodas()">Imprimir fichas</button>
   </div>
 
@@ -268,7 +275,7 @@ function marcarUso(){
 
 let ses=sesionVigente(JSON.parse(localStorage.getItem("md_lev")||
   localStorage.getItem("md_web")||"null"))   /* la sesion es una sola: ver md_web abajo */;
-let filas=[], props={};
+let filas=[], props={}, conFoto=new Set();
 
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
   Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
@@ -429,6 +436,66 @@ async function pintarCinta(){
     '<a href="cierre.html">Ver y cerrar →</a>';
 }
 
+/* ---------- alerta de evidencia: lo que se cerro sin una sola foto ----------
+   Sin fotos no hay informe, y el cliente lo pide meses despues. La hoja de
+   Jair marcaba "fotos ok" en levantamientos que en la base no tienen nada:
+   el acuse estaba en su Excel, no en el sistema.
+
+   El numero de la cinta es el de los ULTIMOS 30 DIAS a proposito. El total
+   arrastra desde enero y es un numero que nadie puede bajar en una semana:
+   puesto al frente se vuelve paisaje y se deja de leer. Lo de los treinta dias
+   todavia se recupera -el tecnico se acuerda, las fotos siguen en su telefono-
+   y por eso es lo que se pide. El rezago se dice aparte, sin gritarlo. */
+function atendido(x){ return (x.status||"").toUpperCase().trim()==="ATENDIDO" }
+function sinFotos(x){ return atendido(x) && !conFoto.has(Number(x.id)) }
+function fechaDe(x){ return x.fecha_atencion||x.fecha_servicio||"" }
+
+function pintarCintaEv(){
+  const c=document.getElementById("cintaEv");
+  if(!c) return;
+  const sin=filas.filter(sinFotos);
+  if(!filas.length || !sin.length){ c.className=""; c.innerHTML=""; return }
+  const corte=_haceDias(30);
+  const recientes=sin.filter(x=>fechaDe(x)>=corte)
+                     .sort((a,b)=>fechaDe(b)<fechaDe(a)?-1:1);
+  if(!recientes.length){
+    c.className="cinta ambar";
+    c.innerHTML='<span class="foco">●</span>'+
+      '<b>Nada pendiente de este mes</b>'+
+      '<span class="det">Queda'+(sin.length>1?"n":"")+' '+sin.length+' levantamiento'+
+      (sin.length>1?"s":"")+' de antes sin una sola foto.</span>'+
+      '<a href="#" onclick="verSinFotos();return false">Ver los '+sin.length+' →</a>';
+    return;
+  }
+  /* el mismo TKT aparece dos veces cuando el levantamiento se partio en dos
+     servicios; en la muestra se ve como error de la pantalla, asi que se
+     nombra una sola vez -el conteo si los cuenta a los dos-. */
+  const vistos=new Set(), muestra=[];
+  for(const x of recientes){
+    const k=x.tkt||("id"+x.id);
+    if(vistos.has(k)) continue;
+    vistos.add(k);
+    muestra.push((x.tkt?esc(x.tkt)+" ":"")+esc((x.nombre||"").slice(0,26)));
+    if(muestra.length===3) break;
+  }
+  c.className="cinta rojo";
+  c.innerHTML='<span class="foco">●</span>'+
+    '<b>'+recientes.length+' levantamiento'+(recientes.length>1?"s":"")+
+    ' de los últimos 30 días sin fotos</b>'+
+    '<span class="det">'+muestra.join(" · ")+
+    (recientes.length>muestra.length?" · y "+(recientes.length-muestra.length)+" más":"")+
+    '. Sin evidencia no se puede generar el informe'+
+    (sin.length>recientes.length?"; "+sin.length+" sin fotos en total":"")+'.</span>'+
+    '<a href="#" onclick="verSinFotos();return false">Ver y cargar →</a>';
+}
+function verSinFotos(){
+  document.getElementById("fEvid").value="sin";
+  document.getElementById("fProp").value="";
+  document.getElementById("fCli").value="";
+  pintar();
+  document.getElementById("lista").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
 async function cargar(){
   document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
   const de=document.getElementById("fDe").value, a=document.getElementById("fA").value;
@@ -451,7 +518,14 @@ async function cargar(){
       document.getElementById("lista").innerHTML=
         '<div class="load">Cargando… '+filas.length+' levantamientos</div>';
     }
-    props={};
+    props={}; conFoto=new Set();
+    try{
+      for(let off=0; off<20000; off+=1000){
+        const e=await api("evidencias?select=servicio_id&coord=eq.LEV&limit=1000&offset="+off);
+        e.forEach(r=>conFoto.add(Number(r.servicio_id)));
+        if(e.length<1000) break;
+      }
+    }catch(e){}
     if(filas.length){
       const ids=[...new Set(filas.map(f=>f.id))];
       for(let i=0;i<ids.length;i+=300){
@@ -576,13 +650,16 @@ function comparativa(ps){
   </table></div>`;
 }
 
-function pintar(){ pintarCinta();
+function pintar(){ pintarCinta(); pintarCintaEv();
   const cli=document.getElementById("fCli").value;
   const fp=document.getElementById("fProp").value;
   let v=filas.filter(x=>!cli||(x.dependencia||"").trim()===cli);
   if(fp==="con")  v=v.filter(x=>propsDe(x).length>0);
   if(fp==="comp") v=v.filter(x=>propsDe(x).length>1);
   if(fp==="sin")  v=v.filter(x=>!propsDe(x).length);
+  const fe=document.getElementById("fEvid").value;
+  if(fe==="sin") v=v.filter(sinFotos);
+  if(fe==="con") v=v.filter(x=>conFoto.has(Number(x.id)));
 
   const con=filas.filter(x=>propsDe(x).length>0).length;
   const equipos=filas.reduce((a,x)=>a+propsDe(x).length,0);
@@ -590,7 +667,8 @@ function pintar(){ pintarCinta();
     `<div class="pill"><b>${filas.length}</b>levantamientos</div>
      <div class="pill"><b style="color:#5BD79B">${con}</b>ya levantados</div>
      <div class="pill"><b style="color:#63B3FF">${equipos}</b>equipos por instalar</div>
-     <div class="pill"><b style="color:#E8A33D">${filas.length-con}</b>sin capturar</div>`;
+     <div class="pill"><b style="color:#E8A33D">${filas.length-con}</b>sin capturar</div>
+     <div class="pill"><b style="color:#F3B0AC">${filas.filter(sinFotos).length}</b>sin fotos</div>`;
 
   if(!v.length){
     document.getElementById("lista").innerHTML='<div class="vacio">Nada con esos filtros.</div>';
@@ -619,6 +697,7 @@ function pintar(){ pintarCinta();
         <div class="der">
           ${ps.length?`<span class="tag">${ps.length} equipo${ps.length>1?"s":""}</span>`
                      :`<span class="tag no">sin capturar</span>`}
+          ${sinFotos(x)?`<span class="tag sinfoto" title="Cerrado sin una sola foto en el sistema">sin fotos</span>`:""}
           <button class="mini" onclick="abrirSubir('${x.coord}',${x.id})">+ fotos</button>
           <button class="mini" onclick="editar('${x.coord}',${x.id})">✎ Propuesta</button>
           <a class="mini" href="captura.html?corregir=${x.coord}-${x.id}"

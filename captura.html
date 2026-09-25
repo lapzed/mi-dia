@@ -127,6 +127,15 @@
 
   .aviso{background:rgba(198,65,59,.14);border:1px solid rgba(198,65,59,.4);color:#F0A9A5;
     border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:11px}
+  /* informacion minima (minimo.js) */
+  .minimoForm{border-radius:10px;padding:9px 11px;font-size:12px;margin-top:12px;
+    border:1px solid var(--line);color:var(--txt2)}
+  .minimoForm b{color:var(--txt)}
+  .minimoForm.rojo{border-color:rgba(198,65,59,.45);background:rgba(198,65,59,.08)}
+  .minimoForm.ambar{border-color:rgba(232,163,61,.45);background:rgba(232,163,61,.08)}
+  .minimoForm.verde{border-color:rgba(30,142,90,.45);background:rgba(30,142,90,.08)}
+  .minimo{font-size:12px;cursor:help;margin-right:3px}
+  .minimo.verde{color:#5BD79B} .minimo.ambar{color:#F0BE6E} .minimo.rojo{color:#F0877F}
   .bien{background:rgba(30,142,90,.16);border:1px solid rgba(30,142,90,.45);color:#9EE7C2;
     border-radius:10px;padding:9px 11px;font-size:12.5px;margin-bottom:11px}
   /* el unico boton que borra: que no se parezca a los demas */
@@ -191,6 +200,7 @@
       </div>
       <div id="avisoEdit"></div>
       <div id="campos"></div>
+      <div id="minimoForm"></div>
       <div id="msg"></div>
       <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px">
         <button class="pri" id="btnAlta" onclick="guardar()">Dar de alta el servicio</button>
@@ -310,6 +320,7 @@
 </script>
 
 
+<script src="minimo.js"></script>
 <script>
 const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
@@ -574,7 +585,37 @@ function pintarCampos(){
   document.getElementById("c_dia_creacion").value=hoyISO();
   ayudasDeDireccion();
   if(sitioSel) volcarSitio(sitioSel);
+  revisarMinimo();
 }
+
+/* ---------- informacion minima, mientras se captura ----------
+   No detiene el alta (se decidio avisar, no bloquear): dice que le falta al
+   servicio para programarse bien y a quien hay que pedirselo. Lo que es de
+   Ventas se busca primero en el CRM; si tampoco esta alla, Programacion tiene
+   el boton que se lo pide al ejecutivo por WhatsApp. */
+function revisarMinimo(){
+  const c=document.getElementById("minimoForm");
+  if(!c) return;
+  const x={coord:document.getElementById("fCoord").value};
+  MINIMO_REGLAS.forEach(function(r){ x[r[0]]=leer(r[0]) });
+  x.long=leer("long");
+  const f=faltantesMinimo(x, CAT.TIPO_SERVICIO);
+  if(!f){ c.className=""; c.innerHTML=""; return }
+  const s=semaforoMinimo(f);
+  c.className="minimoForm "+s;
+  c.innerHTML = !f.length
+    ? puntoMinimo(f)+'<b>Información mínima completa.</b> Se puede programar sin volver a Ventas.'
+    : puntoMinimo(f)+'<b>Falta para programar:</b> '+esc(detalleMinimo(f))+'.'+
+      (s==="rojo" ? ' Lo de Ventas búscalo primero en el ticket del CRM; si tampoco está,'+
+        ' se le pide al ejecutivo desde Programación.' : '')+
+      ' <span style="opacity:.75">Se puede dar de alta igual.</span>';
+}
+document.addEventListener("input", function(e){
+  if(e.target && e.target.id && e.target.id.indexOf("c_")===0) revisarMinimo();
+});
+document.addEventListener("change", function(e){
+  if(e.target && e.target.id && e.target.id.indexOf("c_")===0) revisarMinimo();
+});
 
 /* El CP y las coordenadas no son un campo más: son los dos que, mal puestos,
    mandan a la brigada a otra dirección. Se les cuelga su ayuda. */
@@ -658,6 +699,7 @@ async function resolverCP(){
     }
   }
   if(av) av.textContent=mun+", "+est;
+  revisarMinimo();
 }
 
 /* ---------- coordenadas ----------
@@ -683,6 +725,7 @@ async function buscarCoords(){
     }
     document.getElementById("c_lat").value=la.toFixed(6);
     document.getElementById("c_long").value=lo.toFixed(6);
+    revisarMinimo();
     av.innerHTML=`Encontrado: ${esc((j[0].display_name||"").slice(0,80))} —
       <a href="https://www.google.com/maps?q=${la},${lo}" target="_blank"
          style="color:var(--acc)">verlo en el mapa</a> antes de guardar.`;
@@ -743,6 +786,7 @@ function volcarSitio(s){
   ["nombre","dependencia","direccion","cp","localidad","municipio","estado","lat","long",
    "ejecutivo","personal_atiende","telefono","correo"].forEach(k=>pon(k,s[k]));
   EQUIPO.forEach(([k])=>pon(k,s[k]));
+  revisarMinimo();
 }
 function limpiarSitio(){
   sitioSel=null;
@@ -799,6 +843,7 @@ async function abrirParaEditar(coord, id){
     GENERAL.forEach(([k])=>pon(k,x[k]));
     CATF.forEach(([k])=>pon(k,x[k]));
     EQUIPO.forEach(([k])=>pon(k,x[k]));
+    revisarMinimo();
     pintarAvisoEdit(x);
     msg.innerHTML="";
     document.getElementById("btnAlta").textContent="Guardar los cambios";
@@ -1601,16 +1646,17 @@ async function borrarDup(gi, xi){
 async function ultimos(){
   const c=document.getElementById("ultimos");
   try{
-    const f=await api("servicios?select=id,coord,tkt,nombre,fecha_servicio,status,"+
-                      "dia_creacion,jen_user,jen_ts&order=id.desc&limit=12");
+    const f=await api("servicios?select=id,coord,nombre,fecha_servicio,status,"+
+                      "dia_creacion,jen_user,jen_ts,long,"+MINIMO_CAMPOS+"&order=id.desc&limit=12");
     c.innerHTML=`<table><thead><tr><th>Coord</th><th>Id</th><th>TKT</th><th>Sitio</th>
-      <th>Creado</th><th>Capturó</th></tr></thead><tbody>
+      <th>Creado</th><th>Capturó</th><th title="Información mínima para programar">Mínimo</th></tr></thead><tbody>
       ${f.map(x=>`<tr onclick="abrirParaEditar('${esc(x.coord)}',${x.id})"
         title="Tócalo para corregirlo"><td><span class="tag">${esc(x.coord)}</span></td>
         <td>${esc(x.id)}</td><td>${esc(limpio(x.tkt)||"—")}</td>
         <td>${esc((x.nombre||"").slice(0,44))}</td>
         <td>${esc(x.dia_creacion||"")}</td>
-        <td>${esc(limpio(x.jen_user)||"—")}</td></tr>`).join("")}
+        <td>${esc(limpio(x.jen_user)||"—")}</td>
+        <td>${puntoMinimo(faltantesMinimo(x, CAT.TIPO_SERVICIO))||"—"}</td></tr>`).join("")}
       </tbody></table>`;
   }catch(e){ c.innerHTML='<div class="q">No se pudo leer.</div>' }
 }

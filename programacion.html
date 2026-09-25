@@ -112,6 +112,13 @@
   .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
     background:#17456E;color:var(--acc);white-space:nowrap}
   .guardado{color:#5BD79B;font-size:11px}
+  /* informacion minima (minimo.js): el punto y lo que falta */
+  .minimo{font-size:12px;cursor:help;margin-right:3px}
+  .minimo.verde{color:#5BD79B} .minimo.ambar{color:#F0BE6E} .minimo.rojo{color:#F0877F}
+  .falta{font-size:11px;color:#F5CE93;margin-top:2px}
+  .pedir{color:var(--acc);font-weight:700;text-decoration:none;white-space:nowrap}
+  .pedir:hover{text-decoration:underline}
+  .pedido{color:var(--txt3);white-space:nowrap}
   .fallo{color:#F0A9A5;font-size:11px}
 
   .vacio{text-align:center;color:var(--txt2);padding:46px}
@@ -218,6 +225,7 @@
 
 
 
+<script src="minimo.js"></script>
 <script>
 const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
@@ -462,7 +470,7 @@ async function cargar(){
     filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,"+
       "fecha_servicio,horario_atencion,status,tecnico,auxiliar,vehiculo,cita_confirmada,cita_requerida,"+
       "personal_atiende,telefono,ejecutivo,tipo_servicio,requerimientos,obs_prog,obs_coord,"+
-      "obs_captura,dias_est,dia_n,etapa_actual,viaticos"+
+      "obs_captura,dias_est,dia_n,etapa_actual,viaticos,cp,equipo,serie"+
       "&fecha_servicio=eq."+dia+(co?"&coord=eq."+co:"")+
       "&order=horario_atencion,tkt&limit=400");
     /* Lo que se acaba de capturar todavia no tiene fecha, y esta pantalla
@@ -478,7 +486,7 @@ async function cargar(){
     sinFecha = await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
       "fecha_servicio,horario_atencion,status,tecnico,auxiliar,vehiculo,cita_confirmada,cita_requerida,"+
       "personal_atiende,telefono,ejecutivo,tipo_servicio,requerimientos,obs_prog,obs_coord,"+
-      "obs_captura,dias_est,dia_n,dia_creacion,jen_user,jen_ts"+
+      "obs_captura,dias_est,dia_n,dia_creacion,jen_user,jen_ts,cp,lat,long,equipo,serie"+
       "&fecha_servicio=is.null&status=is.null"+
       "&or=(jen_ts.gte."+isoDe(-30)+",dia_creacion.gte."+isoDe(-30)+")"+
       (co?"&coord=eq."+co:"")+
@@ -504,6 +512,7 @@ async function cargar(){
         (co?"&coord=eq."+co:"")+"&limit=2000");
       viejosSinFecha = v ? v.length : 0;
     }catch(e){ recientesSinFecha = sinFecha.length; viejosSinFecha = 0 }
+    await cargarPedidos();
     pintar();
   }catch(e){
     document.getElementById("lista").innerHTML=
@@ -577,9 +586,14 @@ function pintarSinFecha(){
   if(!c) return;
   if(!sinFecha.length){ c.innerHTML=""; return }
   const n=recientesSinFecha||sinFecha.length;
+  const rojos=sinFecha.filter(x=>semaforoMinimo(faltantesMinimo(x,CAT.TIPO_SERVICIO))==="rojo").length;
   c.innerHTML='<div class="avisoProg"><b>'+n+
     ' servicio'+(n>1?"s":"")+' capturado'+(n>1?"s":"")+' en el último mes'+
     ' sin fecha</b> — no salen en ningún día hasta que se les ponga una.'+
+    (rojos ? '<div class="sub" style="margin-top:4px"><span class="minimo rojo">●</span>'+
+      rojos+(rojos>1?' de los listados les falta':' de los listados le falta')+
+      ' información que tiene que dar Ventas. Se pueden programar igual;'+
+      ' el aviso es para pedírsela a tiempo.</div>' : "")+
     (viejosSinFecha ? '<div class="sub" style="margin-top:4px">Y '+viejosSinFecha+
       ' más de hace más de un mes, de la carga histórica, que no se listan aquí.</div>' : "")+
     '<div class="tabla" style="margin-top:9px"><table><thead><tr>'+
@@ -593,7 +607,8 @@ function pintarSinFecha(){
       return '<tr><td><div class="sitio">'+esc(x.nombre||"")+'</div>'+
         '<div class="sub"><span class="tag">'+esc(x.coord)+'</span>'+
         (x.tkt?" TKT "+esc(x.tkt):"")+
-        (limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):"")+'</div></td>'+
+        (limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):"")+'</div>'+
+        lineaMinimo(x, "sinFecha", i)+'</td>'+
         /* Debajo del nombre va CUANDO se capturo, no la fecha del TKT: ver la
            fecha del ticket ahi hacia creer que el servicio era viejo. */
         '<td class="sub">'+esc(x.jen_user||"")+'<br>'+
@@ -650,6 +665,54 @@ async function ponerFecha(i, valor){
     document.getElementById("fDia").value = valor;
     cargar();
   }catch(e){ av.innerHTML='<span class="fallo">no se guardó</span>' }
+}
+
+/* ---------- informacion minima: avisar y pedirla a Ventas ----------
+   La regla vive en minimo.js. Aqui se pinta debajo del nombre del servicio y
+   se arma el WhatsApp al ejecutivo. Pedirla queda en la bitacora como
+   PIDE INFO A VENTAS: es la "constancia" que el libro pide dejar, y de ahi se
+   saca cuando se pidio para no mandarle dos veces lo mismo sin saberlo. */
+let PEDIDOS = {};
+async function cargarPedidos(){
+  PEDIDOS = {};
+  try{
+    const l = await api("log?select=coord,detalle,timestamp&accion=eq."+
+      encodeURIComponent("PIDE INFO A VENTAS")+"&timestamp=gte."+isoDe(-45)+
+      "&order=timestamp.desc&limit=1000");
+    (l||[]).forEach(function(r){
+      const m = String(r.detalle||"").match(/^ID=(\d+)/);
+      const k = m ? r.coord+"|"+m[1] : "";
+      if(k && !PEDIDOS[k]) PEDIDOS[k] = String(r.timestamp||"");
+    });
+  }catch(e){}
+}
+function lineaMinimo(x, lista, i){
+  const f = faltantesMinimo(x, CAT.TIPO_SERVICIO);
+  if(!f || !f.length) return f ? '<div class="sub">'+puntoMinimo(f)+'información completa</div>' : "";
+  const rojo = semaforoMinimo(f)==="rojo";
+  const cuando = PEDIDOS[claveDe(x)];
+  const liga = function(t){
+    return '<a href="#" class="pedir" onclick="pedirVentas(&quot;'+lista+'&quot;,'+i+');return false">'+t+'</a>';
+  };
+  const pedir = !rojo ? "" : (cuando
+    ? ' · <span class="pedido">pedido a Ventas el '+esc(cuando.slice(8,10)+"/"+cuando.slice(5,7))+
+      '</span> '+liga("volver a pedir")
+    : ' · '+liga("pedir a Ventas ▸"));
+  return '<div class="falta">'+puntoMinimo(f)+'Falta — '+esc(detalleMinimo(f))+pedir+'</div>';
+}
+function pedirVentas(lista, i){
+  const x = (lista==="sinFecha" ? sinFecha : filas)[i];
+  if(!x) return;
+  const f = faltantesMinimo(x, CAT.TIPO_SERVICIO);
+  const e = EJEC[(limpio(x.ejecutivo)||"").toUpperCase()];
+  const txt = mensajeVentas(x, f, e);
+  if(!txt) return;
+  window.open(ligaWhatsApp(txt, e && e.telefono), "_blank");
+  anotar("PIDE INFO A VENTAS", "ID="+x.id+" · "+
+    f.filter(z=>z.quien==="ventas").map(z=>z.etq).join(", "), x);
+  const t=new Date(), p=n=>String(n).padStart(2,"0");
+  PEDIDOS[claveDe(x)] = t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate());
+  pintar();
 }
 
 /* ---------- buscar en toda la base, no solo en lo pintado ----------
@@ -746,7 +809,8 @@ function pintar(){ setTimeout(filtrarVista,0); pintarSinFecha(); pintarCinta();
             <a class="corregir" href="captura.html?corregir=${esc(x.coord)}-${x.id}"
                title="Corregir los datos capturados">✏ corregir</a>
             ${limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):""}
-            ${limpio(x.status)?" · "+esc(x.status):""}</div></td>
+            ${limpio(x.status)?" · "+esc(x.status):""}</div>
+          ${lineaMinimo(x, "filas", i)}</td>
       <td><select onchange="editar(${i},'tecnico',this.value)">
             ${opciones("TECNICOS", x.tecnico)}</select></td>
       <td><select onchange="editar(${i},'auxiliar',this.value)">

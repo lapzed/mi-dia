@@ -145,7 +145,7 @@
       <option value="est.gerencia">Gerencia</option>
       <option value="est.jocelyn">Jocelyn · Aux administrativo · Gerencia</option>
       <option value="est.subgerencia">Subgerencia</option>
-      <option value="est.gloria">Montserrat · Aux administrativo</option>
+      <option value="est.gloria">Monse · Mantenimientos</option>
     </select>
     <input id="inPwd" type="password" placeholder="clave"
            onkeydown="if(event.key==='Enter')entrar()">
@@ -280,7 +280,7 @@ function salir(){
 }
 function nombreDe(u){
   return ({"est.gerencia":"Gerencia","est.subgerencia":"Subgerencia",
-           "est.gloria":"Montserrat"})[u] || u;
+           "est.gloria":"Monse"})[u] || u;
 }
 async function entrar(){
   const u=document.getElementById("inUsr").value, p=document.getElementById("inPwd").value;
