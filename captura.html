@@ -159,6 +159,19 @@
      permiso de partir donde sea, que es feo pero se lee; lo otro no se lee. */
   .aviso,.vacio,.load,.sub,.q,.dat-nota{overflow-wrap:anywhere}
   .tabla{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  /* bandeja del CRM */
+  .bandeja .lect{font-size:11.5px;color:var(--txt3);margin:-6px 0 10px}
+  .bandeja .lect.vieja{color:#F0BE6E}
+  .bandeja .lect.mal{color:#F3B0AC}
+  .btk{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;
+    padding:9px 11px;border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
+  .btk b{font-size:13px}
+  .btk .sub{font-size:11.5px;color:var(--txt3)}
+  .btk .tipo{font-size:11px;color:var(--txt2)}
+  .bandeja .filtro{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .bandeja .filtro button.on{background:var(--acc);color:#07203A}
+  .bandeja .cerr{font-size:12px;color:var(--txt2);margin-top:10px}
+  .bandeja .cerr summary{cursor:pointer;color:#F0BE6E}
 </style>
 </head>
 <body>
@@ -175,6 +188,13 @@
   <div id="cinta"></div>
 
   <div id="todo" style="display:none">
+    <div class="caja bandeja" id="bandeja" style="display:none">
+      <h2>Bandeja del CRM</h2>
+      <div class="lect" id="bLect"></div>
+      <div class="filtro" id="bFiltro"></div>
+      <div id="bLista"></div>
+    </div>
+
     <div class="caja">
       <h2>¿Ya habíamos ido a ese sitio?</h2>
       <div class="q">Busca por nombre, cliente o dirección y se llena solo lo que ya sabemos
@@ -960,13 +980,129 @@ async function guardar(){
     AVISADO = null;
     msg.innerHTML='<div class="bien">Dado de alta como <b>'+esc(co)+' · id '+esc(fila.id)+
       '</b>'+(limpio(fila.tkt)?' · TKT '+esc(fila.tkt):"")+
-      '. Ya lo ve programación.</div>';
+      '. Ya lo ve programación.'+
+      (BANDEJA.some(t=>t.tkt===numTkt(fila.tkt))
+        ? ' El "TKT en seguimiento" se escribe solo en el CRM en los próximos 15 minutos.' : "")+
+      '</div>';
+    tomadoDeBandeja(fila.tkt);
     limpiarSitio();
     ultimos();
   }catch(e){
     msg.innerHTML='<div class="aviso">No se pudo dar de alta: '+esc(String(e).slice(0,160))+'</div>';
   }
   btn.disabled=false; btn.textContent="Dar de alta el servicio";
+}
+
+
+/* ================= BANDEJA DEL CRM =================
+   Prioridad 4 del mapa de funciones (25-sep-2026). Un programa en la PC de
+   Gerencia (_codigo_vba/crm/sync_crm.py) lee Vtiger cada 15 minutos y deja
+   los tickets en `crm_tickets`. Aqui salen los que todavia no tienen servicio;
+   "Capturar" llena el alta con lo que trae el CRM. Cuando el alta existe, el
+   mismo programa escribe "TKT en seguimiento" en el ticket.
+
+   `en_base` lo calcula el programa y no esta pantalla: Captura solo puede leer
+   los servicios de su coordinacion, y un TKT dado de alta en otra saldria aqui
+   como pendiente. Lo capturado en esta sesion se quita al momento. */
+let BANDEJA=[], BAND_CERR=[], BAND_FILTRO="", TOMADOS=new Set();
+const CERRADO_CRM=/clos|cerrad|resuel|conclu/i;
+/* el CRM guarda en UTC: un ticket de las 8 de la noche ya es "mañana" en UTC */
+function diaLocal(ts){
+  if(!ts) return "";
+  const d=new Date(ts);
+  return isNaN(d) ? "" : d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function numTkt(t){ const m=String(t||"").match(/(\d+)/); return m ? m[1].replace(/^0+/,"") : "" }
+
+async function cargarBandeja(){
+  const caja=document.getElementById("bandeja");
+  let sync=null, t=[];
+  try{
+    sync=(await api("crm_sync?select=*&id=eq.1"))[0]||null;
+    const d=new Date(); d.setDate(d.getDate()-30);
+    t=await api("crm_tickets?select=*&en_base=is.false&creado_crm=gte."+d.toISOString().slice(0,10)+
+                "&order=creado_crm.desc&limit=300");
+  }catch(e){ caja.style.display="none"; return }      // sin la tabla todavia
+  if(!sync || !sync.ultima){ caja.style.display="none"; return }
+  caja.style.display="block";
+  t=t.filter(x=>!TOMADOS.has(x.tkt));
+  BANDEJA=t.filter(x=>!CERRADO_CRM.test(x.estado_crm||""));
+  BAND_CERR=t.filter(x=>CERRADO_CRM.test(x.estado_crm||""));
+  const min=Math.round((Date.now()-new Date(sync.ultima))/60000);
+  const l=document.getElementById("bLect");
+  l.className="lect"+(!sync.ok?" mal":(min>40?" vieja":""));
+  l.textContent = (!sync.ok ? "⚠ La última lectura del CRM falló: "+(sync.mensaje||"")+". " : "")+
+    "CRM leído hace "+(min<1?"menos de un minuto":(min<90?min+" min":Math.round(min/60)+" h"))+
+    (min>40 ? " · la PC de Gerencia puede estar apagada: lo más nuevo puede no estar aquí" : "")+".";
+  pintarBandeja();
+}
+
+function pintarBandeja(){
+  const coords=[...new Set(BANDEJA.map(x=>x.coord||"?"))].sort();
+  document.getElementById("bFiltro").innerHTML=
+    ['<button class="mini'+(BAND_FILTRO===""?" on":"")+'" onclick="BAND_FILTRO=\'\';pintarBandeja()">Todos · '+BANDEJA.length+'</button>']
+    .concat(coords.map(c=>'<button class="mini'+(BAND_FILTRO===c?" on":"")+'" onclick="BAND_FILTRO=\''+c+'\';pintarBandeja()">'+
+      esc(c==="?"?"Sin tipo":c)+' · '+BANDEJA.filter(x=>(x.coord||"?")===c).length+'</button>')).join("");
+  const v=BANDEJA.filter(x=>!BAND_FILTRO || (x.coord||"?")===BAND_FILTRO);
+  document.getElementById("bLista").innerHTML=
+    (v.length ? v.slice(0,60).map(x=>{
+      const i=BANDEJA.indexOf(x);
+      return '<div class="btk"><div><b>TKT '+esc(x.tkt)+' · '+esc((x.titulo||x.cuenta||"").slice(0,60))+'</b>'+
+        '<div class="sub">'+esc([x.coord, x.cuenta, diaLocal(x.creado_crm), x.ejecutivo].filter(Boolean).join(" · "))+'</div>'+
+        (x.tipo_crm?'<div class="tipo">En el CRM: '+esc(x.tipo_crm)+'</div>':"")+'</div>'+
+        '<button class="pri mini" onclick="capturarDeBandeja('+i+')">Capturar ▸</button></div>';
+    }).join("") + (v.length>60?'<div class="q">…y '+(v.length-60)+' más.</div>':"")
+    : '<div class="q">Nada pendiente: todo lo del CRM de los últimos 30 días ya tiene servicio.</div>')+
+    (BAND_CERR.length ? '<details class="cerr"><summary>'+BAND_CERR.length+
+      ' cerrado'+(BAND_CERR.length>1?"s":"")+' en el CRM y sin servicio en la base</summary>'+
+      '<div class="q" style="margin-top:6px">Si se atendieron, falta registrarlos; si no, pregunta a Ventas por qué se cerraron.</div>'+
+      BAND_CERR.slice(0,40).map(x=>'<div class="sub">TKT '+esc(x.tkt)+' · '+esc((x.titulo||x.cuenta||"").slice(0,60))+
+        ' · '+esc(x.estado_crm||"")+'</div>').join("")+'</details>' : "");
+}
+
+/* El ejecutivo del CRM viene con acentos y nombre completo; el catalogo usa
+   MAYUSCULAS sin acentos y nombre + primer apellido. */
+function ejecutivoDeCrm(n){
+  const plano=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().trim();
+  const p=plano(n).split(/\s+/);
+  if(!p[0]) return "";
+  const lista=CAT.EJECUTIVOS||[];
+  return lista.find(e=>e===p.join(" ")) || lista.find(e=>p.length>1 && e===p[0]+" "+p[1]) ||
+         lista.find(e=>p.length>2 && e===p[0]+" "+p[2]) || "";
+}
+
+function capturarDeBandeja(i){
+  const x=BANDEJA[i]; if(!x) return;
+  salirDeEdicion();
+  if(x.coord) document.getElementById("fCoord").value=x.coord;
+  pintarCampos();
+  const pon=(id,v)=>{ const e=document.getElementById("c_"+id); if(e && limpio(v)) e.value=v };
+  pon("tkt", x.tkt);
+  pon("nombre", x.titulo || x.cuenta);
+  pon("dependencia", x.cuenta);
+  pon("direccion", x.direccion);
+  pon("personal_atiende", x.contacto);
+  pon("telefono", x.telefono);
+  pon("correo", x.correo);
+  pon("serie", x.serie);
+  pon("ejecutivo", ejecutivoDeCrm(x.ejecutivo));
+  pon("dia_creacion", diaLocal(x.creado_crm));
+  const c=String(x.coordenadas||"").match(/(-?\d+\.\d+)\s*[, ]\s*(-?\d+\.\d+)/);
+  if(c){ pon("lat", c[1]); pon("long", c[2]) }
+  revisarMinimo();
+  document.getElementById("msg").innerHTML='<div class="bien">Llenado desde el CRM: TKT '+esc(x.tkt)+
+    '. Revisa, elige el <b>tipo de servicio</b>'+(x.tipo_crm?' (en el CRM dice «'+esc(x.tipo_crm)+'»)':"")+
+    ' y completa lo que falte.</div>';
+  document.getElementById("qSel").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function tomadoDeBandeja(tkt){
+  const n=numTkt(tkt);
+  if(!n) return;
+  TOMADOS.add(n);
+  const antes=BANDEJA.length;
+  BANDEJA=BANDEJA.filter(x=>x.tkt!==n);
+  if(BANDEJA.length!==antes) pintarBandeja();
 }
 
 
@@ -1690,6 +1826,8 @@ async function arrancar(){
     CAT.EJECUTIVOS = EJECUTIVOS_CAT.map(function(x){ return x.alias });
   }catch(e){ CAT={} }
   pintarCampos();
+  cargarBandeja();
+  setInterval(cargarBandeja, 5*60*1000);
   ultimos();
 }
 
