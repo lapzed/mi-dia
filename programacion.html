@@ -119,6 +119,8 @@
   .pedir{color:var(--acc);font-weight:700;text-decoration:none;white-space:nowrap}
   .pedir:hover{text-decoration:underline}
   .pedido{color:var(--txt3);white-space:nowrap}
+  .crmdif{font-size:11px;color:#9FC9F5;margin-top:2px}
+  .crmdif b{color:#CFE4FA;font-weight:600}
   .fallo{color:#F0A9A5;font-size:11px}
 
   .vacio{text-align:center;color:var(--txt2);padding:46px}
@@ -470,7 +472,7 @@ async function cargar(){
     filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,lat,long,"+
       "fecha_servicio,horario_atencion,status,tecnico,auxiliar,vehiculo,cita_confirmada,cita_requerida,"+
       "personal_atiende,telefono,ejecutivo,tipo_servicio,requerimientos,obs_prog,obs_coord,"+
-      "obs_captura,dias_est,dia_n,etapa_actual,viaticos,cp,equipo,serie"+
+      "obs_captura,dias_est,dia_n,etapa_actual,viaticos,cp,equipo,serie,correo"+
       "&fecha_servicio=eq."+dia+(co?"&coord=eq."+co:"")+
       "&order=horario_atencion,tkt&limit=400");
     /* Lo que se acaba de capturar todavia no tiene fecha, y esta pantalla
@@ -486,7 +488,7 @@ async function cargar(){
     sinFecha = await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
       "fecha_servicio,horario_atencion,status,tecnico,auxiliar,vehiculo,cita_confirmada,cita_requerida,"+
       "personal_atiende,telefono,ejecutivo,tipo_servicio,requerimientos,obs_prog,obs_coord,"+
-      "obs_captura,dias_est,dia_n,dia_creacion,jen_user,jen_ts,cp,lat,long,equipo,serie"+
+      "obs_captura,dias_est,dia_n,dia_creacion,jen_user,jen_ts,cp,lat,long,equipo,serie,correo"+
       "&fecha_servicio=is.null&status=is.null"+
       "&or=(jen_ts.gte."+isoDe(-30)+",dia_creacion.gte."+isoDe(-30)+")"+
       (co?"&coord=eq."+co:"")+
@@ -513,6 +515,7 @@ async function cargar(){
       viejosSinFecha = v ? v.length : 0;
     }catch(e){ recientesSinFecha = sinFecha.length; viejosSinFecha = 0 }
     await cargarPedidos();
+    CRM = await cargarCrm(filas.concat(sinFecha).map(x=>x.tkt), api);
     pintar();
   }catch(e){
     document.getElementById("lista").innerHTML=
@@ -608,7 +611,7 @@ function pintarSinFecha(){
         '<div class="sub"><span class="tag">'+esc(x.coord)+'</span>'+
         (x.tkt?" TKT "+esc(x.tkt):"")+
         (limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):"")+'</div>'+
-        lineaMinimo(x, "sinFecha", i)+'</td>'+
+        lineaMinimo(x, "sinFecha", i)+avisoCrm(x, CRM)+'</td>'+
         /* Debajo del nombre va CUANDO se capturo, no la fecha del TKT: ver la
            fecha del ticket ahi hacia creer que el servicio era viejo. */
         '<td class="sub">'+esc(x.jen_user||"")+'<br>'+
@@ -672,7 +675,7 @@ async function ponerFecha(i, valor){
    se arma el WhatsApp al ejecutivo. Pedirla queda en la bitacora como
    PIDE INFO A VENTAS: es la "constancia" que el libro pide dejar, y de ahi se
    saca cuando se pidio para no mandarle dos veces lo mismo sin saberlo. */
-let PEDIDOS = {};
+let PEDIDOS = {}, CRM = {};
 async function cargarPedidos(){
   PEDIDOS = {};
   try{
@@ -810,7 +813,7 @@ function pintar(){ setTimeout(filtrarVista,0); pintarSinFecha(); pintarCinta();
                title="Corregir los datos capturados">✏ corregir</a>
             ${limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):""}
             ${limpio(x.status)?" · "+esc(x.status):""}</div>
-          ${lineaMinimo(x, "filas", i)}</td>
+          ${lineaMinimo(x, "filas", i)}${avisoCrm(x, CRM)}</td>
       <td><select onchange="editar(${i},'tecnico',this.value)">
             ${opciones("TECNICOS", x.tecnico)}</select></td>
       <td><select onchange="editar(${i},'auxiliar',this.value)">

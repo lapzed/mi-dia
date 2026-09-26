@@ -61,6 +61,8 @@
   .cinta.ambar{background:rgba(232,163,61,.11);border-color:rgba(232,163,61,.45);color:#F5CE93}
   .cinta.rojo{background:rgba(198,65,59,.12);border-color:rgba(198,65,59,.45);color:#F3B0AC}
   .cinta .foco{font-size:19px;line-height:1}
+  .crmdif{font-size:11px;color:#9FC9F5;margin-top:2px}
+  .crmdif b{color:#CFE4FA;font-weight:600}
   /* hoy en campo: los pasos que marca el tecnico en Mi dia */
   .campo{background:var(--card);border:1px solid var(--line);border-radius:13px;
     padding:12px 14px;margin-bottom:12px}
@@ -296,6 +298,7 @@
 </script>
 
 
+<script src="minimo.js"></script>
 <script>
 const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
@@ -326,7 +329,7 @@ function marcarUso(){
 
 let ses=sesionVigente(JSON.parse(localStorage.getItem("md_coord")||
   localStorage.getItem("md_web")||"null"))   /* la sesion es una sola: ver md_web abajo */;
-let filas=[], CAT={}, EJEC={};
+let filas=[], CAT={}, EJEC={}, CRM={};
 
 function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
   Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
@@ -610,6 +613,7 @@ async function cargar(){
       "&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+(co?"&coord=eq."+co:"")+
       "&order=fecha_servicio,horario_atencion&limit=600");
     await cargarReagendados();
+    CRM = await cargarCrm(filas.map(x=>x.tkt), api);
     pintar();
   }catch(e){
     document.getElementById("lista").innerHTML=
@@ -1079,7 +1083,8 @@ function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
           <div class="sub">${esc(limpio(x.tecnico)||"sin brigada")}</div></td>
       <td>${esc(limpio(x.personal_atiende)||"—")}
           ${tel?`<div class="sub"><a class="tel" href="tel:${esc(tel)}">${esc(limpio(x.telefono))}</a></div>`:""}
-          ${eje?`<div class="sub">Ej: ${esc(eje.nombre)}${eje.tel?" · "+esc(eje.tel):""}</div>`:""}</td>
+          ${eje?`<div class="sub">Ej: ${esc(eje.nombre)}${eje.tel?" · "+esc(eje.tel):""}</div>`:""}
+          ${avisoCrm(x, CRM)}</td>
       <td>${(x.cita_requerida||"")==="SI"
               ? '<div class="sub" style="color:#F0BE6E">programación pidió cita</div>'
               : ((x.cita_requerida||"")==="NO"

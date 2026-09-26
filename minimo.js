@@ -129,3 +129,47 @@ function ligaWhatsApp(texto, telefono){
   if (t.length !== 12) t = "";
   return "https://wa.me/" + t + "?text=" + encodeURIComponent(texto);
 }
+
+/* ---------- lo que el CRM dice distinto ----------
+   sync_crm.py copia del CRM solo lo que al servicio le falta; lo que la
+   oficina ya escribio no se pisa (Guillermo, 25-sep-2026). Si Ventas cambio
+   ese dato en el CRM despues, aqui se avisa para que alguien decida.
+
+   Solo en TKT de un solo sitio: en uno de once sucursales el contacto del
+   ticket es el corporativo y "difiere" siempre, sin que haya nada que hacer. */
+async function cargarCrm(tkts, api){
+  const n = [...new Set((tkts || []).map(t => String(t || "").replace(/\D/g, "")).filter(Boolean))];
+  const mapa = {};
+  for (let i = 0; i < n.length; i += 150){
+    const lote = n.slice(i, i + 150).join(",");
+    try{
+      (await api("crm_tickets?select=tkt,telefono,correo,contacto,estado_crm&tkt=in.(" + lote + ")") || [])
+        .forEach(c => { mapa[c.tkt] = c; c.sitios = 0 });
+      (await api("servicios?select=tkt&tkt=in.(" + lote + ")") || [])
+        .forEach(s => { const c = mapa[String(s.tkt || "").replace(/\D/g, "")]; if (c) c.sitios++ });
+    }catch(e){}           // sin la tabla o sin permiso: simplemente no se avisa
+  }
+  return mapa;
+}
+
+function diferenciasCrm(x, mapa){
+  const c = mapa && mapa[String(x.tkt || "").replace(/\D/g, "")];
+  if (!c || c.sitios > 1) return [];
+  const plano = v => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                       .toLowerCase().replace(/\s+/g, " ").trim();
+  const dig = v => String(v || "").replace(/\D/g, "").slice(-10);
+  const d = [];
+  if (_minTxt(x.telefono) && dig(c.telefono).length === 10 && dig(x.telefono) !== dig(c.telefono))
+    d.push(["teléfono", c.telefono]);
+  if (_minTxt(x.correo) && /@/.test(c.correo || "") && plano(x.correo) !== plano(c.correo))
+    d.push(["correo", c.correo]);
+  if (_minTxt(x.personal_atiende) && _minTxt(c.contacto) && plano(x.personal_atiende) !== plano(c.contacto))
+    d.push(["contacto", c.contacto]);
+  return d;
+}
+
+function avisoCrm(x, mapa){
+  const d = diferenciasCrm(x, mapa);
+  return d.length ? '<div class="crmdif" title="Ventas lo cambió o lo escribió distinto en el CRM; no se copió para no pisar lo de la oficina">' +
+    'El CRM dice otro ' + d.map(z => z[0] + ': <b>' + _minEsc(z[1]) + '</b>').join(" · ") + '</div>' : "";
+}
