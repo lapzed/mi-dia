@@ -63,6 +63,16 @@
     background:#17456E;color:var(--acc);white-space:nowrap}
   .tag.no{background:rgba(232,163,61,.15);color:#F0BE6E}
   .tag.sinfoto{background:rgba(198,65,59,.16);color:#F3B0AC}
+  .tag.costos{background:rgba(30,142,90,.18);color:#9EE7C2}
+  /* hoja "Enviar a Costos" */
+  .cst-lista{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+  .cst-it{display:grid;grid-template-columns:22px 170px minmax(0,1fr);gap:8px;align-items:center;font-size:12.5px}
+  .cst-it .ok{color:#5BD79B} .cst-it .no{color:#F0BE6E}
+  .cst-it input,.cst-it select{width:100%;padding:6px 8px;font-size:12.5px;margin:0}
+  .cst-it .sub{font-size:11px;color:var(--txt3)}
+  #cstMsg{width:100%;min-height:170px;font:12.5px/1.45 ui-monospace,Consolas,monospace;margin:6px 0 10px}
+  .cst-bot{display:flex;gap:7px;flex-wrap:wrap}
+  @media (max-width:640px){ .cst-it{grid-template-columns:22px 1fr} .cst-it>*:last-child{grid-column:2} }
 
   .comp{overflow-x:auto;margin-top:12px}
   .comp table{width:100%;border-collapse:collapse;font-size:13px;min-width:420px}
@@ -194,6 +204,27 @@
 </div>
 
 <!-- cargar fotos de un levantamiento ya hecho, sin tocar el servicio -->
+<!-- mandar un levantamiento a Costos (Kevin) para que lo cotice -->
+<div class="modal" id="mCostos" style="display:none">
+  <div class="box" style="max-width:640px">
+    <h2>Enviar a Costos</h2>
+    <p><b id="cstSitio"></b><br><span id="cstSub"></span></p>
+    <div class="q" style="font-size:12px;color:var(--txt2)">Lo que Kevin pregunta cada vez por WhatsApp.
+      Si lo llenas aquí, se guarda en el levantamiento y va escrito en el mensaje.</div>
+    <div class="cst-lista" id="cstLista"></div>
+    <div class="cst-bot" id="cstArchivos"></div>
+    <label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 2px">Mensaje para el grupo COTIZACIONES</label>
+    <textarea id="cstMsg"></textarea>
+    <div class="cst-bot">
+      <button class="pri" onclick="copiarCostos()">📋 Copiar mensaje</button>
+      <button onclick="whatsCostos()">WhatsApp ▸</button>
+      <button class="pri" id="cstMarcar" onclick="marcarCostos()">✓ Marcar enviado a Costos</button>
+      <button onclick="document.getElementById('mCostos').style.display='none'">Cerrar</button>
+    </div>
+    <div class="q" id="cstAviso" style="margin-top:8px;font-size:12px"></div>
+  </div>
+</div>
+
 <div class="modal" id="mSubir" style="display:none">
   <div class="box">
     <h2>Agregar fotos</h2>
@@ -506,7 +537,7 @@ async function cargar(){
            no en `propuestas`, y sin esto la ficha salia vacia en 75 levantamientos */
         "equipo,amplificador,amplificador_cap,antena,plasticas,aluminio,eliptica,"+
         "bocina_plafon,estrobo,ups,coaxial,pot,ur,p_gruesa,p_delgada,f_zapa,materiales,"+
-        "status&coord=eq.LEV&order=fecha_atencion.desc,nombre";
+        "status,ejecutivo&coord=eq.LEV&order=fecha_atencion.desc,nombre";
   if(de) q+="&fecha_servicio=gte."+de;
   if(a)  q+="&fecha_servicio=lte."+a;
   try{
@@ -534,6 +565,7 @@ async function cargar(){
         p.forEach(x=>{ const k="LEV|"+x.servicio_id; (props[k]=props[k]||[]).push(x) });
       }
     }
+    await cargarEnviosCostos();
     llenarClientes();
     pintar();
   }catch(e){
@@ -668,7 +700,8 @@ function pintar(){ pintarCinta(); pintarCintaEv();
      <div class="pill"><b style="color:#5BD79B">${con}</b>ya levantados</div>
      <div class="pill"><b style="color:#63B3FF">${equipos}</b>equipos por instalar</div>
      <div class="pill"><b style="color:#E8A33D">${filas.length-con}</b>sin capturar</div>
-     <div class="pill"><b style="color:#F3B0AC">${filas.filter(sinFotos).length}</b>sin fotos</div>`;
+     <div class="pill"><b style="color:#F3B0AC">${filas.filter(sinFotos).length}</b>sin fotos</div>
+     <div class="pill"><b style="color:#9EE7C2">${filas.filter(x=>ENVIOS[llave(x)]).length}</b>enviados a Costos</div>`;
 
   if(!v.length){
     document.getElementById("lista").innerHTML='<div class="vacio">Nada con esos filtros.</div>';
@@ -698,6 +731,8 @@ function pintar(){ pintarCinta(); pintarCintaEv();
           ${ps.length?`<span class="tag">${ps.length} equipo${ps.length>1?"s":""}</span>`
                      :`<span class="tag no">sin capturar</span>`}
           ${sinFotos(x)?`<span class="tag sinfoto" title="Cerrado sin una sola foto en el sistema">sin fotos</span>`:""}
+          ${ENVIOS[llave(x)]?`<span class="tag costos" title="Marcado como enviado a Costos por ${esc(ENVIOS[llave(x)].quien)}">a Costos ${esc(fechaCorta(ENVIOS[llave(x)].ts))}</span>`:""}
+          <button class="mini" onclick="abrirCostos('${x.coord}',${x.id})">💲 Costos</button>
           <button class="mini" onclick="abrirSubir('${x.coord}',${x.id})">+ fotos</button>
           <button class="mini" onclick="editar('${x.coord}',${x.id})">✎ Propuesta</button>
           <a class="mini" href="captura.html?corregir=${x.coord}-${x.id}"
@@ -708,6 +743,161 @@ function pintar(){ pintarCinta(); pintarCintaEv();
       ${comparativa(ps)}
     </div>`;
   }).join("");
+}
+
+/* ---------- enviar a Costos (prioridad 6, 26-sep-2026) ----------
+   Hoy el formato se manda en PDF al grupo de WhatsApp COTIZACIONES y Kevin
+   (registrado como "Jan Londres") cotiza. En el chat, de enero a septiembre,
+   Costos vuelve a preguntar lo mismo: "¿cuantos dias de instalacion?" (nueve
+   veces en junio y julio), "los horarios, porque ponen tres y no dicen los
+   dias", si la plataforma es articulada o de tijera, el segurista. Y Ventas
+   pregunta que esta pendiente o si ya se mando.
+
+   Esta hoja junta en un solo mensaje lo que Kevin pregunta, deja bajar el
+   reporte firmado para adjuntarlo y marca la fecha de envio. Solo se marca
+   "enviado": Guillermo decidio no meter a nadie mas por ahora, asi que no hay
+   estado de "cotizada". La marca vive en el log (ENVIA A COSTOS), no en una
+   columna nueva. */
+let ENVIOS={}, cst=null;
+const MIN_DIA=480;           // tiempo_inst_est viene en minutos de jornada
+function fechaCorta(ts){ const t=String(ts||""); return t ? t.slice(8,10)+"/"+t.slice(5,7) : "" }
+async function cargarEnviosCostos(){
+  ENVIOS={};
+  try{
+    const d=new Date(); d.setDate(d.getDate()-180);
+    const l=await api("log?select=coord,detalle,timestamp,usuario&accion=eq."+
+      encodeURIComponent("ENVIA A COSTOS")+"&coord=eq.LEV&timestamp=gte."+
+      d.toISOString().slice(0,10)+"&order=timestamp.desc&limit=2000");
+    (l||[]).forEach(function(r){
+      const m=String(r.detalle||"").match(/^ID=(\d+)/);
+      const k=m ? r.coord+"|"+m[1] : "";
+      if(k && !ENVIOS[k]) ENVIOS[k]={ts:r.timestamp, quien:r.usuario||""};
+    });
+  }catch(e){}
+}
+function diasDe(x){
+  const v=parseFloat(String(x.tiempo_inst_est||"").replace(",", "."));
+  if(!v) return "";
+  const d = v>=60 ? v/MIN_DIA : v;               // lo viejo quedo en minutos
+  return String(Math.round(d*2)/2);
+}
+async function abrirCostos(coord,id){
+  const x=filas.find(s=>s.coord===coord&&s.id===id); if(!x) return;
+  cst={x:x, archivos:[]};
+  document.getElementById("cstSitio").textContent=(x.nombre||"")+(x.tkt?" · TKT "+x.tkt:"");
+  document.getElementById("cstSub").textContent=[limpio(x.dependencia), limpio(x.ejecutivo)&&"Ejecutivo: "+x.ejecutivo,
+    x.fecha_atencion||x.fecha_servicio].filter(Boolean).join(" · ");
+  document.getElementById("cstAviso").textContent = ENVIOS[llave(x)]
+    ? "Ya se marcó como enviado a Costos el "+fechaCorta(ENVIOS[llave(x)].ts)+" ("+ENVIOS[llave(x)].quien+")." : "";
+  pintarCostos();
+  document.getElementById("mCostos").style.display="flex";
+  document.getElementById("cstArchivos").innerHTML='<span class="q" style="font-size:12px">Buscando el reporte…</span>';
+  try{
+    cst.archivos=await api("evidencias?select=tipo,ruta&coord=eq."+coord+"&servicio_id=eq."+id+"&order=ts");
+  }catch(e){ cst.archivos=[] }
+  pintarCostos();
+}
+function pintarCostos(){
+  const x=cst.x, ps=propsDe(x);
+  const rep=(cst.archivos||[]).filter(a=>/^REPORTE/i.test(a.tipo||""));
+  const cro=(cst.archivos||[]).filter(a=>/^CROQUIS/i.test(a.tipo||""));
+  const it=(ok,et,campo)=>'<div class="cst-it"><span class="'+(ok?"ok":"no")+'">'+(ok?"✓":"○")+'</span><b>'+et+'</b>'+campo+'</div>';
+  const inp=(id,val,ph)=>'<input id="'+id+'" value="'+esc(val||"")+'" placeholder="'+esc(ph)+'" oninput="armarMensajeCostos()">';
+  const siNo=(id,val)=>'<select id="'+id+'" onchange="armarMensajeCostos()"><option value=""></option>'+
+    ["SI","NO"].map(o=>'<option'+(String(val||"").toUpperCase().replace("Í","I")===o?" selected":"")+'>'+o+'</option>').join("")+'</select>';
+  document.getElementById("cstLista").innerHTML=
+    it(!!diasDe(x),"Días de instalación", inp("cstDias",diasDe(x),"ej. 3"))+
+    it(!!limpio(x.horario_inst),"Horario de trabajo", inp("cstHorario",x.horario_inst,"ej. lun a vie 22:00 a 06:00"))+
+    it(!!limpio(x.altura),"Altura", inp("cstAltura",x.altura,"ej. 8 m"))+
+    it(!!eqEspecializadoTexto(x),"Plataforma / eq. especial",
+       '<span style="display:flex;gap:6px">'+siNo("cstEqSi",x.eq_especializado)+
+       inp("cstEqTipo",x.tipo,"tijera, articulada, arnés…")+'</span>')+
+    it(!!limpio(x.segurista_vigia),"Segurista / vigía", siNo("cstSeg",x.segurista_vigia))+
+    it(ps.length>0,"Equipo y cantidades",'<span class="sub">'+(ps.length?ps.length+" área(s) capturada(s)":"sin capturar: usa ✎ Propuesta")+'</span>')+
+    it(rep.length>0,"Reporte firmado",'<span class="sub">'+(rep.length?rep.length+" archivo(s)":"no está en la base: súbelo con + fotos")+'</span>')+
+    it(cro.length>0,"Croquis",'<span class="sub">'+(cro.length?cro.length+" archivo(s)":"no está en la base")+'</span>');
+  document.getElementById("cstArchivos").innerHTML=rep.concat(cro).map((a,i)=>
+    '<button class="mini" onclick="bajarArchivoCostos('+(cst.archivos.indexOf(a))+')">⬇ '+
+    esc(/^REPORTE/i.test(a.tipo)?"Reporte":"Croquis")+' '+(i+1)+'</button>').join("");
+  armarMensajeCostos();
+}
+function valorCostos(id){ const e=document.getElementById(id); return e?e.value.trim():"" }
+function armarMensajeCostos(){
+  const x=cst.x, ps=propsDe(x);
+  const eq=[valorCostos("cstEqSi")==="SI"?"SÍ":valorCostos("cstEqSi"), valorCostos("cstEqTipo")].filter(Boolean).join(" · ");
+  const renglon=(et,v)=>"*"+et+":* "+(v||"—");
+  const cant=ps.map(p=>{
+    const piezas=RENGLONES.filter(([k])=>k!=="notas"&&limpio(p[k])).map(([k,et])=>et+" "+p[k]);
+    return (ps.length>1?"• "+(p.nombre||("Área "+p.n))+": ":"• ")+piezas.join(", ");
+  });
+  document.getElementById("cstMsg").value=[
+    "*COTIZACIÓN · LEVANTAMIENTO*",
+    (x.tkt?"TKT "+x.tkt+" · ":"")+(x.nombre||""),
+    renglon("Cliente", limpio(x.dependencia)),
+    renglon("Ejecutivo", limpio(x.ejecutivo)),
+    renglon("Días de instalación", valorCostos("cstDias")),
+    renglon("Horario de trabajo", valorCostos("cstHorario")),
+    renglon("Altura", valorCostos("cstAltura")),
+    renglon("Plataforma / eq. especial", eq),
+    renglon("Segurista / vigía", valorCostos("cstSeg")),
+    cant.length ? "*Equipo:*\n"+cant.join("\n") : renglon("Equipo","sin capturar"),
+    "",
+    "Va el reporte firmado en PDF."
+  ].join("\n");
+}
+/* lo que se escribio en la hoja se queda en el levantamiento: la proxima vez
+   ya no hay que volver a preguntarlo */
+async function guardarDatosCostos(){
+  const x=cst.x, c={};
+  const dias=parseFloat(valorCostos("cstDias").replace(",", "."));
+  if(dias && diasDe(x)!==String(Math.round(dias*2)/2)) c.tiempo_inst_est=String(Math.round(dias*MIN_DIA));
+  [["cstHorario","horario_inst"],["cstAltura","altura"],["cstEqSi","eq_especializado"],
+   ["cstEqTipo","tipo"],["cstSeg","segurista_vigia"]].forEach(([id,k])=>{
+    const v=valorCostos(id);
+    if(v && v!==String(x[k]||"").trim()) c[k]=v;
+  });
+  if(!Object.keys(c).length) return;
+  const d=await api("servicios?coord=eq."+x.coord+"&id=eq."+x.id,
+    {method:"PATCH", headers:{Prefer:"return=representation"}, body:JSON.stringify(c)});
+  if(!d||!d.length) throw new Error("no se guardaron los datos del levantamiento");
+  Object.assign(x, c);
+  anotar("GUARDAR", "ID="+x.id+" · "+Object.keys(c).join(", ")+" (hoja de Costos)", x);
+}
+async function copiarCostos(){
+  const t=document.getElementById("cstMsg"), av=document.getElementById("cstAviso");
+  try{ await navigator.clipboard.writeText(t.value); av.textContent="Mensaje copiado. Pégalo en el grupo y adjunta el reporte."; }
+  catch(e){ t.select(); av.textContent="Selecciónalo y cópialo con Ctrl+C."; }
+}
+function whatsCostos(){
+  window.open("https://wa.me/?text="+encodeURIComponent(document.getElementById("cstMsg").value), "_blank");
+}
+async function bajarArchivoCostos(i){
+  const a=cst.archivos[i], av=document.getElementById("cstAviso");
+  if(!a) return;
+  av.textContent="Bajando…";
+  try{
+    const r=await conTiempoArchivo(SUPA_URL+"/storage/v1/object/evidencias/"+a.ruta,{headers:hdr()});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const b=await r.blob(), u=URL.createObjectURL(b), l=document.createElement("a");
+    const ext=(a.ruta.split(".").pop()||"pdf").toLowerCase();
+    l.href=u; l.download=(cst.x.tkt?"TKT"+cst.x.tkt+"_":"")+(/^REPORTE/i.test(a.tipo)?"reporte":"croquis")+"_"+(i+1)+"."+ext;
+    document.body.appendChild(l); l.click(); l.remove();
+    setTimeout(()=>URL.revokeObjectURL(u), 4000);
+    av.textContent="Listo: adjúntalo en el mensaje del grupo.";
+  }catch(e){ av.textContent="No se pudo bajar: "+e.message }
+}
+async function marcarCostos(){
+  const x=cst.x, b=document.getElementById("cstMarcar"), av=document.getElementById("cstAviso");
+  b.disabled=true;
+  try{
+    await guardarDatosCostos();
+    anotar("ENVIA A COSTOS", "ID="+x.id+" · "+(x.nombre||"").slice(0,60), x);
+    const t=new Date(), p=n=>String(n).padStart(2,"0");
+    ENVIOS[llave(x)]={ts:t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate()), quien:nombreDe(ses&&ses.usuario)};
+    document.getElementById("mCostos").style.display="none";
+    pintar();
+  }catch(e){ av.textContent=e.message }
+  finally{ b.disabled=false }
 }
 
 /* ---------- editar lo levantado ----------
