@@ -58,6 +58,9 @@
   .avisoProg{background:rgba(232,163,61,.10);border:1px solid rgba(232,163,61,.45);
     border-radius:13px;padding:12px 14px;margin-bottom:13px;font-size:13px}
   .avisoProg b{color:#F0BE6E}
+  .avisoProg.apt{background:rgba(99,179,255,.09);border-color:rgba(99,179,255,.40)}
+  .avisoProg.apt b{color:#8FC8FF}
+  .avisoProg.apt .tarde{color:#F3B0AC;font-weight:700}
   .avisoProg input[type=date]{font-size:12px;padding:5px 7px}
   /* ---- cinta de cumplimiento ---- */
   .cinta{display:flex;align-items:center;gap:11px;flex-wrap:wrap;border-radius:12px;
@@ -186,6 +189,7 @@
   <div class="resumen" id="resumen"></div>
   <div id="hallados"></div>
   <div id="porProgramar"></div>
+  <div id="apartados"></div>
   <div id="lista"><div class="load">Entra para programar.</div></div>
 </div>
 
@@ -396,6 +400,7 @@ async function arrancar(){
   document.getElementById("lista").innerHTML='<div class="load">Cargando…</div>';
   await cargarCatalogos();
   await cargarEjecutivos();
+  cargarApartados();
   cargar();
 }
 
@@ -784,6 +789,7 @@ function irAlDia(f){
 
 
 function pintar(){ setTimeout(filtrarVista,0); pintarSinFecha(); pintarCinta();
+  pintarApartados();
   pintarLote();
   const cont=document.getElementById("lista");
   const conTec=filas.filter(x=>limpio(x.tecnico)).length;
@@ -1012,6 +1018,91 @@ function anotar(accion, detalle, x){
       tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
     })}).catch(function(){});
   }catch(e){}
+}
+
+/* ---------- garantias apartadas ----------
+   Cada equipo instalado se lleva cuatro visitas de garantia, una cada seis
+   meses. Esas fechas se las prometio instalaciones al cliente y vivian en un
+   Excel: mantenimiento no las veia, y cuando tocaba la visita no habia TKT.
+   Sin TKT no hay servicio, y la fecha se pasaba sin que nadie lo notara.
+
+   Aqui se ven las que vienen. NO son servicios -por eso no salen en la lista
+   del dia ni en ningun conteo-: son el lugar guardado mientras llega el TKT.
+   Cuando llega, el boton las convierte en servicio de verdad. */
+let apartados=[];
+async function cargarApartados(){
+  const c=document.getElementById("apartados");
+  if(!c) return;
+  try{
+    /* solo lo que ya vencio y lo de los proximos dos meses: apartar es util,
+       pero la lista completa son quinientas y nadie la lee */
+    apartados=await api("apartados?select=*&estado=eq.APARTADO&fecha=lte."+isoDe(60)+
+                        "&order=fecha&limit=400");
+  }catch(e){ apartados=[]; return }
+  pintarApartados();
+}
+function pintarApartados(){
+  const c=document.getElementById("apartados");
+  if(!c) return;
+  const co=document.getElementById("fCoord").value;
+  const v=apartados.filter(a=>!co || a.coord===co);
+  if(!v.length){ c.innerHTML=""; return }
+  const hoy=isoDe(0);
+  const tarde=v.filter(a=>a.fecha<hoy).length;
+  c.innerHTML='<div class="avisoProg apt"><b>'+v.length+
+    ' garantía'+(v.length>1?"s":"")+' apartada'+(v.length>1?"s":"")+
+    ' sin TKT</b> — las dejó instalaciones y todavía no son servicio.'+
+    (tarde?' <span class="tarde">'+tarde+' con la fecha vencida.</span>':"")+
+    '<div class="sub" style="margin-top:4px">Cuando llegue el TKT, el botón la'+
+    ' convierte en servicio y queda anotado de qué instalación salió.</div>'+
+    '<div class="tabla" style="margin-top:9px"><table><thead><tr>'+
+    '<th>Fecha</th><th>Visita</th><th>Sitio</th><th>Equipo</th>'+
+    '<th>Instalación</th><th></th></tr></thead><tbody>'+
+    v.map(function(a,i){
+      return '<tr><td'+(a.fecha<hoy?' class="tarde"':"")+'>'+esc(a.fecha)+'</td>'+
+        '<td class="sub">'+esc(a.tipo_servicio||"")+'</td>'+
+        '<td><div class="sitio">'+esc(a.sitio||"")+'</div>'+
+          '<div class="sub">'+esc(a.cliente||"")+'</div></td>'+
+        '<td class="sub">'+esc(a.equipo||"")+'<br>'+esc(a.serie||"")+'</td>'+
+        '<td class="sub">'+esc(a.origen_pry||"")+'<br>'+esc(a.fecha_inst||"")+'</td>'+
+        '<td><button onclick="convertir('+i+')">Ya tiene TKT</button></td></tr>';
+    }).join("")+'</tbody></table></div></div>';
+}
+
+/* El apartado se vuelve servicio. Se pide el TKT porque es lo unico que el
+   apartado no puede adivinar, y es justo lo que estaba esperando. */
+let convirtiendo=false;
+async function convertir(i){
+  const co=document.getElementById("fCoord").value;
+  const a=apartados.filter(x=>!co || x.coord===co)[i];
+  /* Un segundo clic mientras el primero viaja daria de alta el servicio dos
+     veces, con el mismo TKT y sin que nadie lo note hasta el reporte. */
+  if(!a || convirtiendo) return;
+  const tkt=(prompt("Número de TKT para "+(a.sitio||"")+"\n"+
+                    (a.tipo_servicio||"")+" · apartada el "+a.fecha)||"").trim();
+  if(!tkt) return;
+  convirtiendo=true;
+  try{
+    const d=await api("servicios",{method:"POST",
+      headers:{Prefer:"return=representation"},
+      body:JSON.stringify({coord:a.coord||"MANT", tkt:tkt,
+        nombre:a.sitio||"", dependencia:a.cliente||"",
+        fecha_servicio:a.fecha, tipo_servicio:a.tipo_servicio||"",
+        equipo:a.equipo||"", serie:a.serie||"", ejecutivo:a.ejecutivo||"",
+        status:"PROGRAMADO", etapa_actual:2,
+        obs_captura:"Garantía "+a.visita+" de 4 · viene de "+(a.origen_pry||"")+
+                    " instalada el "+(a.fecha_inst||"?")})});
+    const srv=(d&&d[0])||{};
+    await api("apartados?apt_id=eq."+a.apt_id,{method:"PATCH",
+      headers:{Prefer:"return=minimal"},
+      body:JSON.stringify({estado:"CONVERTIDO", tkt:tkt, servicio_id:srv.id||null})});
+    anotar("APARTADO A SERVICIO", (a.origen_pry||"")+" visita "+a.visita+
+           " · TKT "+tkt, srv);
+    apartados=apartados.filter(x=>x.apt_id!==a.apt_id);
+    pintarApartados();
+    cargar();
+  }catch(e){ alert("No se pudo: "+e.message) }
+  finally{ convirtiendo=false }
 }
 
 function pintarResumen(){
