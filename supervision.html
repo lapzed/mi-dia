@@ -476,6 +476,33 @@ const COLORES=["#63B3FF","#5BD79B","#F0BE6E","#F0A9A5","#C39BD3","#7FD1D8","#FFD
                "#9DB6D2","#B5E48C","#FFB4A2","#A0C4FF","#BDB2FF","#FFC6FF"];
 function colorDe(i){ return COLORES[i%COLORES.length] }
 
+/* ---------- la rueda sobre el mapa hace zoom ----------
+   Leaflet trae `scrollWheelZoom` apagado a proposito: encendido de fabrica, el
+   mapa se traga la rueda SIEMPRE, y quien baja por la pagina se queda atorado
+   haciendo zoom sin entender por que.
+
+   Aqui se enciende solo mientras el puntero esta encima y se vuelve a apagar
+   al salir, que es como se espera que se porte un mapa metido en una hoja
+   larga. Con el teclado tambien: Ctrl o Cmd + rueda funciona siempre, que es
+   el gesto que ya traen aprendido de otros mapas, y el pellizco del trackpad
+   llega como ese mismo evento.
+
+   `map.getContainer()` y no el div por id: cuando el mapa se vuelve a dibujar
+   -y estos se rehacen con cada filtro- el contenedor es otro y los escuchas
+   del viejo se van con el. */
+function zoomConRueda(m){
+  if(!m) return m;
+  const c=m.getContainer();
+  c.addEventListener("mouseenter", ()=>m.scrollWheelZoom.enable());
+  c.addEventListener("mouseleave", ()=>m.scrollWheelZoom.disable());
+  /* Ctrl+rueda no depende de estar encima: el navegador manda el evento al
+     elemento bajo el puntero de todos modos, y asi el gesto funciona aunque
+     el raton acabe de entrar y el `mouseenter` no haya corrido todavia. */
+  c.addEventListener("wheel", e=>{
+    if(e.ctrlKey || e.metaKey){ m.scrollWheelZoom.enable() }
+  }, {passive:true});
+  return m;
+}
 function pintarHoy(){
   const hoy=hoyISO();
   const dia=todos.filter(x=>x.fecha_servicio===hoy);
@@ -511,7 +538,7 @@ function pintarHoy(){
 
   if(mapa){ mapa.remove(); mapa=null }
   if(!hayMapa()) return;
-  mapa=L.map("mapa",{scrollWheelZoom:false}).setView(BASE,10);
+  mapa=zoomConRueda(L.map("mapa",{scrollWheelZoom:false}).setView(BASE,10));
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {attribution:"OpenStreetMap", maxZoom:18}).addTo(mapa);
   L.circleMarker(BASE,{radius:9,color:"#fff",weight:2,fillColor:"#0B2038",fillOpacity:1})
