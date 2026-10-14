@@ -1363,6 +1363,69 @@ function bloquesDe(coord, modo){
   return POR_COORD[(coord||"").toUpperCase()] || BLOQUES;
 }
 
+/* ---------- evidencia por sonorización ----------
+   Un levantamiento puede terminar en varias sonorizaciones —una por cada equipo
+   que hace falta para alertar al predio— y hasta hoy las fotos y el croquis eran
+   del servicio entero: el técnico no tenía dónde subir las de la segunda, y en
+   el informe no había manera de saber a cuál área correspondía cada foto.
+
+   Ahora cada sonorización pide las suyas. Con una sola —el caso de siempre— los
+   bloques quedan idénticos, con los mismos tipos, para que lo ya subido siga
+   contando y nada de lo viejo tenga que migrarse. De la segunda en adelante el
+   tipo lleva su número: LEVANTAMIENTO|S2, CROQUIS|S2. */
+const BLOQUES_PROP = ["LEVANTAMIENTO", "CROQUIS"];
+
+function sufijoProp(n){ return n === 1 ? "" : "|S" + n }
+
+function rotuloProp(p, n, varias){
+  if(!varias) return "";
+  const nom = limpio(p && p.nombre) ? " — " + p.nombre.trim() : "";
+  return " · Sonorización " + n + nom;
+}
+
+function sincroBloquesProp(){
+  if(!cie || !cie.propuestas || !cie._bloques) return;
+  const sinNum = t => String(t || "").replace(/^\d+ · /, "");
+  const base = bloquesDe(cie.srv.coord, cie.estatus);
+  const dePropuesta = BLOQUES_PROP
+    .map(t => base.find(b => b.tipo === t))
+    .filter(Boolean);
+  if(!dePropuesta.length) return;
+
+  const varias = cie.propuestas.length > 1;
+  const lista = [];
+  cie.propuestas.forEach(function(p, i){
+    const n = i + 1;
+    dePropuesta.forEach(function(b){
+      const corto = b.tipo === "CROQUIS" ? "Croquis" : "Fotos";
+      lista.push({
+        campo: n === 1 ? b.campo : b.campo + n,
+        tipo:  b.tipo + sufijoProp(n),
+        t:     varias ? corto + rotuloProp(p, n, varias) : sinNum(b.titulo),
+        pista: b.pista, pdf: b.pdf, prop: n
+      });
+    });
+  });
+  /* lo que no depende de la sonorización —el reporte firmado, el log— se queda
+     al final y en su orden */
+  cie._bloques.forEach(function(b){
+    if(BLOQUES_PROP.indexOf(String(b.tipo).split("|")[0]) < 0)
+      lista.push({campo:b.campo, tipo:b.tipo, t:sinNum(b.titulo),
+                  pista:b.pista, pdf:b.pdf});
+  });
+
+  const vivos = {};
+  lista.forEach(function(b, k){
+    b.titulo = (k + 1) + " · " + b.t;
+    if(!cie[b.campo]) cie[b.campo] = [];
+    vivos[b.campo] = true;
+  });
+  /* si se quitó una sonorización, lo que se le había puesto se suelta: ya no
+     viaja en el cierre y no tiene por qué seguir ocupando el teléfono */
+  cie._bloques.forEach(function(b){ if(!vivos[b.campo]) delete cie[b.campo] });
+  cie._bloques = lista;
+}
+
 let cie = null;   // {srv, estatus, _bloques, y un arreglo por bloque}
 
 function abrirCierre(coord, id, modo){
@@ -1401,6 +1464,7 @@ function abrirCierre(coord, id, modo){
 
   cie.propuestas = ((coord||"").toUpperCase()==="LEV" &&
                     (modo==="ATENDIDO" || modo==="REGULARIZAR")) ? [propNueva(1)] : null;
+  sincroBloquesProp();     // sus fotos y su croquis, una por sonorización
   /* Lo que hay instalado lo captura la coordinación, pero quien lo ve es el
      técnico: si la coordinación no lo puso o lo puso mal, él lo agrega o lo
      corrige desde aquí. Arranca con lo que ya trae el servicio. */
@@ -1571,14 +1635,20 @@ const PROP_FIJA = [["fijacion","Medio de fijación"], ["taquete","Taquete / ancl
 function propNueva(n){ return {n:n, nombre:"", notas:""} }   // el nombre es el área
 function propAgregar(){
   cie.propuestas.push(propNueva(cie.propuestas.length+1));
+  sincroBloquesProp();
   pintarCierre();
 }
 function propQuitar(i){
   cie.propuestas.splice(i,1);
   cie.propuestas.forEach((p,k)=>{ p.n=k+1 });
+  sincroBloquesProp();
   pintarCierre();
 }
-function propCampo(i, campo, v){ cie.propuestas[i][campo] = v }
+/* el nombre del área titula también su bloque de fotos, así que se refresca */
+function propCampo(i, campo, v){
+  cie.propuestas[i][campo] = v;
+  if(campo === "nombre") sincroBloquesProp();
+}
 
 /* Lo que hay que llevar o rentar. Se pueden marcar varios -una nave pide
    plataforma Y arnes- asi que son botones que se prenden, no una lista de la

@@ -839,6 +839,9 @@ function etapaDe(t){ return String(t||"").split("|")[0] }
 function piezaDe(t){
   const p = String(t||"").split("|").slice(1);
   if(!p.length) return "";
+  /* "S2" no es una pieza: dice de que sonorizacion del levantamiento es la
+     foto, y eso ya va en el titulo de su hoja */
+  if(/^S\d+$/.test(p[0])) return "";
   const nom = {EQUIPO:"Equipo receptor", AMPLIFICADOR:"Amplificador",
                REFORZADOR:"Reforzador", UPS:"UPS", ANTENA:"Antena",
                TROMPETA:"Trompeta", ESTROBO:"Estrobo"}[p[0]] || p[0];
@@ -998,7 +1001,7 @@ function pintarDatos(){
     '<div style="grid-column:1/-1"><div class="dat-t">¿Dónde está cada componente?</div>' +
     '<div class="dat-g">' +
       COMPONENTES.filter(c => SIN_UBICACION.indexOf(c.id) < 0)
-        .map(c => '<label>' + esc(c.nom) +
+        .map(c => '<label>' + esc(nomDe(c, x)) +
         '<input id="ubic_' + c.id + '" placeholder="ej. Área de cajas" value="' +
         esc((x.ubicaciones||{})[c.id] || "") + '"></label>').join("") +
       '<div class="dat-nota" style="grid-column:1/-1">El amplificador y el ' +
@@ -1988,6 +1991,71 @@ function hojaLog(x, ident){
    Los parrafos que reciben `x` son los que llevan la medicion de ESTA visita
    junto al rango que pide el protocolo. El rango dice cuanto deberia ser; el
    dato dice cuanto se encontro. Si no se capturo, la frase se acorta sola. */
+/* ---------- el modelo del receptor ----------
+   El informe traia "SARMEX PA20" escrito once veces, pero no todos los sitios
+   tienen un PA20: en mantenimiento hay MDT10, PA020 S, PA040 B. La portada si
+   cambiaba -pega el campo `equipo` tal cual- asi que el documento se
+   contradecia solo: la portada decia "PA040 B" y adentro seguia hablando del
+   PA20.
+
+   `equipo` viene del CRM y trae el codigo, no el nombre: "PA020 B", "PA040 B",
+   "MDT10". De ahi se reconoce el modelo; lo que no se reconozca -"ADITAMENTO",
+   "SARMEX 11"- se queda en el nombre generico, sin modelo, que es la forma
+   honesta de no afirmar cual es.
+
+   `par` son los valores electricos que el protocolo enuncia como rango y con
+   los que se marca el hallazgo. Solo estan confirmados los del PA20; mientras
+   los demas no se confirmen van en null y esas frases no se escriben: un rango
+   equivocado en un documento firmado es peor que no traer el rango. */
+const PAR_PA20 = {
+  linea:   [85, 264],
+  fuente:  [13.3, 13.6],
+  bateria: [12.2, 12.6],
+  salida:  "10.1 V",
+  corriente: "2 A"
+};
+const EQUIPOS = [
+  {pat:/MDT\s*-?\s*10/i,                    mod:"MDT10W",  par:null},
+  {pat:/PA\s*0*400/i,                       mod:"PA400",   par:null},
+  /* antes que el PA20: "PA040" y "PA20/40" tambien traen un 20 adentro */
+  {pat:/PA\s*0*20\s*\/\s*0*40|PA\s*0*40/i,  mod:"PA20/40", par:null},
+  {pat:/PA\s*0*20/i,                        mod:"PA20",    par:PAR_PA20}
+];
+/* sin modelo reconocido el equipo se nombra por la marca y ya */
+const EQUIPO_GENERICO = {mod:"", par:null};
+
+function equipoDe(x){
+  const t = limpio(x && x.equipo) || "";
+  for(const e of EQUIPOS) if(e.pat.test(t)) return e;
+  return EQUIPO_GENERICO;
+}
+/* el nombre completo va en el cuerpo ("equipo receptor SARMEX PA20"); en la
+   portada solo el modelo, porque el renglon ya dice SARMEX ® */
+const EQN = x => esc("SARMEX " + (equipoDe(x).mod || "®"));
+/* el nombre del componente: el del receptor depende del modelo, los demas no */
+const nomDe = (c, x) => typeof c.nom === "function" ? c.nom(x) : c.nom;
+
+/* Lo que salio del rango, en un solo lugar: lo dice el protocolo y lo tienen
+   que decir tambien las conclusiones. Estaba calculado solo en el protocolo, y
+   por eso el documento podia marcar un hallazgo en una hoja y concluir tres
+   hojas despues que todo estaba correcto.
+   Sin rangos confirmados para el modelo no se compara nada. */
+function medicionesFuera(x){
+  const p = equipoDe(x).par;
+  if(!p) return [];
+  const R = {volt_linea:  [p.linea[0],   p.linea[1],   "alimentación de línea", "Vca"],
+             volt_fuente: [p.fuente[0],  p.fuente[1],  "fuente de alimentación","Vcc"],
+             volt_bateria:[p.bateria[0], p.bateria[1], "batería de respaldo",   "Vcc"]};
+  const fuera = [];
+  for(const k in R){
+    const n = parseFloat(String(limpio(x[k])||"").replace(",","."));
+    if(!isNaN(n) && (n < R[k][0] || n > R[k][1]))
+      fuera.push(`la <b>${R[k][2]}</b> registró <b>${esc(String(limpio(x[k])))} ${R[k][3]}</b>,
+        ${n < R[k][0] ? "por debajo" : "por encima"} del rango de ${R[k][0]} a ${R[k][1]} ${R[k][3]}`);
+  }
+  return fuera;
+}
+
 const PROTOCOLO_MANT = [
  {t:"", p:[`Las actividades que se describen a continuación explican el protocolo de
    actuación durante nuestro servicio de mantenimiento, cuya finalidad es prevenir y
@@ -2002,10 +2070,10 @@ const PROTOCOLO_MANT = [
    inmueble sonorizado y se genera un croquis del mismo.`]},
 
  {t:"1- Revisión física de los componentes del sistema de alertamiento sísmico SARMEX ®.",
-  p:[`Se inspecciona el estado que guardan el equipo receptor SARMEX PA20, los altavoces,
+  p:[x=>`Se inspecciona el estado que guardan el equipo receptor ${EQN(x)}, los altavoces,
     la antena aérea dipolo, la luz estrobo, el amplificador externo, los conectores y el
     cableado.`,
-   `<b>Equipo receptor SARMEX PA20.</b> Se revisa que el equipo se encuentre libre de
+   x=>`<b>Equipo receptor ${EQN(x)}.</b> Se revisa que el equipo se encuentre libre de
     objetos ajenos al sistema, sin fracturas, algún daño o suciedad, que esté fijado de
     forma correcta sin poder moverlo, que sus conectores estén limpios y libres de
     suciedad, el estado de la conexión de antena al receptor y el estado de la tapa del
@@ -2041,10 +2109,10 @@ const PROTOCOLO_MANT = [
     intervención.`]},
 
  {t:"2- Revisión de parámetros a componentes del sistema de alertamiento sísmico SARMEX ®.",
-  p:[`Se verifican los parámetros de operación del equipo receptor SARMEX PA20, los
+  p:[x=>`Se verifican los parámetros de operación del equipo receptor ${EQN(x)}, los
     altavoces, la antena aérea dipolo, la luz estrobo y el amplificador externo, para
     asegurar el funcionamiento correcto e integral del sistema de alertamiento sísmico.`,
-   x=>`<b>Equipo receptor SARMEX PA20.</b> Se verifica la fecha, la hora, el canal de
+   x=>`<b>Equipo receptor ${EQN(x)}.</b> Se verifica la fecha, la hora, el canal de
     operación${limpio(x.canal)?` —se encuentra en el <b>canal ${esc(limpio(x.canal))}</b>—`:""},
     la calidad e intensidad de la señal${limpio(x.senal_barras)?` —<b>${esc(limpio(x.senal_barras))} barras</b>—`:""}
     y el historial de eventos. Mediante la conexión de un equipo de cómputo se realiza la
@@ -2054,11 +2122,20 @@ const PROTOCOLO_MANT = [
     recepción de mayor ganancia y garantizando la calidad e intensidad de la señal. Se
     revisa que cuente con la última versión del software “SARMEX DATA PROGRAM”, versión
     para MDreieck, mediante el menú de configuración.`,
-   `Se verifican los valores de carga con la medición de los voltajes de alimentación de
-    línea, fuente y batería de respaldo. La entrega de voltaje de la línea deberá estar en
-    un rango de <b>85 a 264 Vca</b>. El valor de la fuente de alimentación deberá estar en
-    un rango de <b>13.3 Vcc a 13.6 Vcc</b>. Se comprueba el estado de la batería de
-    respaldo, cuyo voltaje debe estar en un rango de <b>12.2 Vcc a 12.6 Vcc</b>.`,
+   /* los rangos son los del modelo: enunciar los del PA20 sobre otro equipo
+      seria declarar fuera de norma algo que no lo esta. Sin rangos confirmados
+      se dice que se mide, y las mediciones salen en el parrafo siguiente. */
+   x=>{
+     const p = equipoDe(x).par;
+     const base = `Se verifican los valores de carga con la medición de los voltajes de
+       alimentación de línea, fuente y batería de respaldo.`;
+     if(!p) return base;
+     return `${base} La entrega de voltaje de la línea deberá estar en
+      un rango de <b>${p.linea[0]} a ${p.linea[1]} Vca</b>. El valor de la fuente de
+      alimentación deberá estar en un rango de <b>${p.fuente[0]} Vcc a ${p.fuente[1]} Vcc</b>.
+      Se comprueba el estado de la batería de respaldo, cuyo voltaje debe estar en un rango
+      de <b>${p.bateria[0]} Vcc a ${p.bateria[1]} Vcc</b>.`;
+   },
    x=>{
      /* cada medicion con la unidad que le toca, y en el mismo orden en que el
         parrafo anterior enuncia los rangos, para poder cotejarlas de un vistazo */
@@ -2073,16 +2150,7 @@ const PROTOCOLO_MANT = [
       cliente contrata el mantenimiento. La explicacion la da quien estuvo en el
       sitio; sin ella la frase se queda en el dato. */
    x=>{
-     const R={volt_linea:[85,264,"alimentación de línea","Vca"],
-              volt_fuente:[13.3,13.6,"fuente de alimentación","Vcc"],
-              volt_bateria:[12.2,12.6,"batería de respaldo","Vcc"]};
-     const fuera=[];
-     for(const k in R){
-       const n=parseFloat(String(limpio(x[k])||"").replace(",","."));
-       if(!isNaN(n) && (n<R[k][0] || n>R[k][1]))
-         fuera.push(`la <b>${R[k][2]}</b> registró <b>${esc(String(limpio(x[k])))} ${R[k][3]}</b>,
-           ${n<R[k][0]?"por debajo":"por encima"} del rango de ${R[k][0]} a ${R[k][1]} ${R[k][3]}`);
-     }
+     const fuera = medicionesFuera(x);
      if(!fuera.length) return limpio(x.obs_medicion)
        ? `<b>Observación sobre las mediciones.</b> ${esc(limpio(x.obs_medicion))}` : "";
      return `<b>Hallazgo.</b> Durante la medición de parámetros se observa que ${
@@ -2091,11 +2159,17 @@ const PROTOCOLO_MANT = [
    },
    `Es importante mencionar que el voltaje medido es el suministrado mediante la línea
     principal que conecta al equipo.`,
-   `<b>Altavoces.</b> El parámetro por verificar en los altavoces es la potencia, donde
-    P = V × A, siendo de <b>10.1 V</b> y <b>2 A</b> los valores de salida del equipo.`,
-   `<b>Antena aérea dipolo.</b> Los parámetros o indicadores sobre el funcionamiento
+   x=>{
+     const p = equipoDe(x).par;
+     const base = `<b>Altavoces.</b> El parámetro por verificar en los altavoces es la
+       potencia, donde P = V × A`;
+     return p ? `${base}, siendo de <b>${p.salida}</b> y <b>${p.corriente}</b> los valores
+       de salida del equipo.` : `${base}, con los valores de salida que corresponden al
+       equipo instalado.`;
+   },
+   x=>`<b>Antena aérea dipolo.</b> Los parámetros o indicadores sobre el funcionamiento
     correcto de la antena son visuales y auditivos respecto de su orientación ideal; por
-    medio del equipo receptor SARMEX PA20 se analizan estos parámetros de acuerdo con la
+    medio del equipo receptor ${EQN(x)} se analizan estos parámetros de acuerdo con la
     orientación de la antena, y se selecciona el canal con mayor ganancia buscando un
     máximo de señal con un audio limpio.`,
    `<b>Luz estrobo.</b> Se revisa que el voltaje de entrada a la luz estrobo sea de
@@ -2107,18 +2181,18 @@ const PROTOCOLO_MANT = [
     salida.`]},
 
  {t:"3- Revisión del funcionamiento de los componentes del sistema de alertamiento sísmico SARMEX ®.",
-  p:[`Se verifica el funcionamiento de todos los componentes individualmente y en conjunto,
+  p:[x=>`Se verifica el funcionamiento de todos los componentes individualmente y en conjunto,
     para garantizar la continuidad en la operatividad del sistema de alertamiento sísmico
-    SARMEX PA20.`,
-   `<b>Equipo receptor SARMEX PA20.</b> Se realizan pruebas de sonido, de simulacro, de
+    ${EQN(x)}.`,
+   x=>`<b>Equipo receptor ${EQN(x)}.</b> Se realizan pruebas de sonido, de simulacro, de
     sirena y de activación de alerta sísmica sin sonido, con el equipo alimentado con
     energía del tomacorriente de 120 Vca y con batería; en caso de contar con un
     amplificador externo, se verifica su operación con las diferentes funciones de
     simulacro, sirena y activación de alerta sísmica.`,
-   `<b>Altavoces.</b> Se comprueba el funcionamiento del altavoz de forma independiente
+   x=>`<b>Altavoces.</b> Se comprueba el funcionamiento del altavoz de forma independiente
     cerrando circuito con una batería de 12 Vcc, la cual debe emitir un “clic” que confirma
     su funcionamiento; posteriormente se procede con la emisión de sonido por medio de las
-    pruebas de funcionalidad del equipo receptor SARMEX PA20, y se varía la intensidad de
+    pruebas de funcionalidad del equipo receptor ${EQN(x)}, y se varía la intensidad de
     audio con el motivo de percibir esos cambios por los altavoces.`,
    `<b>Luz estrobo.</b> Al igual que los altavoces, este aditamento se verifica
     encendiéndolo independientemente y en conjunto con el resto de los componentes del
@@ -2198,7 +2272,7 @@ const PROTOCOLO = [
    capturo, la frase se acorta sola. */
 const NADA = "";
 const COMPONENTES = [
- {id:"EQUIPO", nom:"Equipo receptor SARMEX PA20", inv:["equipo"], act:[
+ {id:"EQUIPO", nom:x=>`Equipo receptor ${equipoDe(x).nom}`, inv:["equipo"], act:[
    ["Revisión física.", `Se revisa que el equipo se deje libre de objetos ajenos al
      sistema, no se encontraron fracturas o algún daño, se remueve la suciedad por medio
      de aire comprimido y espuma, se observa fijado de forma correcta, sus conectores
@@ -2230,22 +2304,35 @@ const COMPONENTES = [
      encuentra conectada al sistema receptor de alertamiento sísmico, así como la sujeción
      del altavoz, se limpia con aire comprimido y espuma para dejarla libre de suciedad e
      impurezas.`, ["Estado inicial", "Limpieza trompeta"]],
-   ["Revisión parámetros.", x=>`Se miden los parámetros a verificar encontrando valores
-     óptimos siendo de ${esc(limpio(x.volt_salida)||"—")} V y ${esc(limpio(x.amperaje)||"—")} A
-     los valores de salida del equipo.</p><p class="txt">Es importante mencionar que el
-     voltaje medido es suministrado mediante la línea principal que conecta al equipo.`,
-     [x=>(limpio(x.volt_salida)||limpio(x.amperaje))
-        ? `Voltaje medido ${esc(limpio(x.volt_salida)||"—")} V / Medición de amperaje ${
-            esc(limpio(x.amperaje)||"—")} A` : NADA]],
-   ["Revisión funcionamiento.", `Se comprueba el funcionamiento del altavoz emitiendo un
+   /* Decia "encontrando valores optimos siendo de — V y — A": el guion salia
+      impreso cuando el tecnico no capturo la medicion, y "optimos" se afirmaba
+      sin haberlo comprobado. Ahora se escribe lo que se midio, y si no se midio
+      nada la frase no inventa el dato. */
+   ["Revisión parámetros.", x=>{
+     const m = [];
+     if(limpio(x.volt_salida)) m.push(`<b>${esc(limpio(x.volt_salida))} V</b>`);
+     if(limpio(x.amperaje))    m.push(`<b>${esc(limpio(x.amperaje))} A</b>`);
+     const cab = m.length
+       ? `Se miden los parámetros de salida del equipo, con un resultado de ${m.join(" y ")}.`
+       : `Se miden los parámetros de salida del equipo.`;
+     return `${cab}</p><p class="txt">Es importante mencionar que el voltaje medido es
+       suministrado mediante la línea principal que conecta al equipo.`;
+   },
+     [x=>{
+       const m = [];
+       if(limpio(x.volt_salida)) m.push(`Voltaje medido ${esc(limpio(x.volt_salida))} V`);
+       if(limpio(x.amperaje))    m.push(`amperaje ${esc(limpio(x.amperaje))} A`);
+       return m.length ? m.join(" / ") : NADA;
+     }]],
+   ["Revisión funcionamiento.", x=>`Se comprueba el funcionamiento del altavoz emitiendo un
      “click” que nos confirma el funcionamiento del altavoz, posteriormente se procede con
      la emisión de sonido por medio de las pruebas de funcionalidad del equipo receptor
-     SARMEX PA20 y se confirma la intensidad de audio.`, ["Estado final"]]]},
+     ${EQN(x)} y se confirma la intensidad de audio.`, ["Estado final"]]]},
 
  {id:"ESTROBO", nom:"Luz estrobo", inv:["estrobo"], act:[
-   ["Revisión física.", `Se examinó el estado del dispositivo encontrándolo en buenas
+   ["Revisión física.", x=>`Se examinó el estado del dispositivo encontrándolo en buenas
      condiciones, con una sujeción firme, se verificó su conexión al sistema receptor de
-     alertamiento sísmico SARMEX PA20.`, ["Estado inicial", "Limpieza estrobo"]],
+     alertamiento sísmico ${EQN(x)}.`, ["Estado inicial", "Limpieza estrobo"]],
    /* El machote trae aqui la medicion de Lux, pero no se toma en todos los
       servicios, asi que no se pide ni se escribe: una frase con el dato en
       blanco es peor que no tenerla. */
@@ -2292,13 +2379,24 @@ const COMPONENTES = [
      ["Estado final"]]]}
 ];
 
+/* Concuerdan con el sujeto -"el estado ... es el adecuado", que estaba en
+   plural- y con lo que dice el resto del documento: si el protocolo marco una
+   medicion fuera de rango, la conclusion no puede asegurar que todo quedo
+   correcto tres hojas despues. */
 const CONCLUSIONES = [
  `Dada la revisión física de los componentes del sistema receptor de alertamiento sísmico
   SARMEX ®, el estado que guardan el equipo receptor, los altavoces, la antena aérea dipolo, la
-  luz estrobo, los conectores y el cableado son los adecuados para un funcionamiento correcto.`,
- `Durante la revisión de los parámetros a los componentes del sistema receptor de alertamiento
-  sísmico SARMEX ® se verificaron y actualizaron los parámetros de operación, asegurando el
-  funcionamiento correcto e integral del sistema.`,
+  luz estrobo, los conectores y el cableado es el adecuado para un funcionamiento correcto.`,
+ x=>{
+   const fuera = medicionesFuera(x);
+   const base = `Durante la revisión de los parámetros a los componentes del sistema receptor
+     de alertamiento sísmico SARMEX ® se verificaron y actualizaron los parámetros de
+     operación`;
+   return fuera.length
+     ? `${base}. En las mediciones se encontró que ${fuera.join("; ")}, lo que se hace del
+        conocimiento del cliente para su atención.`
+     : `${base}, asegurando el funcionamiento correcto e integral del sistema.`;
+ },
  `A lo largo de la revisión del funcionamiento de los componentes del sistema receptor de
   alertamiento sísmico SARMEX ® se verificó el correcto funcionamiento de todos los componentes,
   tanto individualmente como en conjunto, garantizando la continuidad en la operatividad del
@@ -2564,7 +2662,9 @@ async function informeDe(x, num, ident, conLog){
   /* 1 · portada */
   nPag = 0;
   cuerpo += hoja(`
-    <h1>${P.portada(ORD.toUpperCase())}${limpio(x.equipo)?" "+esc(limpio(x.equipo)):""}</h1>
+    <h1>${P.portada(ORD.toUpperCase())}${
+      /* el modelo, no el codigo del CRM: en la portada salia "PA020 B" */
+      P.componentes === false ? "" : (equipoDe(x).mod ? " " + esc(equipoDe(x).mod) : "")}</h1>
     ${logoCli?`<div class="logo-cli"><img src="${logoCli}"></div>`:""}
     <div class="pieport">
       <div class="sitio">${esc((x.nombre||"").toUpperCase())}</div>
@@ -2717,7 +2817,7 @@ async function informeDe(x, num, ident, conLog){
       cierre.push(`<tr><th class="cabComp" colspan="2">UBICACIÓN:
         ${esc(String(donde).toUpperCase())}</th></tr>`);
 
-    const cab = `<tr><th class="cabComp" colspan="2">${esc(c.nom)}</th></tr>
+    const cab = `<tr><th class="cabComp" colspan="2">${esc(nomDe(c, x))}</th></tr>
       <tr><th class="sub">ACTIVIDAD</th><th class="sub">EVIDENCIA FOTOGRÁFICA</th></tr>`;
     /* Los anchos van en el colgroup y no en las celdas: con table-layout:fixed
        el reparto lo decide la PRIMERA fila, y esa es el encabezado del
@@ -2745,11 +2845,33 @@ async function informeDe(x, num, ident, conLog){
   /* lo que no cayó en ningún componente —vistas del sitio, antes y después— va
      en la cuadrícula de siempre, para no perder evidencia */
   const resto = fotos.filter(f=>f.clase!=="REPORTE" && !usada.has(f));
-  for(let i=0;i<resto.length;i+=4){
-    const trozo=resto.slice(i,i+4);
-    cuerpo += hoja(`<h2 class="sec" style="text-align:center">Evidencia fotográfica</h2>
-      <div class="rej">${trozo.map((f,k)=>`<figure><img src="${f.url}">
-        <figcaption>Foto. ${i+k+1}${f.pieza?" · "+esc(f.pieza):""}</figcaption></figure>`).join("")}</div>`);
+  /* Un levantamiento puede traer varias sonorizaciones y cada una sube sus
+     fotos; la partida dice de cual es ("S2"). Van agrupadas y con su nombre,
+     porque una foto de la sala no prueba nada sobre el gimnasio. */
+  const grupos = new Map();
+  for(const f of resto){
+    const m = /^S(\d+)$/.exec(f.partida || "");
+    const n = m ? Number(m[1]) : 1;
+    if(!grupos.has(n)) grupos.set(n, []);
+    grupos.get(n).push(f);
+  }
+  const nombreProp = n => {
+    const p = props.find(z => Number(z.n) === n);
+    return (p && String(p.nombre || "").trim()) || "";
+  };
+  const variasProp = grupos.size > 1;
+  for(const n of [...grupos.keys()].sort((a,b)=>a-b)){
+    const nom = nombreProp(n);
+    const tit = variasProp
+      ? `Evidencia fotográfica · Sonorización ${n}${nom ? " — " + esc(nom) : ""}`
+      : "Evidencia fotográfica";
+    const lote = grupos.get(n);
+    for(let i=0;i<lote.length;i+=4){
+      const trozo=lote.slice(i,i+4);
+      cuerpo += hoja(`<h2 class="sec" style="text-align:center">${tit}</h2>
+        <div class="rej">${trozo.map((f,k)=>`<figure><img src="${f.url}">
+          <figcaption>Foto. ${i+k+1}${f.pieza?" · "+esc(f.pieza):""}</figcaption></figure>`).join("")}</div>`);
+    }
   }
 
   /* 5 · bitácora de eventos */
@@ -2775,7 +2897,9 @@ async function informeDe(x, num, ident, conLog){
   marca("CONCLUSIONES");
   cuerpo += hoja(`<h2 class="sec">CONCLUSIONES</h2>
     <p class="txt">${P.cierre(ORD)}</p>
-    ${(P.concluye ? P.concluye(AREAS) : CONCLUSIONES).map(t=>`<p class="txt">${t}</p>`).join("")}
+    ${(P.concluye ? P.concluye(AREAS) : CONCLUSIONES)
+        .map(t => typeof t === "function" ? t(x) : t)
+        .map(t=>`<p class="txt">${t}</p>`).join("")}
     <div class="firmas">${FIRMAS.map(([c,n])=>`<div><div class="linea"></div>
       <div class="pto">${esc(c)}</div><div class="nom">${esc(n)}</div></div>`).join("")}</div>`);
 
