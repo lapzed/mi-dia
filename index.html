@@ -561,9 +561,13 @@ const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const NOMBRE_TIPO = {ANTES:"Antes", DURANTE:"Durante", DESPUES:"Después",
   REPORTE:"Reporte", LEVANTAMIENTO:"Levantamiento", ATENCION:"Atención",
   AVANCE:"Avance", CROQUIS:"Croquis", LOG:"Log"};
-/* una semana atrás para poder regularizar servicios ya atendidos, y cuatro días
-   adelante para ver lo que viene */
-const DESDE = -7, HASTA = 4;
+/* Un mes atrás y cuatro días adelante. Era una semana, y no alcanzaba: el
+   técnico que quería revisar un servicio del mes pasado —qué hizo, qué fotos
+   subió, qué le falta— ya no lo encontraba en la barra.
+   Lo que sí se trabaja a diario son los últimos días; de ahí que el guardado
+   para trabajar sin señal se quede con esa ventana si no cabe todo. */
+const DESDE = -30, HASTA = 4;
+const LOCAL_DESDE = -7;
 
 let tecnico   = localStorage.getItem("md_tecnico") || "";
 let variantes = JSON.parse(localStorage.getItem("md_variantes") || "[]");
@@ -751,8 +755,10 @@ function pintarDias(){
     // los días pasados sin nada que hacer se atenúan, para que no estorben
     el.className="day"+(iso===fecha?" on":"")+((i<0&&!pend)?" ido":"");
     // el mes solo cuando cambia, para no perderse al cruzar de mes
+    /* el mes se dice al empezar y cada vez que cambia: la barra ya abarca mas
+       de un mes y sin eso no se sabe en que dia 3 esta uno parado */
     const cabeza = i===0 ? "HOY"
-                 : (d.getMonth()!==mesPrevio && mesPrevio!==null
+                 : (d.getMonth()!==mesPrevio
                     ? DIAS[d.getDay()]+" "+MESES[d.getMonth()] : DIAS[d.getDay()]);
     mesPrevio=d.getMonth();
     el.innerHTML=`<div class="d">${cabeza}</div>`+
@@ -771,10 +777,19 @@ function pintarDias(){
    servicios se guardan en el teléfono cada vez que sí alcanza a bajarlos, para
    que pueda verlos y cerrarlos aunque llegue sin internet. */
 function guardarSemanaLocal(){
+  const guardar = filas => localStorage.setItem("md_semana", JSON.stringify(
+    {ts:new Date().toISOString(), tecnico:tecnico, filas:filas}));
   try{
-    localStorage.setItem("md_semana", JSON.stringify(
-      {ts:new Date().toISOString(), tecnico:tecnico, filas:semana}));
-  }catch(e){}          // si no cabe, se sigue sin guardar: no vale tirar la app
+    guardar(semana);
+  }catch(e){
+    /* Con un mes de servicios el teléfono puede quedarse sin espacio. Antes que
+       quedarse sin nada —y sin poder cerrar en un sótano— se guardan los días
+       que de verdad se trabajan. */
+    try{
+      const corte = new Date(); corte.setDate(corte.getDate() + LOCAL_DESDE);
+      guardar(semana.filter(x => String(x.fecha_servicio||"") >= isoDe(corte)));
+    }catch(e2){}       // si tampoco cabe, se sigue sin guardar: no vale tirar la app
+  }
 }
 function leerSemanaLocal(){
   try{
