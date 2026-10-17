@@ -206,6 +206,12 @@ function hdr(extra){ return Object.assign({apikey:SUPA_KEY,
   Authorization:"Bearer "+((ses&&ses.token)||SUPA_KEY)}, extra||{}) }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function limpio(s){s=(s||"").trim();return /^(-+|n\/?a|na|s\/d|por asignar)$/i.test(s)?"":s}
+/* Cuantas semanas lleva sin moverse la captura del monitoreo. */
+function semanasDeAtraso(ini){
+  const d=new Date(ini+"T00:00:00");
+  if(isNaN(d)) return 0;
+  return Math.floor((new Date()-d)/(7*86400000));
+}
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+
   String(d.getDate()).padStart(2,"0")}
 function isoDe(n){const d=new Date(); d.setDate(d.getDate()+n); return iso(d)}
@@ -415,8 +421,15 @@ function pintar(){
           '<td class="num '+cl+'">'+pct+'%</td>'+
           '<td><div class="barrita"><i style="width:'+pct+'%"></i></div></td></tr>';
       }).join("")+'</tbody></table>'+
+      /* Quien capturo sale del renglon, no de una firma escrita aqui: decia
+         "por Ariana" y el CAT lo lleva Berenice desde septiembre. Y si la
+         captura ya tiene semanas, se dice: un tablero de direccion que enseña
+         numeros viejos sin avisar es peor que uno vacio. */
       '<div class="sub" style="margin-top:8px">Captura de la semana del '+esc(ini)+
-      ', por Ariana.</div>';
+      (limpio(z[0].capturo)?', por '+esc(limpio(z[0].capturo)):'')+'.'+
+      (semanasDeAtraso(ini)>=2
+        ? ' <b style="color:#F0BE6E">Lleva '+semanasDeAtraso(ini)+
+          ' semanas sin actualizarse.</b>' : '')+'</div>';
   }else{
     h+='<div class="sub">Sin captura de monitoreo.</div>';
   }
