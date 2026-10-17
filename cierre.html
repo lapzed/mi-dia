@@ -174,6 +174,7 @@
       <select id="fVer" onchange="pintar()">
         <option value="abierto">Sin cerrar</option>
         <option value="sinev">Cerrados sin evidencia</option>
+        <option value="sinnueva">Reprogramados sin visita nueva</option>
         <option value="">Todos</option>
       </select></div>
     <button onclick="rango(30)">Último mes</button>
@@ -412,7 +413,71 @@ const PIDE={LEV:["LEVANTAMIENTO","CROQUIS","REPORTE"],
 function pideDe(co){ return PIDE[co]||PIDE._ }
 function cerrado(x){ return (x.status||"").toUpperCase().trim()==="ATENDIDO" }
 function abierto(x){
-  return ["ATENDIDO","CANCELADO"].indexOf((x.status||"").toUpperCase().trim())<0;
+  return ["ATENDIDO","CANCELADO","REPROGRAMADO"]
+           .indexOf((x.status||"").toUpperCase().trim())<0;
+}
+function reprogramado(x){ return (x.status||"").toUpperCase().trim()==="REPROGRAMADO" }
+
+/* ---------- el reprogramado que se quedo sin visita nueva ----------
+   El modelo es "una linea = una visita": al reprogramar, la linea vieja se
+   queda como esta y Coordinacion crea la siguiente, ligada con `viene_de`.
+   Mientras esa visita nueva no exista, el trabajo esta parado y no lo reclama
+   nadie, porque la linea vieja ya no sale como pendiente.
+
+   Se buscan las dos señales. `viene_de` es la buena, la que deja el boton de
+   Coordinacion. La otra -otra linea del MISMO ticket y el MISMO sitio con
+   fecha posterior- hace falta porque el boton practicamente no se ha usado y
+   las coordinaciones vienen dando de alta la visita nueva a mano.
+
+   El sitio importa: hay tickets que cubren cien sucursales -Pharma Plus es
+   uno- y si solo se compara el ticket, cualquier reprogramado de esa cadena
+   parece resuelto por cualquier visita posterior a otra sucursal. Con el
+   nombre, de 95 "resueltos" quedaban 25 de verdad. */
+let SUCESOR = new Set();
+function sinVisitaNueva(x){
+  return reprogramado(x) && !SUCESOR.has(llaveSuc(x));
+}
+function llaveSuc(x){
+  return x.coord+"|"+String(x.tkt||"").trim()+"|"+
+         String(x.nombre||"").trim().toUpperCase();
+}
+async function cargarSucesores(){
+  SUCESOR = new Set();
+  const rep = filas.filter(reprogramado);
+  if(!rep.length) return;
+  /* Los hermanos pueden estar fuera del rango de fechas que se esta viendo, y
+     por eso no basta con mirar `filas`: hay que preguntarle a la base. */
+  const porCoord = {};
+  rep.forEach(function(x){
+    const t = String(x.tkt||"").trim();
+    if(t) (porCoord[x.coord] = porCoord[x.coord] || new Set()).add(t);
+  });
+  for(const co in porCoord){
+    const tks = [...porCoord[co]];
+    for(let i=0; i<tks.length; i+=150){
+      const lote = tks.slice(i,i+150).map(t=>'"'+t.replace(/"/g,"")+'"').join(",");
+      try{
+        const d = await api("servicios?select=coord,id,tkt,nombre,fecha_servicio,"+
+          "viene_de&coord=eq."+encodeURIComponent(co)+"&tkt=in.("+encodeURIComponent(lote)+
+          ")&limit=4000");
+        const deAqui = rep.filter(x=>x.coord===co);
+        d.forEach(function(y){
+          /* la señal buena: alguien nacio de esta linea */
+          if(y.viene_de) SUCESOR.add("viene_de:"+y.viene_de);
+        });
+        deAqui.forEach(function(x){
+          if(SUCESOR.has("viene_de:"+x.coord+"-"+x.id)){ SUCESOR.add(llaveSuc(x)); return }
+          const k = llaveSuc(x), f = x.fecha_servicio||"";
+          const hay = d.some(y=>y.coord+"|"+String(y.tkt||"").trim()+"|"+
+                                String(y.nombre||"").trim().toUpperCase()===k &&
+                                !(y.coord===x.coord && y.id===x.id) &&
+                                (y.fecha_servicio||"")>f);
+          if(hay) SUCESOR.add(k);
+        });
+      }catch(e){ /* sin esto se pintan todos como sin visita nueva: mejor eso
+                    que esconderlos */ }
+    }
+  }
 }
 
 async function arrancar(){
@@ -462,7 +527,16 @@ async function cuantos(filtro){
        ambar  hay vencidos, ninguno pasa de 30 dias
        rojo   alguno pasa de 30 dias
 */
-const CIERRE_FUERA='(ATENDIDO,CANCELADO,PROSPECTO,"ATENCION VENTAS")';
+/* Lo que NO cuenta como fecha vencida. REPROGRAMADO entra aqui desde el
+   04-sep-2026, cuando se acordo que una linea es una visita: la brigada fue,
+   gasto el dia, el servicio no se pudo hacer y esa linea queda como constancia
+   de la visita perdida. La siguiente visita NACE aparte. Contar la linea vieja
+   como "sin cerrar" era cobrarle dos veces el mismo pendiente al area, y era
+   lo que inflaba la cinta: 344 de los vencidos eran reprogramados.
+
+   Lo que si esta pendiente -el reprogramado al que nunca le nacio la visita
+   nueva- se cuenta aparte, en Cierre, con su propio renglon. */
+const CIERRE_FUERA='(ATENDIDO,CANCELADO,REPROGRAMADO,PROSPECTO,"ATENCION VENTAS")';
 async function _cuantosAtraso(filtro){
   try{
     const r=await conTiempo(SUPA_URL+"/rest/v1/servicios?select=id"+filtro+"&limit=1",
@@ -527,7 +601,7 @@ async function cargar(){
     /* FUERA los mismos estatus que no cuentan en el reporte: atendido y
        cancelado ya terminaron, y prospecto y atencion ventas todavia no son
        trabajo del area. Si no, la lista se llena de cosas que no hay que cerrar. */
-    const FUERA="(ATENDIDO,CANCELADO,PROSPECTO,\"ATENCION VENTAS\")";
+    const FUERA="(ATENDIDO,CANCELADO,REPROGRAMADO,PROSPECTO,\"ATENCION VENTAS\")";
     const filtroAtoro="&status=not.in."+FUERA+
       "&fecha_servicio=lt."+isoDe(-30)+(co?"&coord=eq."+co:"");
     try{
@@ -535,6 +609,8 @@ async function cargar(){
         "fecha_servicio,status,tecnico"+filtroAtoro+"&order=fecha_servicio.asc&limit=25");
       totalAtorados = await cuantos(filtroAtoro);
     }catch(e){ atorados=[]; totalAtorados=0 }
+    pintar();
+    await cargarSucesores();
     pintar();
   }catch(e){
     document.getElementById("lista").innerHTML=
@@ -570,6 +646,7 @@ function vistas(){
   const v=document.getElementById("fVer").value;
   if(v==="abierto") return filas.filter(abierto);
   if(v==="sinev")   return filas.filter(x=>cerrado(x)&&!completo(x));
+  if(v==="sinnueva") return filas.filter(sinVisitaNueva);
   return filas;
 }
 
@@ -761,10 +838,13 @@ function pintar(){ setTimeout(filtrarVista,0); pintarAtorados(); pintarCinta();
   const v=vistas(), cont=document.getElementById("lista");
   const ab=filas.filter(abierto).length;
   const sinEv=filas.filter(x=>cerrado(x)&&!completo(x)).length;
+  const rep=filas.filter(reprogramado).length;
+  const sinNueva=filas.filter(sinVisitaNueva).length;
   document.getElementById("resumen").innerHTML=`
     <div class="pill"><b>${filas.length}</b>en el rango</div>
     <div class="pill"><b style="color:${ab?"#F0BE6E":"#5BD79B"}">${ab}</b>sin cerrar</div>
-    <div class="pill"><b style="color:${sinEv?"#F0BE6E":"#5BD79B"}">${sinEv}</b>cerrados sin evidencia</div>`;
+    <div class="pill"><b style="color:${sinEv?"#F0BE6E":"#5BD79B"}">${sinEv}</b>cerrados sin evidencia</div>
+    ${rep?`<div class="pill" title="La visita se perdió; esa línea ya no se cierra. Lo que falta es la visita nueva."><b style="color:${sinNueva?"#F0A9A5":"#5BD79B"}">${sinNueva}</b>reprogramados sin visita nueva</div>`:""}`;
   pintarPorTecnico();
   if(!v.length){ cont.innerHTML='<div class="vacio">Nada pendiente aquí.</div>'; return }
   cont.innerHTML=`<div class="tabla"><table><thead><tr>

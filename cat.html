@@ -355,7 +355,7 @@ function pantallaAtenciones(){
        ambar  hay vencidos, ninguno pasa de 30 dias
        rojo   alguno pasa de 30 dias
 */
-const CIERRE_FUERA='(ATENDIDO,CANCELADO,PROSPECTO,"ATENCION VENTAS")';
+const CIERRE_FUERA='(ATENDIDO,CANCELADO,REPROGRAMADO,PROSPECTO,"ATENCION VENTAS")';
 async function _cuantosAtraso(filtro){
   try{
     const r=await conTiempo(SUPA_URL+"/rest/v1/servicios?select=id"+filtro+"&limit=1",
