@@ -83,6 +83,9 @@
   .mas{opacity:0;display:block;width:100%;background:transparent;color:var(--txt3);
     border:1px dashed var(--line);border-radius:8px;padding:4px;font-size:11px}
   td:hover .mas{opacity:1}
+  /* a quien solo mira no se le enseña el botón de marcar ausencias: la base
+     se lo negaría y el "+ ausencia" es una puerta pintada */
+  body.mirando .mas{display:none}
 
   .modal{position:fixed;inset:0;background:rgba(4,12,22,.72);display:flex;
     align-items:center;justify-content:center;padding:16px;z-index:60}
@@ -111,10 +114,15 @@
     </div>
   </header>
 
+  <!-- Los atajos a las pantallas de trabajo se esconden para quien no puede
+       trabajar en ellas -Ventas y Supervisión de procesos son cuentas de solo
+       lectura-: la base les niega cualquier guardado, así que ofrecerles la
+       puerta es ofrecerles un error. El de Inicio se queda: es por donde se
+       regresan. -->
   <div class="etapas">
-    <a href="programacion.html">📅 Programación</a>
-    <a href="coordinacion.html">📞 Coordinación</a>
-    <a href="demanda.html">📊 Demanda</a>
+    <a href="programacion.html" class="solo-estacion">📅 Programación</a>
+    <a href="coordinacion.html" class="solo-estacion">📞 Coordinación</a>
+    <a href="demanda.html" class="solo-estacion">📊 Demanda</a>
     <a href="inicio.html" style="margin-left:auto">☰ Inicio</a>
   </div>
 
@@ -527,6 +535,14 @@ async function arrancar(){
   document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses&&ses.usuario))+"</b>salir";
   document.getElementById("barra").style.display="flex";
   document.getElementById("ley").style.display="flex";
+  /* Quien no es estación no escribe en la base: Ventas mira sus cuentas y
+     Supervisión de procesos mira el área. Se les quitan los atajos a las
+     pantallas de trabajo y el botón de marcar ausencias. */
+  if(["VENTAS","SUPERVISA"].indexOf(((ses&&ses.rol)||"").toUpperCase())>=0){
+    document.querySelectorAll(".solo-estacion")
+      .forEach(function(a){ a.style.display="none" });
+    document.body.classList.add("mirando");
+  }
   marcarUso();
   lunes = lunesDe(new Date());
   cargar();
