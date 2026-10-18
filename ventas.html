@@ -282,8 +282,14 @@ async function auth(c,tipo){
   return j;
 }
 function guardar(j){
+  /* El rol y la coordinación viajan en la sesión como en las demás pantallas.
+     Aquí no se guardaban, y como la sesión se comparte con todas, quien
+     entraba por Ventas llegaba a las otras sin rol: la Semana no sabía que era
+     una cuenta de solo lectura y le enseñaba atajos que la base le niega. */
   ses={token:j.access_token,refresh:j.refresh_token,
-       usuario:(j.user&&j.user.email||"").split("@")[0]};
+       usuario:(j.user&&j.user.email||"").split("@")[0],
+       rol:(j.user&&j.user.user_metadata&&j.user.user_metadata.rol)||"",
+       coord:(j.user&&j.user.user_metadata&&j.user.user_metadata.coord)||""};
   localStorage.setItem("md_ventas",JSON.stringify(ses));
   /* ---------- una sola sesion para todo ----------
      Cada pantalla guardaba su sesion aparte, asi que al pasar de

@@ -148,7 +148,7 @@
     <span><i style="background:#63B3FF"></i>pendiente del cliente</span>
     <span><i style="background:#E5736C"></i>no confirmada</span>
     <span><i style="background:#6E8CAD"></i>no lleva cita</span>
-    <span style="margin-left:auto">Toca un día vacío para marcar vacaciones, permiso o festivo.</span>
+    <span style="margin-left:auto" class="solo-estacion">Toca un día vacío para marcar vacaciones, permiso o festivo.</span>
   </div>
 
   <div id="rejilla"><div class="load">Entra para ver la semana.</div></div>
@@ -531,6 +531,28 @@ async function quitarAusencia(id){
 }
 
 /* ---------- arranque ---------- */
+/* ¿esta cuenta solo mira?
+
+   Se pregunta al TOKEN, no a lo que haya guardado la pantalla por la que se
+   entró. Cada pantalla arma su objeto de sesión a su manera y la de Ventas no
+   guardaba el `rol`: José Luis entraba por ahí y aquí llegaba sin rol, así que
+   seguía viendo los atajos a Programación, Coordinación y Demanda —pantallas
+   donde la base no lo deja guardar nada—.
+
+   El token sí lo trae siempre: es el mismo que firma Supabase y adentro viene
+   `user_metadata.tipo`, que es justo lo que miran las políticas. Si por lo que
+   sea no se puede leer, se cae al `rol` de la sesión. */
+function soloMira(){
+  const SOLO = ["VENTAS", "SUPERVISA"];
+  try{
+    const carga = JSON.parse(atob(
+      String(ses.token).split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+    const t = ((carga.user_metadata||{}).tipo||"").toUpperCase();
+    if(t) return SOLO.indexOf(t)>=0;
+  }catch(e){}
+  return SOLO.indexOf(((ses&&ses.rol)||"").toUpperCase())>=0;
+}
+
 async function arrancar(){
   document.getElementById("who").innerHTML="<b>"+esc(nombreDe(ses&&ses.usuario))+"</b>salir";
   document.getElementById("barra").style.display="flex";
@@ -538,7 +560,7 @@ async function arrancar(){
   /* Quien no es estación no escribe en la base: Ventas mira sus cuentas y
      Supervisión de procesos mira el área. Se les quitan los atajos a las
      pantallas de trabajo y el botón de marcar ausencias. */
-  if(["VENTAS","SUPERVISA"].indexOf(((ses&&ses.rol)||"").toUpperCase())>=0){
+  if(soloMira()){
     document.querySelectorAll(".solo-estacion")
       .forEach(function(a){ a.style.display="none" });
     document.body.classList.add("mirando");
