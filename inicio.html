@@ -111,7 +111,7 @@
         <option value="est.ximena">Ximena · Captura · Mantenimientos</option>
         <option value="est.jocelyn">Jocelyn · Aux administrativo · Gerencia</option>
         <option value="jesus.acosta">Jesús · Aux administrativo</option>
-        <option value="est.yu">Fernando Yu · Supervisión de procesos</option>
+        <option value="est.yu">Fernando Yu · Proyectos especiales</option>
         <option value="est.subgerencia">Subgerencia</option>
         <option value="est.gerencia">Gerencia</option>
       </optgroup>
@@ -197,13 +197,17 @@ const DESTINOS={
      misma coordinacion. La base lo acota sola -su token dice PRY_ESP- asi que
      aunque abra Captura o Cierre solo alcanza lo suyo. */
   "est.ernesto":    ["proyectos","semana","cierre","programacion","coordinacion","captura"],
-  /* Fernando Yu supervisa procesos, no opera: su cuenta es de SOLO LECTURA en
-     la base (tipo SUPERVISA, no ESTACION). Por eso su menu son las pantallas
-     de mirar -como va el area, quien trae que, en que va cada obra- y no las
-     de capturar o cerrar: no tiene caso presentarle un boton que el servidor
-     le va a negar. Si alguna vez se le abre la escritura, aqui se le agregan
-     las que falten. */
-  "est.yu":         ["tablero","supervision","demanda","semana","proyectos"],
+  /* Fernando Yu paso a operar Proyectos Especiales el 26-oct-2026: ya no es
+     de solo lectura, lleva el control y seguimiento de los servicios de
+     clientes. Mismas pantallas que Karina y Ernesto, porque los tres
+     comparten la coordinacion completa.
+
+     Se le quitan Tablero y Supervision a proposito: su token ahora dice
+     PRY_ESP y las politicas leen con `mi_coord`, asi que de las otras cuatro
+     coordinaciones no le llega un solo renglon. Dejarle esas dos pantallas
+     seria dejarle dos tableros casi vacios, y eso confunde mas que no
+     tenerlos. */
+  "est.yu":         ["proyectos","semana","cierre","programacion","coordinacion","captura"],
   /* La estacion del CAT la toma Berenice, pero la CUENTA sigue siendo
      `est.ariana`: es la que existe en la base, con su clave. No se crea una
      nueva a nombre de Berenice porque entonces habria una puerta que no abre.
@@ -238,7 +242,7 @@ const NOMBRES={"est.jenifer":["Jenifer","Captura"],
  "est.alin":["Alin","Coordinación de instalaciones"],
  "est.proyectos":["Karina","Proyectos especiales"],
  "est.ernesto":["Ernesto del Valle","Proyectos especiales"],
- "est.yu":["Fernando Yu","Supervisión de procesos"],
+ "est.yu":["Fernando Yu","Proyectos especiales"],
  "est.ariana":["Berenice","CAT y centro de monitoreo"],
  "est.gloria":["Monse","Coordinación de mantenimientos"],
  "est.ximena":["Ximena","Captura · Mantenimientos"],
