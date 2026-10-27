@@ -1128,7 +1128,7 @@ async function buscarEnBase(){
           '<td class="sub">'+esc(limpio(x.tecnico)||"—")+'</td>'+
           '<td class="sub">'+esc(x.status||"sin estatus")+'</td>'+
           '<td>'+(x.fecha_servicio
-            ? '<span class="ir" onclick="irAlDia(\''+x.fecha_servicio+'\')">ver ese día ▸</span>'
+            ? '<span class="ir" onclick="irAlDia(\''+x.fecha_servicio+'\',\''+esc(x.coord)+'\')">ver ese día ▸</span>'
             : '<span class="sub">sin fecha: está en programación</span>')+'</td></tr>';
       }).join("")+'</tbody></table></div></div>';
   }catch(err){
@@ -1137,11 +1137,40 @@ async function buscarEnBase(){
   }
 }
 /* lleva la pantalla al dia del servicio encontrado */
-function irAlDia(f){
+function irAlDia(f, coord){
+  /* Cambiar la fecha no basta, y por eso parecia que el boton no hacia nada:
+     el texto de la busqueda se queda en la caja, `pintar()` llama a
+     `filtrarVista()` y esta esconde del dia nuevo todo renglon que no lo
+     contenga. El dia SI cambiaba; llegaba vacio y con la tabla de resultados
+     todavia encima, asi que en pantalla no se movia nada.
+
+     Entonces, al saltar: se limpia la busqueda, se quitan los resultados, se
+     abre el filtro de coordinacion y el de estatus si el servicio hallado
+     quedaria fuera, y se baja la pantalla a la lista. */
+  const q=document.getElementById("fTkt");
+  if(q) q.value="";
+  const h=document.getElementById("hallados");
+  if(h) h.innerHTML="";
+  const c=document.getElementById("cuentaTkt");
+  if(c) c.textContent="";
+  /* El hallado puede ser de otra coordinacion que la que se esta mirando: sin
+     esto se cae en un dia donde tampoco aparece. */
+  const co=document.getElementById("fCoord");
+  if(co && coord && co.value && co.value!==coord) co.value=coord;
+  /* Y de otro estatus que el de la vista -en Cierre, "Sin cerrar" esconde los
+     atendidos-. Se abre a Todos para que se vea. */
+  const ver=document.getElementById("fVer");
+  if(ver) ver.value="";
+
   const d=document.getElementById("fDia");
-  if(d){ d.value=f; cargar(); return }
-  const de=document.getElementById("fDe"), a=document.getElementById("fA");
-  if(de&&a){ de.value=f; a.value=f; cargar(); }
+  if(d){ d.value=f; }
+  else {
+    const de=document.getElementById("fDe"), a=document.getElementById("fA");
+    if(de&&a){ de.value=f; a.value=f; }
+  }
+  cargar();
+  const l=document.getElementById("lista");
+  if(l) setTimeout(function(){ l.scrollIntoView({behavior:"smooth", block:"start"}) }, 120);
 }
 
 
