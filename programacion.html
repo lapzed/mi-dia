@@ -763,6 +763,7 @@ async function buscarEnBase(){
       '<div class="tabla"><table><thead><tr><th>Fecha</th><th>Servicio</th>'+
       '<th>Técnico</th><th>Estatus</th><th></th></tr></thead><tbody>'+
       f.map(function(x){
+        HALLADOS[x.coord+"-"+x.id]=x;
         return '<tr><td class="sub">'+esc(x.fecha_servicio||"sin fecha")+'</td>'+
           '<td><div class="sitio">'+esc((x.nombre||"").slice(0,44))+'</div>'+
           '<div class="sub"><span class="tag">'+esc(x.coord)+'</span>'+
@@ -770,15 +771,54 @@ async function buscarEnBase(){
           (limpio(x.dependencia)?" · "+esc(x.dependencia):"")+'</div></td>'+
           '<td class="sub">'+esc(limpio(x.tecnico)||"—")+'</td>'+
           '<td class="sub">'+esc(x.status||"sin estatus")+'</td>'+
-          '<td>'+(x.fecha_servicio
-            ? '<span class="ir" onclick="irAlDia(\''+x.fecha_servicio+'\')">ver ese día ▸</span>'
-            : '<span class="sub">sin fecha: está en programación</span>')+'</td></tr>';
+          /* El calendario va en TODOS los renglones, con fecha o sin ella.
+             Sin fecha era el caso ciego: el bloque de "capturados sin fecha"
+             solo lista los del ultimo mes, asi que una carga masiva vieja
+             aparecia en la busqueda y no habia por donde agarrarla. Y con
+             fecha sirve para mover el dia sin ir a buscarlo a su dia -que es
+             justo lo que hay que hacer cuando la programacion del chat y la
+             base no coinciden-. */
+          '<td style="white-space:nowrap">'+
+            '<input type="date" value="'+esc(x.fecha_servicio||"")+'" '+
+              'title="Ponerle o cambiarle la fecha" '+
+              'onchange="fechaDesdeBusqueda(\''+esc(x.coord)+'\','+x.id+',this.value)">'+
+            '<span id="bf'+esc(x.coord)+'-'+x.id+'"></span>'+
+            (x.fecha_servicio
+              ? ' <span class="ir" onclick="irAlDia(\''+x.fecha_servicio+'\')">ver ese día ▸</span>'
+              : '')+'</td></tr>';
       }).join("")+'</tbody></table></div></div>';
   }catch(err){
     cont.innerHTML='<div class="hallados"><h3>No se pudo buscar</h3>'+
       '<div class="sub">'+esc(String(err).slice(0,120))+'</div></div>';
   }
 }
+/* Lo encontrado se guarda por (coord-id) y no por indice: la tabla se vuelve
+   a pintar sola y un indice se desacomoda. */
+let HALLADOS = {};
+
+/* Le pone o le cambia la fecha a un servicio desde la busqueda.
+   Es el mismo guardado que el bloque de los capturados sin fecha -misma
+   columna, misma bitacora-; lo unico que cambia es de donde se agarra el
+   servicio. Al terminar lleva la pantalla a ese dia, que es donde se le
+   asigna brigada: si no, el servicio se va a SU dia y parece perdido. */
+async function fechaDesdeBusqueda(coord, id, valor){
+  if(!valor) return;
+  const x = HALLADOS[coord+"-"+id] || {coord:coord, id:id};
+  const av = document.getElementById("bf"+coord+"-"+id);
+  if(av) av.innerHTML=' <span class="sub">guardando…</span>';
+  try{
+    const d = await api("servicios?coord=eq."+encodeURIComponent(coord)+"&id=eq."+id,
+      {method:"PATCH", headers:{Prefer:"return=representation"},
+       body:JSON.stringify({fecha_servicio:valor, etapa_actual:2})});
+    if(!d || !d.length) throw new Error("no se guardó");
+    anotar("GUARDAR", "ID="+id+" · fecha_servicio = "+valor, x);
+    if(av) av.innerHTML=' <span class="guardado">✓</span>';
+    irAlDia(valor);
+  }catch(e){
+    if(av) av.innerHTML=' <span class="fallo">no se guardó</span>';
+  }
+}
+
 /* lleva la pantalla al dia del servicio encontrado */
 function irAlDia(f){
   const d=document.getElementById("fDia");
