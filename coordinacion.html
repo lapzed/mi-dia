@@ -574,6 +574,35 @@ function horaDe(ts){
   return isNaN(d)?"":d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false});
 }
 function minutos(n){ n=Math.round(n); return n<60 ? n+" min" : Math.floor(n/60)+" h"+(n%60?" "+(n%60)+" min":"") }
+
+/* ---------- que tan lejos marco "Llegue" ----------
+   Metros entre dos coordenadas. Mismo haversine que metros_entre() en la base;
+   aqui en el navegador para no pedirle a PostgREST una funcion por renglon. */
+function metrosEntre(la1, lo1, la2, lo2){
+  const r=Math.PI/180, R=6371000;
+  const a=Math.pow(Math.sin((la2-la1)*r/2),2)+
+          Math.cos(la1*r)*Math.cos(la2*r)*Math.pow(Math.sin((lo2-lo1)*r/2),2);
+  return R*2*Math.asin(Math.sqrt(a));
+}
+/* Mexico, para descartar la longitud capturada sin el signo negativo. */
+function coordBuena(la, lo){
+  return la>=14 && la<=33 && lo>=-118 && lo<=-86;
+}
+/* Devuelve los metros SOLO cuando se puede afirmar algo. Se le resta el error
+   que reporto el telefono y todavia se piden 300 m de margen: en calle un GPS
+   trae de 10 a 50 m de error y dentro de una bodega pasa de 200, asi que sin
+   ese colchon la pantalla acusaria de no haber entrado a quien si entro.
+   Un dato dudoso no se pinta: vale mas callar que señalar en falso. */
+function lejosDelSitio(x){
+  const sla=parseFloat(x.lat), slo=parseFloat(x.long);
+  const mla=parseFloat(x.llega_lat), mlo=parseFloat(x.llega_long);
+  if(!(sla&&slo&&mla&&mlo)) return null;
+  if(!coordBuena(sla,slo) || !coordBuena(mla,mlo)) return null;
+  const d=metrosEntre(sla,slo,mla,mlo);
+  const err=Math.max(0, parseFloat(x.llega_exac)||0);
+  return (d-err > 300) ? {m:Math.round(d), e:Math.round(err)} : null;
+}
+
 function atrasoCampo(x, ahora){
   const cita=citaHoy(x.horario_atencion), hc=hhmm(x.horario_atencion);
   const st=(x.status||"").toUpperCase().trim();
@@ -583,6 +612,12 @@ function atrasoCampo(x, ahora){
     return m>60 ? {c:"ambar", t:"Terminó a las "+horaDe(x.termina_ts)+" y no ha cerrado con evidencia"} : null;
   }
   if(x.llega_ts){
+    /* Marcar "Llegué" lejos del sitio sale antes que el tiempo en sitio: si no
+       está donde dice, lo que lleve ahí da igual. */
+    const lej=lejosDelSitio(x);
+    if(lej) return {c:"ambar", t:"Marcó Llegué a "+lej.m+" m del sitio"+
+                                (lej.e?" (margen del GPS ±"+lej.e+" m)":"")+
+                                " · "+horaDe(x.llega_ts)};
     const lim=CAMPO_MAX_SITIO[x.coord], m=(ahora-new Date(x.llega_ts))/60000;
     return (lim && m>lim) ? {c:"ambar", t:"Lleva "+minutos(m)+" en sitio (llegó "+horaDe(x.llega_ts)+")"} : null;
   }
@@ -601,7 +636,8 @@ async function cargarCampo(){
   let f;
   try{
     f=await api("servicios?select=id,coord,tkt,nombre,horario_atencion,status,tecnico,"+
-      "sale_ts,llega_ts,termina_ts&fecha_servicio=eq."+hoyISO()+(co?"&coord=eq."+co:"")+
+      "sale_ts,llega_ts,termina_ts,lat,long,llega_lat,llega_long,llega_exac"+
+      "&fecha_servicio=eq."+hoyISO()+(co?"&coord=eq."+co:"")+
       "&order=horario_atencion&limit=400");
   }catch(e){ c.innerHTML=""; return }      // sin las columnas nuevas todavia: no se muestra
   f=(f||[]).filter(x=>CAMPO_FUERA.indexOf((x.status||"").toUpperCase().trim())<0);

@@ -100,6 +100,10 @@
   .pasos .deshacer{font-size:11px;color:var(--txt3);background:none;padding:4px 6px;
     text-decoration:underline;font-weight:400}
   .pasos .pend{font-size:10.5px;color:#F0BE6E}
+  .avisoPasos{background:rgba(240,190,110,.12);border:1px solid rgba(240,190,110,.35);
+    border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:12.5px;line-height:1.5}
+  .avisoPasos b{color:#F0BE6E}
+  .avisoPasos .q{color:var(--txt2);font-size:11.5px;display:block;margin-top:3px}
   button{font:inherit;border:none;border-radius:10px;padding:9px 12px;font-size:12.5px;
     font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
   .b-map,.b-tel{background:#17456E;color:var(--acc)}
@@ -1004,7 +1008,7 @@ function pintar(){
     cont.innerHTML='<div class="vacio"><div class="em">☕</div>Sin servicios programados este día.</div>';
     return;
   }
-  cont.innerHTML=datos.map(x=>{
+  cont.innerHTML=avisoPasos()+datos.map(x=>{
     const cl=claseEstatus(x.status), nt=notas(x);
     const dir=limpio(x.direccion), dep=limpio(x.dependencia), tip=limpio(x.tipo_servicio);
     const pers=limpio(x.personal_atiende);
@@ -1098,6 +1102,28 @@ function horaCorta(ts){
   return isNaN(d) ? "" : d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false});
 }
 
+/* ---- el recordatorio ----
+   Los botones llevan desde septiembre y en treinta dias los tocaron 3 veces de
+   576 servicios. No es que no sirvan: es que nadie sabe que estan ahi ni para
+   que. Asi que el dia que no se marca lo dice en grande y dice QUE GANA EL
+   TECNICO con marcarlo, que es dejar de recibir el "¿ya llegaste?" por
+   WhatsApp. Avisa, no bloquea: nadie se queda sin trabajar por esto. */
+function avisoPasos(){
+  if(fecha!==hoyISO()) return "";
+  const abiertos=datos.filter(x=>(x.status||"").toUpperCase()!=="ATENDIDO");
+  if(!abiertos.length) return "";
+  const sin=abiertos.filter(x=>!x.sale_ts && !x.llega_ts && !x.termina_ts).length;
+  if(!sin) return "";
+  return '<div class="avisoPasos"><b>'+
+    (sin===abiertos.length
+      ? (sin===1 ? 'No has marcado los pasos de tu servicio de hoy.'
+                 : 'No has marcado los pasos de tus '+sin+' servicios de hoy.')
+      : sin+(sin===1?' servicio de hoy sigue sin marcar.':' servicios de hoy siguen sin marcar.'))+
+    '</b><span class="q">Toca <b>Salí</b>, <b>Llegué</b> y <b>Terminé</b> en cada uno. '+
+    'Con eso Coordinación ve sola cómo vas y deja de preguntarte por WhatsApp. '+
+    'Son tres toques y se guardan aunque no tengas señal.</span></div>';
+}
+
 function pasosDe(x, cerrado){
   if(cerrado || x.fecha_servicio!==hoyISO()) return "";
   const k=llave(x);
@@ -1132,13 +1158,47 @@ function aplicarPasosPendientes(){
   });
 }
 
+/* ---- dónde estaba al marcar ----
+   La coordenada se pide DESPUÉS de encolar el paso, nunca antes. Si se
+   esperara a tenerla para registrar el toque, un permiso denegado o un GPS
+   lento costaría el paso entero, que es el dato que de verdad importa.
+   Ocho segundos y lo que haya: en la puerta de una tienda el primer arreglo de
+   posición tarda, y el técnico no se va a quedar viendo el teléfono.
+   Si el técnico no da permiso, el paso se marca igual, sin lugar. */
+const UBI_ESPERA = 8000;
+function ubicacionAhora(){
+  return new Promise(function(listo){
+    if(!navigator.geolocation) return listo(null);
+    let ya=false;
+    const cerrar=function(v){ if(!ya){ ya=true; listo(v) } };
+    setTimeout(function(){ cerrar(null) }, UBI_ESPERA+500);
+    navigator.geolocation.getCurrentPosition(
+      function(p){ cerrar({lat:p.coords.latitude, long:p.coords.longitude,
+                           exac:Math.round(p.coords.accuracy||0)}) },
+      function(){ cerrar(null) },
+      {enableHighAccuracy:true, timeout:UBI_ESPERA, maximumAge:30000});
+  });
+}
+/* Pega el lugar al paso que ya está en la cola y lo manda. Si entre tanto otra
+   cosa mandó la cola, el paso se fue sin coordenada: eso es aceptable, el paso
+   vale por sí solo. */
+async function ponerUbicacion(marca){
+  const u=await ubicacionAhora();
+  if(u){
+    const c=colaPasos(), q=c.find(function(z){ return z.m===marca });
+    if(q){ q.lat=u.lat; q.long=u.long; q.exac=u.exac; guardarColaPasos(c) }
+  }
+  enviarPasos();
+}
+
 function marcarPaso(coord, id, paso){
   const s=(semana||[]).find(z=>z.coord===coord && z.id===id);
   if(!s) return;
   const cuando=new Date().toISOString();
   aplicarPaso(s, paso, cuando);
+  const marca=cuando+"|"+llave(s)+"|"+paso;
   const c=colaPasos();
-  c.push({k:llave(s), coord:coord, id:id, paso:paso, cuando:cuando, tkt:s.tkt||""});
+  c.push({k:llave(s), coord:coord, id:id, paso:paso, cuando:cuando, tkt:s.tkt||"", m:marca});
   guardarColaPasos(c);
   /* la copia del teléfono se actualiza sin moverle la hora de descarga: esa
      hora es la que dice el aviso de "estás viendo lo del …" */
@@ -1147,7 +1207,8 @@ function marcarPaso(coord, id, paso){
     if(g){ g.filas=semana; localStorage.setItem("md_semana", JSON.stringify(g)) }
   }catch(e){}
   pintar();
-  enviarPasos();
+  /* Deshacer no lleva lugar y no tiene por qué esperar al GPS. */
+  if(paso==="DESHACER") enviarPasos(); else ponerUbicacion(marca);
 }
 
 let enviandoPasos=false;
@@ -1159,9 +1220,26 @@ async function enviarPasos(){
     while(c.length){
       const q=c[0];
       try{
-        await api("rpc/marcar_paso",{method:"POST",
-          headers:{Prefer:"return=representation"},
-          body:JSON.stringify({p_coord:q.coord, p_id:q.id, p_paso:q.paso, p_cuando:q.cuando})});
+        const cuerpo={p_coord:q.coord, p_id:q.id, p_paso:q.paso, p_cuando:q.cuando};
+        /* nulos cuando no hubo permiso o el GPS no alcanzó: la función los
+           acepta y guarda el paso sin lugar */
+        const conLugar=Object.assign({}, cuerpo, {
+          p_lat:(q.lat==null?null:q.lat), p_long:(q.long==null?null:q.long),
+          p_exac:(q.exac==null?null:q.exac)});
+        try{
+          await api("rpc/marcar_paso",{method:"POST",
+            headers:{Prefer:"return=representation"}, body:JSON.stringify(conLugar)});
+        }catch(e2){
+          /* La base todavía no tiene la función con lugar (falta correr
+             pasos_campo_ubicacion.sql): PostgREST contesta que no halla esa
+             firma. Se reintenta sin el lugar, porque marcar el paso importa
+             más que saber dónde se marcó. */
+          const noHay = /PGRST202|Could not find the function|does not exist/i.test(
+            String(e2 && (e2.message||e2)));
+          if(!noHay || e2.red) throw e2;
+          await api("rpc/marcar_paso",{method:"POST",
+            headers:{Prefer:"return=representation"}, body:JSON.stringify(cuerpo)});
+        }
         anotar("APP: "+q.paso, "id="+q.id, {coord:q.coord, tkt:q.tkt});
       }catch(e){
         if(e.red) break;                      // sin señal: se intenta después
