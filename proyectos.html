@@ -56,6 +56,11 @@
   .cab h3{margin:0;font-size:15.5px}
   .cab .der{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
   .sub{font-size:12px;color:var(--txt3)}
+  .sub.tramo{margin-top:5px;display:flex;align-items:center;gap:6px}
+  .sub.tramo select{background:var(--bg2);color:var(--txt);border:1px solid var(--line);
+    border-radius:7px;padding:3px 7px;font-size:12px;font-family:inherit}
+  .sub.tramo .ok{color:#7BE0AE;font-weight:700}
+  .sub.tramo .mal{color:#F3B0AC}
   .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
     background:#17456E;color:var(--acc);white-space:nowrap}
   .tag.mal{background:rgba(198,65,59,.3);color:#F3B0AC}
@@ -121,6 +126,8 @@
         <option value="atrasadas">Solo las atrasadas</option>
         <option value="">Todas</option>
       </select></div>
+    <div class="f"><label>Tramo</label>
+      <select id="fTramo" onchange="elegirTramo(this.value)"><option value="">Todos</option></select></div>
     <div class="f"><label>Cliente</label>
       <select id="fCli" onchange="pintar()"><option value="">Todos</option></select></div>
     <div class="f"><label>Buscar</label>
@@ -309,10 +316,83 @@ function agrupar(f){
       ndias: ds.length, diasEst:diasEst, diaN:diaN,
       gente:[...gente], avance:av, avTec:avTec, avCoord:avCoord,
       esperado:esperado, abierta:abierta,
+      /* El tramo es de la OBRA: todos sus dias son del mismo equipo. Se toma el
+         del ultimo dia que lo traiga, que es el mas reciente que alguien fijo. */
+      tramo: (ds.slice().reverse().find(function(d){ return limpio(d.coordinador) })||{}).coordinador || "",
       atrasada: abierta && esperado!=null && av!=null && (av-esperado) < -10,
       status: ult.status||""
     };
   }).sort(function(a,b){ return String(b.hasta||"").localeCompare(String(a.hasta||"")) });
+}
+
+/* ---------- los tramos de control ----------
+   Proyectos Especiales son dos equipos: Karina con Antonio Alvarez, y Mario con
+   Fernando. Los cuatro tienen coord = PRY_ESP, asi que la base les entrega lo
+   mismo a todos y cada quien tiene que ir distinguiendo a ojo cual es suyo.
+
+   El tramo se guarda en `coordinador`, que estaba practicamente vacia -un solo
+   renglon en toda la tabla- y cuyo nombre ya dice lo que significa: de quien es
+   este servicio. Se marca por OBRA, porque una obra entera es de un equipo; no
+   tendria sentido que el lunes fuera de Karina y el martes de Mario.
+
+   Acota la VISTA, no el permiso. Los dos equipos se siguen pudiendo ver: son la
+   misma coordinacion y se cubren entre ellos. Lo que cambia es que al entrar,
+   cada quien ve lo suyo y no tiene que buscarlo. */
+const TRAMOS = ["Karina Nava", "Mario Manríquez"];
+
+/* A que tramo pertenece cada cuenta. Va escrito, no adivinado por el nombre:
+   Fernando Yu es del equipo de Mario y su nombre no se parece al del tramo, asi
+   que cualquier comparacion de textos lo dejaria fuera. Cuando Antonio Alvarez
+   tenga cuenta, se agrega aqui apuntando a Karina. */
+const TRAMO_DE = {
+  "est.proyectos": "Karina Nava",      // Karina
+  "est.mario":     "Mario Manríquez",  // Mario
+  "est.yu":        "Mario Manríquez"   // Fernando Yu, equipo de Mario
+};
+
+/* Quien entra ve SU tramo puesto. Si la cuenta no es de ninguno de los dos
+   equipos -gerencia, una estacion de otra coordinacion- se abre en Todos:
+   ellos necesitan la foto completa, no un pedazo. */
+function miTramo(){
+  return (ses && TRAMO_DE[ses.usuario]) || "";
+}
+function pintarTramos(){
+  const sel = document.getElementById("fTramo");
+  if(!sel) return;
+  const hay = [...new Set(filas.map(x=>limpio(x.coordinador)).filter(Boolean))];
+  const todos = [...new Set(TRAMOS.concat(hay))].sort();
+  const sinTramo = filas.some(x=>!limpio(x.coordinador));
+  const actual = sel.dataset.puesto ? sel.value : (sel.dataset.puesto="1", miTramo());
+  sel.innerHTML = '<option value="">Todos</option>' +
+    todos.map(function(t){
+      return '<option'+(t===actual?" selected":"")+'>'+esc(t)+'</option>';
+    }).join("") +
+    (sinTramo ? '<option value="(sin tramo)"'+
+      (actual==="(sin tramo)"?" selected":"")+'>— sin tramo —</option>' : "");
+}
+function elegirTramo(){ pintar() }
+
+/* Marcar la obra completa. Se escriben TODOS sus dias de un golpe: si solo se
+   marcara el ultimo, la obra cambiaria de dueno cada vez que se agrega un dia. */
+async function ponerTramo(llave, valor){
+  const o = obras.find(function(z){ return z.llave===llave });
+  if(!o) return;
+  const av = document.getElementById("tr_"+llave.replace(/[^A-Za-z0-9]/g,"_"));
+  if(av) av.innerHTML = '<span class="sub">guardando…</span>';
+  let bien = 0;
+  for(const d of o.ds){
+    try{
+      const r = await api("servicios?coord=eq.PRY_ESP&id=eq."+d.id,
+        {method:"PATCH", headers:{Prefer:"return=representation"},
+         body:JSON.stringify({coordinador: valor || null})});
+      if(r && r.length){ d.coordinador = valor; bien++ }
+    }catch(e){}
+  }
+  if(av) av.innerHTML = (bien===o.ds.length)
+    ? '<span class="ok">✓</span>'
+    : '<span class="mal">solo '+bien+' de '+o.ds.length+'</span>';
+  obras = agrupar(filas);
+  setTimeout(pintar, 700);
 }
 
 async function cargar(){
@@ -321,12 +401,13 @@ async function cargar(){
   try{
     let q="servicios?select=id,coord,tkt,nombre,dependencia,direccion,fecha_servicio,"+
       "fecha_atencion,status,tecnico,auxiliar,vehiculo,tipo_servicio,obra,dias_est,dia_n,"+
-      "avance_tec,avance_coord,avance_ts,avance_nota,obs_coord,obs_prog,ejecutivo"+
+      "avance_tec,avance_coord,avance_ts,avance_nota,obs_coord,obs_prog,ejecutivo,coordinador"+
       "&coord=eq.PRY_ESP&order=fecha_servicio&limit=1000";
     if(de) q+="&fecha_servicio=gte."+de;
     if(a)  q+="&fecha_servicio=lte."+a;
     filas=await api(q);
     obras=agrupar(filas);
+    pintarTramos();
     const cli=document.getElementById("fCli");
     const hay=[...new Set(filas.map(x=>limpio(x.dependencia)).filter(Boolean))].sort();
     cli.innerHTML='<option value="">Todos</option>'+
@@ -345,17 +426,21 @@ function pintar(){
   let v=obras.slice();
   if(ver==="abiertas")  v=v.filter(o=>o.abierta);
   if(ver==="atrasadas") v=v.filter(o=>o.atrasada);
+  const tr=document.getElementById("fTramo").value;
+  if(tr) v=v.filter(o=>(tr==="(sin tramo)" ? !o.tramo : o.tramo===tr));
   if(cli) v=v.filter(o=>o.dependencia===cli);
   if(bus) v=v.filter(o=>((o.nombre+" "+o.dependencia+" "+o.tkt).toUpperCase().indexOf(bus)>=0));
 
   const abiertas=obras.filter(o=>o.abierta).length;
   const atras=obras.filter(o=>o.atrasada).length;
   const sinAvance=obras.filter(o=>o.abierta && o.avance==null).length;
+  const sinTramo=obras.filter(o=>o.abierta && !o.tramo).length;
   document.getElementById("resumen").innerHTML=
     `<div class="pill"><b>${obras.length}</b>obras en el periodo</div>
      <div class="pill"><b style="color:#F0BE6E">${abiertas}</b>abiertas</div>
      <div class="pill"><b style="color:${atras?"#F3B0AC":"#7BE0AE"}">${atras}</b>atrasadas</div>
-     <div class="pill"><b style="color:${sinAvance?"#F0BE6E":"#7BE0AE"}">${sinAvance}</b>sin avance declarado</div>`;
+     <div class="pill"><b style="color:${sinAvance?"#F0BE6E":"#7BE0AE"}">${sinAvance}</b>sin avance declarado</div>
+     ${sinTramo?`<div class="pill"><b style="color:#F0BE6E">${sinTramo}</b>sin tramo</div>`:""}`;
 
   if(!v.length){
     document.getElementById("lista").innerHTML='<div class="vacio">Nada con esos filtros.</div>';
@@ -376,6 +461,13 @@ function pintar(){
             ${o.ndias} día${o.ndias===1?"":"s"} registrado${o.ndias===1?"":"s"}${
               o.diasEst>1?" de "+o.diasEst+" estimados":""}</div>
           <div class="sub">${o.gente.length?esc(o.gente.join(" · ")):"sin brigada asignada"}</div>
+          <div class="sub tramo">Tramo:
+            <select onchange="ponerTramo('${esc(o.llave).replace(/'/g,"\'")}',this.value)">
+              <option value="">— sin asignar —</option>
+              ${TRAMOS.concat(o.tramo && TRAMOS.indexOf(o.tramo)<0 ? [o.tramo] : [])
+                .map(t=>`<option${t===o.tramo?" selected":""}>${esc(t)}</option>`).join("")}
+            </select>
+            <span id="tr_${esc(o.llave).replace(/[^A-Za-z0-9]/g,"_")}"></span></div>
         </div>
         <div class="der">
           <span class="tag ${o.abierta?"":"ok"}">${esc(o.status||"sin estatus")}</span>
