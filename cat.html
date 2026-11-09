@@ -489,7 +489,7 @@ async function buscarEnBase(){
   const co=document.getElementById("fCoord") ? document.getElementById("fCoord").value : "";
   try{
     const f=await api("servicios?select=coord,id,tkt,nombre,dependencia,fecha_servicio,"+
-      "status,tecnico"+filtroPalabras(q,["tkt","nombre","dependencia"])+
+      "status,tecnico"+filtroPalabras(q,["tkt","nombre","dependencia","direccion"])+
       (co?"&coord=eq."+co:"")+"&order=fecha_servicio.desc.nullslast&limit=40");
     if(!f.length){
       cont.innerHTML='<div class="hallados"><h3>Sin coincidencias</h3>'+

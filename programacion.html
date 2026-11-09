@@ -490,14 +490,15 @@ async function cargar(){
        hace dos meses capturado hoy tiene `dia_creacion` viejo y se caia del
        filtro, que es como seis altas de Ximena quedaron invisibles para todos.
        `jen_ts` si es el sello de captura, y manda cuando existe. */
-    sinFecha = await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
+    sinFecha = (await api("servicios?select=id,coord,tkt,nombre,dependencia,direccion,"+
       "fecha_servicio,horario_atencion,status,tecnico,auxiliar,vehiculo,cita_confirmada,cita_requerida,"+
       "personal_atiende,telefono,ejecutivo,tipo_servicio,requerimientos,obs_prog,obs_coord,"+
       "obs_captura,dias_est,dia_n,dia_creacion,jen_user,jen_ts,cp,lat,long,equipo,serie,correo"+
-      "&fecha_servicio=is.null&status=is.null"+
-      "&or=(jen_ts.gte."+isoDe(-30)+",dia_creacion.gte."+isoDe(-30)+")"+
+      "&fecha_servicio=is.null"+
+      (VER_VIEJOS ? "" :
+        "&or=(jen_ts.gte."+isoDe(-30)+",dia_creacion.gte."+isoDe(-30)+")")+
       (co?"&coord=eq."+co:"")+
-      "&order=id.desc&limit="+TOPE_SIN_FECHA);
+      "&order=id.desc&limit="+(VER_VIEJOS ? 400 : TOPE_SIN_FECHA))).filter(porProgramar);
     /* Se ordena aqui y no en la consulta porque hay que comparar la mayor de
        las dos fechas, y eso PostgREST no lo hace en un `order`. Lo mas
        reciente CAPTURADO va arriba: es lo que la persona acaba de dar de alta
@@ -509,15 +510,15 @@ async function cargar(){
     /* La lista se corta en 25 para que se pueda leer, pero el numero que se
        anuncia tiene que ser el de verdad, no el tope de la consulta. */
     try{
-      const rec=await api("servicios?select=id&fecha_servicio=is.null&status=is.null"+
+      const rec=await api("servicios?select=id,status&fecha_servicio=is.null"+
         "&or=(jen_ts.gte."+isoDe(-30)+",dia_creacion.gte."+isoDe(-30)+")"+
         (co?"&coord=eq."+co:"")+"&limit=2000");
-      recientesSinFecha = rec ? rec.length : sinFecha.length;
+      recientesSinFecha = rec ? rec.filter(porProgramar).length : sinFecha.length;
       /* los viejos son los que no entran por NINGUNA de las dos fechas */
-      const v=await api("servicios?select=id&fecha_servicio=is.null&status=is.null"+
+      const v=await api("servicios?select=id,status&fecha_servicio=is.null"+
         "&dia_creacion=lt."+isoDe(-30)+"&jen_ts=is.null"+
         (co?"&coord=eq."+co:"")+"&limit=2000");
-      viejosSinFecha = v ? v.length : 0;
+      viejosSinFecha = v ? v.filter(porProgramar).length : 0;
     }catch(e){ recientesSinFecha = sinFecha.length; viejosSinFecha = 0 }
     await cargarPedidos();
     CRM = await cargarCrm(filas.concat(sinFecha).map(x=>x.tkt), api);
@@ -531,6 +532,28 @@ async function cargar(){
 /* Cuantos renglones se listan de un jalon. Estaban en 25 y Ximena lo noto:
    con 338 pendientes, veinticinco es una rendija. */
 const TOPE_SIN_FECHA = 150;
+
+/* El bloque lista lo capturado en los ultimos 30 dias, y de los de mas atras
+   solo decia cuantos eran. Eso dejaba 745 servicios -707 de mantenimiento, 143
+   del TKT 12788 de Walmart- contados y sin una sola manera de llegar a ellos:
+   no tienen fecha, asi que no salen en ningun dia; son viejos, asi que tampoco
+   salen aqui. El 1790 de Cuauhtepec era uno de esos, y solo aparecio cuando al
+   capturarlo otra vez salto como repetido. Ahora se pueden pedir. */
+let VER_VIEJOS = false;
+function verViejosSinFecha(){ VER_VIEJOS = true; cargar() }
+
+/* Un servicio sin fecha sigue estando por programar aunque ya traiga estatus.
+   Este bloque exigia `status` nulo, y por eso 123 servicios -89 de
+   mantenimiento, entre ellos los REPROGRAMADO sin visita nueva- no salian en
+   ningun dia (no tienen fecha) ni aqui (ya tienen estatus): se capturaban
+   completos y desaparecian de la pantalla. Lo unico que de verdad no hay que
+   programar es lo que ya se cerro —y el PROSPECTO, que todavia no es un
+   servicio: no se le destina brigada hasta que Ventas lo cierre, asi que
+   ponerlo aqui seria pedirle fecha a algo que aun no existe. */
+const NO_SE_PROGRAMA = ["ATENDIDO", "CANCELADO", "PROSPECTO"];
+function porProgramar(x){
+  return NO_SE_PROGRAMA.indexOf(String(x.status||"").trim().toUpperCase()) < 0;
+}
 
 /* La fecha que de verdad importa para "esto se acaba de dar de alta": el sello
    de captura si existe, y si no la del TKT (la carga historica no trae sello). */
@@ -593,17 +616,25 @@ function pintarSinFecha(){
   const c=document.getElementById("porProgramar");
   if(!c) return;
   if(!sinFecha.length){ c.innerHTML=""; return }
-  const n=recientesSinFecha||sinFecha.length;
+  /* Con los viejos a la vista el encabezado ya no puede decir "del ultimo mes":
+     seria mentir sobre lo que se esta mirando. */
+  const n=VER_VIEJOS ? sinFecha.length : (recientesSinFecha||sinFecha.length);
   const rojos=sinFecha.filter(x=>semaforoMinimo(faltantesMinimo(x,CAT.TIPO_SERVICIO))==="rojo").length;
   c.innerHTML='<div class="avisoProg"><b>'+n+
-    ' servicio'+(n>1?"s":"")+' capturado'+(n>1?"s":"")+' en el último mes'+
+    ' servicio'+(n>1?"s":"")+' capturado'+(n>1?"s":"")+
+    (VER_VIEJOS ? "" : ' en el último mes')+
     ' sin fecha</b> — no salen en ningún día hasta que se les ponga una.'+
     (rojos ? '<div class="sub" style="margin-top:4px"><span class="minimo rojo">●</span>'+
       rojos+(rojos>1?' de los listados les falta':' de los listados le falta')+
       ' información que tiene que dar Ventas. Se pueden programar igual;'+
       ' el aviso es para pedírsela a tiempo.</div>' : "")+
-    (viejosSinFecha ? '<div class="sub" style="margin-top:4px">Y '+viejosSinFecha+
-      ' más de hace más de un mes, de la carga histórica, que no se listan aquí.</div>' : "")+
+    (viejosSinFecha && !VER_VIEJOS
+      ? '<div class="sub" style="margin-top:4px">Y '+viejosSinFecha+
+        ' más de hace más de un mes, de la carga histórica. '+
+        '<a href="#" class="pedir" onclick="verViejosSinFecha();return false">'+
+        'verlos también ▸</a></div>' : "")+
+    (VER_VIEJOS ? '<div class="sub" style="margin-top:4px">Se están mostrando '+
+      'también los de la carga histórica.</div>' : "")+
     '<div class="tabla" style="margin-top:9px"><table><thead><tr>'+
     '<th>Servicio</th><th>Capturó</th><th>Fecha</th><th>Técnico</th>'+
     '<th>Auxiliar</th><th>Vehículo</th><th>¿Lleva cita?</th></tr></thead><tbody>'+
@@ -614,6 +645,10 @@ function pintarSinFecha(){
          lado y parecia perdido. */
       return '<tr><td><div class="sitio">'+esc(x.nombre||"")+'</div>'+
         '<div class="sub"><span class="tag">'+esc(x.coord)+'</span>'+
+        /* El estatus se pinta aqui a proposito: un REPROGRAMADO sin fecha
+           parecia una captura nueva, y es lo contrario -una visita que ya se
+           cayo una vez y sigue sin dia-. */
+        (limpio(x.status)?'<span class="tag">'+esc(x.status)+'</span>':"")+
         (x.tkt?" TKT "+esc(x.tkt):"")+
         (limpio(x.tipo_servicio)?" · "+esc(x.tipo_servicio):"")+'</div>'+
         lineaMinimo(x, "sinFecha", i)+avisoCrm(x, CRM)+'</td>'+
@@ -728,9 +763,16 @@ function pedirVentas(lista, i){
    era de otro dia o quedaba fuera del rango, no aparecia y parecia que el
    buscador no servia. Ahora se le pregunta a la base.
 
-   Se busca por PALABRAS: cada una tiene que aparecer en el TKT, el nombre o la
-   dependencia, sin importar el orden ni las mayusculas. Los patrones van entre
-   comillas para que una coma no tumbe la consulta. */
+   Se busca por PALABRAS: cada una tiene que aparecer en el TKT, el nombre, la
+   dependencia o la DIRECCION, sin importar el orden ni las mayusculas. Los
+   patrones van entre comillas para que una coma no tumbe la consulta.
+
+   La direccion entro despues y no es un adorno: el 1790 se llama "BAE 2844
+   CUAUHTEPEC LA PASTORA" con hache, y la calle -y el otro sitio del mismo
+   rumbo- dicen "CUAUTEPEC" sin ella. Buscar "2844 CUAUTEPEC", que es como esta
+   escrito en el papel, no devolvia nada, y el servicio parecia no existir hasta
+   que al guardarlo saltaba como repetido. Con la direccion adentro, la calle
+   alcanza aunque el nombre este escrito de otra forma. */
 function filtroPalabras(q, campos){
   const pal=String(q||"").trim().split(/[\s,;\-\/.]+/)
     .map(function(w){ return w.replace(/["\\(),]/g,"") })
@@ -751,7 +793,7 @@ async function buscarEnBase(){
   const co=document.getElementById("fCoord") ? document.getElementById("fCoord").value : "";
   try{
     const f=await api("servicios?select=coord,id,tkt,nombre,dependencia,fecha_servicio,"+
-      "status,tecnico"+filtroPalabras(q,["tkt","nombre","dependencia"])+
+      "status,tecnico"+filtroPalabras(q,["tkt","nombre","dependencia","direccion"])+
       (co?"&coord=eq."+co:"")+"&order=fecha_servicio.desc.nullslast&limit=40");
     if(!f.length){
       cont.innerHTML='<div class="hallados"><h3>Sin coincidencias</h3>'+

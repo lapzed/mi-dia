@@ -786,14 +786,46 @@ async function buscarSitio(){
        tecleado rompa la consulta con un error 400. */
     const f=await api("sitios?select=*"+filtroPalabras(q,
       ["nombre","dependencia","direccion"])+"&order=nombre&limit=25");
-    if(!f.length){ cont.innerHTML='<div class="q">Nada con eso. Captúralo en blanco.</div>'; return }
-    cont.innerHTML='<div class="hallazgos">'+f.map((s,i)=>`
+    /* Y tambien en los SERVICIOS. Este buscador miraba nada mas el catalogo de
+       sitios, que es otra tabla: un servicio recien capturado no aparecia aqui
+       por mas que se buscara, y la unica lista de esta pantalla son los doce
+       ultimos por id -que con cuarenta altas de Ximena de por medio se va en
+       minutos-. Asi que desde captura no habia manera de volver a encontrar lo
+       que uno acababa de capturar. Ahora si. */
+    const sv=await servicioYaCapturado(q);
+    window._sitios=f;
+    if(!f.length && !sv){ cont.innerHTML='<div class="q">Nada con eso. Captúralo en blanco.</div>'; return }
+    cont.innerHTML=(f.length?'<div class="hallazgos">'+f.map((s,i)=>`
       <div class="hallazgo" onclick="tomarSitio(${i})">
         <b>${esc(s.nombre||"")}</b>
         <span>${esc(limpio(s.dependencia)||"")}${limpio(s.dependencia)&&limpio(s.direccion)?" · ":""}${esc((limpio(s.direccion)||"").slice(0,90))}</span>
-      </div>`).join("")+'</div>';
-    window._sitios=f;
+      </div>`).join("")+'</div>':"")+(sv||"");
   }catch(e){ cont.innerHTML='<div class="aviso">No se pudo buscar: '+esc(String(e).slice(0,110))+'</div>' }
+}
+/* Los servicios que ya estan capturados con ese texto. Devuelve el HTML del
+   bloque, o cadena vacia si no hay ninguno. Se pinta la fecha y el estatus
+   porque es justo lo que se viene a averiguar: "ya lo capture o no, y con que
+   dia quedo". */
+async function servicioYaCapturado(q){
+  let d;
+  try{
+    d=await api("servicios?select=coord,id,tkt,nombre,fecha_servicio,status,jen_user,jen_ts"+
+      filtroPalabras(q,["tkt","nombre","dependencia","direccion"])+
+      "&order=id.desc&limit=12");
+  }catch(e){ return "" }                   /* buscar sitios es lo principal */
+  if(!d || !d.length) return "";
+  return '<div class="hallazgos" style="margin-top:10px">'+
+    '<div class="q"><b>Ya está capturado como servicio</b> ('+d.length+
+    (d.length===12?"+":"")+'). Tócalo para corregirlo en vez de capturarlo otra vez.</div>'+
+    d.map(function(x){
+      return '<div class="hallazgo" onclick="abrirParaEditar(\''+esc(x.coord)+'\','+x.id+')">'+
+        '<b>'+esc((x.nombre||"").slice(0,46))+'</b>'+
+        '<span><span class="tag">'+esc(x.coord)+' · id '+esc(x.id)+'</span>'+
+        (limpio(x.tkt)?' TKT '+esc(x.tkt):"")+
+        ' · '+esc(x.fecha_servicio||"SIN FECHA")+
+        ' · '+esc(x.status||"sin estatus")+
+        (limpio(x.jen_user)?' · capturó '+esc(x.jen_user):"")+'</span></div>';
+    }).join("")+'</div>';
 }
 function tomarSitio(i){
   sitioSel=window._sitios[i];
@@ -833,8 +865,23 @@ async function siguienteId(){
    de crear otro; es la unica diferencia. */
 let editando = null;
 
+/* Lo que hay teclado en el formulario y se perderia al repintarlo. Se mide
+   sobre los campos del sitio, no sobre todos: la coordinacion y la fecha de
+   creacion vienen puestas solas y no son trabajo de nadie. */
+function hayCapturaEnCurso(){
+  return ["nombre","tkt","direccion","personal_atiende","telefono","correo"]
+    .some(function(k){ const e=document.getElementById("c_"+k); return e && e.value.trim() });
+}
+
 async function abrirParaEditar(coord, id){
   const msg=document.getElementById("msg");
+  /* Abrir otro servicio vuelve a dibujar el formulario y borra lo que se lleve
+     escrito. Pasaba sin aviso cuando el repetido salia a medio llenado y lo
+     primero a la mano era "Abrir ése": se perdia la captura entera. */
+  if(!editando && hayCapturaEnCurso() &&
+     !confirm("Vas a abrir otro servicio y se pierde lo que ya escribiste aquí. ¿Abrirlo?")){
+    return;
+  }
   msg.innerHTML='<div class="q">Trayendo el servicio…</div>';
   try{
     const d=await api("servicios?select=*&coord=eq."+encodeURIComponent(coord)+"&id=eq."+id);
@@ -1605,7 +1652,13 @@ async function yaCapturado(f){
   const sel = "servicios?select=id,coord,tkt,nombre,fecha_servicio,status,jen_user,jen_ts"+
               "&coord=eq."+encodeURIComponent(f.coord);
   let q;
-  if(limpio(f.tkt))         q = sel+"&tkt=eq."+encodeURIComponent(limpio(f.tkt))+"&limit=300";
+  /* Cuando hay TKT y fecha se piden los dos. Con el TKT solo, un ticket paraguas
+     como el 12788 devuelve 482 renglones y el `limit` de 300 cortaba justo donde
+     podía estar el repetido: la comprobación quedaba a medias sin avisar. */
+  if(limpio(f.tkt))         q = sel+"&tkt=eq."+encodeURIComponent(limpio(f.tkt))+
+                                (f.fecha_servicio
+                                  ? "&fecha_servicio=eq."+encodeURIComponent(f.fecha_servicio)
+                                  : "&fecha_servicio=is.null")+"&limit=300";
   else if(f.fecha_servicio) q = sel+"&fecha_servicio=eq."+
                                 encodeURIComponent(f.fecha_servicio)+"&limit=500";
   else return [];                              /* ni TKT ni fecha: nada sólido */
@@ -1636,8 +1689,13 @@ async function avisarSiRepetido(fila, msg){
         '<td><button class="mini" onclick="abrirParaEditar(\''+esc(x.coord)+'\','+x.id+
         ')">Abrir ése</button></td></tr>';
     }).join("") + '</tbody></table>' +
-    '<div style="margin-top:8px">Si de verdad es otro servicio, vuelve a tocar '+
-    '<b>Dar de alta el servicio</b> y se crea.</div></div>';
+    /* El boton explicito importa: "vuelve a tocar Dar de alta" mandaba a buscar
+       el boton al final de un formulario largo, y el que estaba a la mano era
+       "Abrir ése" —que repinta el formulario con el servicio viejo y se lleva
+       todo lo que se acababa de teclear—. */
+    '<div style="margin-top:8px">'+
+    '<button class="pri mini" onclick="guardar()">Es otro servicio: darlo de alta</button>'+
+    ' <span class="dupSub">o abre el de arriba para corregirlo.</span></div></div>';
   return true;
 }
 
@@ -1656,10 +1714,16 @@ function claveDup(x){
   /* El sitio SIEMPRE va en la llave. El TKT solo no basta: en carga masiva un
      mismo ticket cubre las cuarenta sucursales de un cliente, y agrupar por
      ticket haría pasar una carga entera por duplicada.
-     Con TKT no se pide la fecha —si se recapturó con otra fecha sigue siendo el
-     mismo servicio—; sin TKT, la fecha es lo único que queda para separarlos. */
-  return tk ? co+"|TKT|"+tk+"|"+si
-            : co+"|SIT|"+si+"|"+String(x.fecha_servicio||"");
+     Y la FECHA también va siempre, con TKT o sin él. Antes con TKT no se pedía,
+     con el argumento de que recapturar el mismo servicio con otra fecha sigue
+     siendo el mismo servicio. Eso vale para un ticket de un solo servicio, no
+     para los tickets paraguas de Walmart: el 12788 lleva 482 servicios en 431
+     sitios y sigue abierto todo el año, así que la segunda visita del año a una
+     tienda salía como repetida de la primera y había que insistirle al botón.
+     El repetido de verdad —dos capturas de la MISMA visita— comparte la fecha;
+     dos visitas distintas al mismo sitio no son un duplicado. */
+  return (tk ? co+"|TKT|"+tk+"|"+si : co+"|SIT|"+si)+
+         "|"+String(x.fecha_servicio||"");
 }
 
 async function buscarDuplicados(){

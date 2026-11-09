@@ -426,7 +426,14 @@ async function arrancar(){
        las dos dejan fuera a los que NO tienen fecha: se capturaron y nadie los
        programo. Eran casi mil servicios abiertos que no aparecian en ninguna
        pantalla de supervision. */
-    sinProgramar=await paginar("&status=is.null&fecha_servicio=is.null");
+    /* Y pedia ademas `status` nulo, con lo que volvia a abrirse el mismo hueco
+       por el otro lado: 123 servicios sin fecha PERO con estatus -89 de
+       mantenimiento- no caian en ninguna de las tres consultas. Se traen todos
+       los que no tienen fecha y aqui se descarta nada mas lo cerrado, que es lo
+       unico que de verdad ya no hay que programar. */
+    sinProgramar=(await paginar("&fecha_servicio=is.null")).filter(function(x){
+      return ["ATENDIDO","CANCELADO"].indexOf(String(x.status||"").trim().toUpperCase())<0;
+    });
     const vistos=new Set(recientes.map(x=>x.coord+"|"+x.id));
     todos=recientes.concat(abiertos.filter(x=>!vistos.has(x.coord+"|"+x.id)));
     ver(vista);
