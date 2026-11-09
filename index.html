@@ -104,6 +104,13 @@
     border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:12.5px;line-height:1.5}
   .avisoPasos b{color:#F0BE6E}
   .avisoPasos .q{color:var(--txt2);font-size:11.5px;display:block;margin-top:3px}
+  .mironCaja{background:rgba(99,179,255,.12);border:1px solid rgba(99,179,255,.4);
+    border-radius:12px;padding:11px 13px;margin:0 0 12px;font-size:13px;line-height:1.45}
+  .mironCaja b{color:#63B3FF}
+  .mironCaja .q{color:var(--txt2);font-size:11.5px;display:block;margin:3px 0 9px}
+  .mironCaja select{width:100%;background:var(--bg2);color:var(--txt);
+    border:1px solid var(--line);border-radius:9px;padding:10px;font-size:14px;
+    font-family:inherit}
   button{font:inherit;border:none;border-radius:10px;padding:9px 12px;font-size:12.5px;
     font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
   .b-map,.b-tel{background:#17456E;color:var(--acc)}
@@ -408,7 +415,8 @@
   <div class="cola" id="cola" style="display:none"></div>
   <div id="sinRed"></div>
   <div class="sum" id="sum"></div>
-  <div id="lista"><div class="load">Cargando…</div></div>
+  <div id="miron" style="display:none"></div>
+    <div id="lista"><div class="load">Cargando…</div></div>
 
   <!-- servicios de atrás que quedaron sin fotos -->
   <button class="b-atras" id="btnAtras" onclick="abrirAtras()" style="display:none">
@@ -574,6 +582,13 @@ const DESDE = -30, HASTA = 4;
 const LOCAL_DESDE = -7;
 
 let tecnico   = localStorage.getItem("md_tecnico") || "";
+
+/* ---- mirar la pantalla del tecnico sin ser tecnico ----
+   `soloVer` lo pone el arranque cuando la sesion no es de campo. `mirando` es
+   la brigada elegida. Mientras no se elija una no se pinta nada: es la unica
+   forma de que esto se parezca al dia de alguien y no al de todos juntos. */
+let soloVer = false;
+let mirando = localStorage.getItem("md_mirando") || "";
 let variantes = JSON.parse(localStorage.getItem("md_variantes") || "[]");
 let fecha  = hoyISO();
 let semana = [];
@@ -999,13 +1014,26 @@ function pintar(){
   // la puerta a lo de atrás se muestra en cuanto hay sesión
   document.getElementById("btnAtras").style.display = tecnico ? "block" : "none";
   datos=semana.filter(x=>x.fecha_servicio===fecha);
+  /* Mirando: se recorta a la brigada elegida, por lider o por auxiliar, que es
+     justo lo que la base le entrega a un tecnico de verdad. */
+  if(soloVer){
+    pintarMiron();
+    datos = mirando
+      ? datos.filter(x => limpio(x.tecnico)===mirando || limpio(x.auxiliar)===mirando)
+      : [];
+  }else{
+    const m=document.getElementById("miron");
+    if(m){ m.style.display="none"; m.innerHTML="" }
+  }
   const hechos=datos.filter(d=>(d.status||"").toUpperCase()==="ATENDIDO").length;
   document.getElementById("sum").innerHTML=
     `<div class="pill"><div class="v">${datos.length}</div><div class="l">Servicios</div></div>
      <div class="pill"><div class="v" style="color:#5BD79B">${hechos}</div><div class="l">Cerrados</div></div>
      <div class="pill"><div class="v" style="color:#63B3FF">${datos.length-hechos}</div><div class="l">Pendientes</div></div>`;
   if(!datos.length){
-    cont.innerHTML='<div class="vacio"><div class="em">☕</div>Sin servicios programados este día.</div>';
+    cont.innerHTML = (soloVer && !mirando)
+      ? '<div class="vacio"><div class="em">👆</div>Elige arriba qué brigada quieres ver.</div>'
+      : '<div class="vacio"><div class="em">☕</div>Sin servicios programados este día.</div>';
     return;
   }
   cont.innerHTML=avisoPasos()+datos.map(x=>{
@@ -1063,7 +1091,8 @@ function pintar(){
         ${tel?`<button class="b-tel" onclick="location.href='tel:${tel}'">📞 Llamar</button>`:""}
       </div>
       <div class="acts">
-        ${cerrado
+        ${soloVer ? '<span class="sub">Solo estás mirando: el cierre lo hace la brigada.</span>'
+          : cerrado
           ? `<button class="b-gh" onclick="abrirCierre('${x.coord}',${x.id},'ATENDIDO')">✎ Agregar evidencia o nota</button>`
           : esObra(x)
             ? `<button class="b-gh" onclick="abrirCierre('${x.coord}',${x.id},'CONTINUIDAD')">↷ Sigue en proceso</button>
@@ -1102,6 +1131,44 @@ function horaCorta(ts){
   return isNaN(d) ? "" : d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false});
 }
 
+/* ---- la barra de quien mira ----
+   Las brigadas salen de los servicios que la base ya entrego, no de un catalogo
+   aparte: asi la lista es exactamente la gente que tiene trabajo en estos dias
+   y no hay un segundo lugar que mantener. */
+/* "Por asignar" y "Sin asignar" viven en la columna de auxiliar como relleno
+   mientras no se decide quien va. No son personas y ofrecerlas como brigada
+   seria ofrecer el dia de nadie. */
+const NO_SON_BRIGADA = ["POR ASIGNAR", "SIN ASIGNAR", "PENDIENTE", "N/A", "NA"];
+function esBrigada(n){
+  return !!n && NO_SON_BRIGADA.indexOf(n.toUpperCase().trim()) < 0;
+}
+function brigadasALaVista(){
+  const s=new Set();
+  (semana||[]).forEach(function(x){
+    if(esBrigada(limpio(x.tecnico)))  s.add(limpio(x.tecnico));
+    if(esBrigada(limpio(x.auxiliar))) s.add(limpio(x.auxiliar));
+  });
+  return [...s].sort(function(a,b){ return a.localeCompare(b,"es") });
+}
+function pintarMiron(){
+  const c=document.getElementById("miron");
+  if(!c) return;
+  const bs=brigadasALaVista();
+  c.style.display="block";
+  c.innerHTML='<div class="mironCaja"><b>Estás mirando, no trabajando.</b>'+
+    '<span class="q">Ves la pantalla tal como la ve la brigada. Los botones de '+
+    'marcar y cerrar no aparecen: nada de lo que hagas aquí queda a su nombre.</span>'+
+    '<select onchange="verBrigada(this.value)"><option value="">— elige una brigada —</option>'+
+    bs.map(function(b){
+      return '<option value="'+esc(b)+'"'+(b===mirando?" selected":"")+'>'+esc(b)+'</option>';
+    }).join("")+'</select></div>';
+}
+function verBrigada(b){
+  mirando=b;
+  try{ localStorage.setItem("md_mirando", b) }catch(e){}
+  pintar();
+}
+
 /* ---- el recordatorio ----
    Los botones llevan desde septiembre y en treinta dias los tocaron 3 veces de
    576 servicios. No es que no sirvan: es que nadie sabe que estan ahi ni para
@@ -1109,6 +1176,7 @@ function horaCorta(ts){
    TECNICO con marcarlo, que es dejar de recibir el "¿ya llegaste?" por
    WhatsApp. Avisa, no bloquea: nadie se queda sin trabajar por esto. */
 function avisoPasos(){
+  if(soloVer) return "";
   if(fecha!==hoyISO()) return "";
   const abiertos=datos.filter(x=>(x.status||"").toUpperCase()!=="ATENDIDO");
   if(!abiertos.length) return "";
@@ -1126,6 +1194,13 @@ function avisoPasos(){
 
 function pasosDe(x, cerrado){
   if(cerrado || x.fecha_servicio!==hoyISO()) return "";
+  /* Mirando se muestra lo YA marcado -que es justo lo que se viene a ver- pero
+     sin los botones: marcar por otro seria firmar por otro. */
+  if(soloVer){
+    const h=PASOS.filter(p=>x[p.k]);
+    return h.length ? '<div class="pasos">'+h.map(p=>'<span class="hecho">✓ '+
+      p.hecho+' '+esc(horaCorta(x[p.k]))+'</span>').join("")+'</div>' : "";
+  }
   const k=llave(x);
   const pend=colaPasos().some(q=>q.k===k);
   const hechos=PASOS.filter(p=>x[p.k]);
@@ -3851,13 +3926,18 @@ async function arrancarSesion(){
   /* Esta pantalla es de tecnicos, y tambien de los administrativos de las
      empresas externas: ellos llevan los servicios de sus brigadas y los cierran
      desde aqui. Lo que ven lo decide la base -es_mio(tecnico) sobre sus alias-,
-     no esta pantalla. Cualquier otra sesion —una estacion, ventas— no entra
-     prestada: se pide la clave del tecnico. */
+     no esta pantalla.
+
+     Las demas sesiones -gerencia, una coordinacion- entran A MIRAR. Antes
+     rebotaban al acceso de tecnico, y la unica forma de ver esta pantalla era
+     pedirle el telefono a alguien o inventar una cuenta falsa. Lo segundo
+     ensucia la base: todo lo que se toca queda a nombre de esa cuenta.
+
+     Mirando no se marca ni se cierra nada, y hay que elegir una brigada: a
+     gerencia la base le entrega TODOS los servicios, asi que sin elegir se
+     verian cientos revueltos, que no se parece en nada a lo que ve un tecnico. */
   if(ses.rol!=="TECNICO" && ses.rol!=="EXTERNO"){
-    ses=null; localStorage.removeItem("md_tec");
-    document.getElementById("mTec").style.display="flex";
-    llenarUsuarios();
-    return;
+    soloVer = true;
   }
   tecnico = ses.nombre || tecnico;
   pintarGuardado();           // primero lo del telefono: la pantalla no espera a nadie
