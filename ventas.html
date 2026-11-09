@@ -366,9 +366,23 @@ async function arrancar(){
 function enProceso(x){ return (x.status||"").toUpperCase()==="CONTINUIDAD" }
 /* Un prospecto sin técnico no es una alerta: todavía no se le destina recurso,
    así que no se reporta como servicio ni como pendiente. */
+/* ABIERTO = el recurso todavia NO se invirtio. Esa es la regla, y hasta el
+   09-nov-2026 cada pantalla la aplicaba a su manera:
+
+     cierre      no excluia CONTINUIDAD, PROSPECTO ni ATENCION VENTAS -> +894
+     supervision no excluia REPROGRAMADO                              -> +417
+     ventas      lo mismo                                             -> +417
+
+   REPROGRAMADO y CONTINUIDAD no quedan abiertos: la brigada salio y el dia se
+   gasto. El reprogramado deja constancia de la visita perdida y la siguiente
+   nace aparte; la continuidad es una obra de varios dias que ese dia no se
+   concluyo. Contarlos como pendientes es cobrarle dos veces el mismo trabajo
+   al area. Lo que si queda abierto se cuenta aparte: el reprogramado SIN
+   visita nueva. */
+const NO_ABIERTOS = ["ATENDIDO","CANCELADO","REPROGRAMADO","CONTINUIDAD",
+                     "PROSPECTO","ATENCION VENTAS"];
 function abierto(x){
-  return ["ATENDIDO","CANCELADO","CONTINUIDAD","PROSPECTO","ATENCION VENTAS"]
-         .indexOf((x.status||"").toUpperCase().trim())<0;
+  return NO_ABIERTOS.indexOf((x.status||"").toUpperCase().trim()) < 0;
 }
 function ver(v){
   vista=v;

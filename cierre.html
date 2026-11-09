@@ -414,9 +414,23 @@ const PIDE={LEV:["LEVANTAMIENTO","CROQUIS","REPORTE"],
             _:["ANTES","DESPUES","REPORTE"]};
 function pideDe(co){ return PIDE[co]||PIDE._ }
 function cerrado(x){ return (x.status||"").toUpperCase().trim()==="ATENDIDO" }
+/* ABIERTO = el recurso todavia NO se invirtio. Esa es la regla, y hasta el
+   09-nov-2026 cada pantalla la aplicaba a su manera:
+
+     cierre      no excluia CONTINUIDAD, PROSPECTO ni ATENCION VENTAS -> +894
+     supervision no excluia REPROGRAMADO                              -> +417
+     ventas      lo mismo                                             -> +417
+
+   REPROGRAMADO y CONTINUIDAD no quedan abiertos: la brigada salio y el dia se
+   gasto. El reprogramado deja constancia de la visita perdida y la siguiente
+   nace aparte; la continuidad es una obra de varios dias que ese dia no se
+   concluyo. Contarlos como pendientes es cobrarle dos veces el mismo trabajo
+   al area. Lo que si queda abierto se cuenta aparte: el reprogramado SIN
+   visita nueva. */
+const NO_ABIERTOS = ["ATENDIDO","CANCELADO","REPROGRAMADO","CONTINUIDAD",
+                     "PROSPECTO","ATENCION VENTAS"];
 function abierto(x){
-  return ["ATENDIDO","CANCELADO","REPROGRAMADO"]
-           .indexOf((x.status||"").toUpperCase().trim())<0;
+  return NO_ABIERTOS.indexOf((x.status||"").toUpperCase().trim()) < 0;
 }
 function reprogramado(x){ return (x.status||"").toUpperCase().trim()==="REPROGRAMADO" }
 
@@ -538,7 +552,7 @@ async function cuantos(filtro){
 
    Lo que si esta pendiente -el reprogramado al que nunca le nacio la visita
    nueva- se cuenta aparte, en Cierre, con su propio renglon. */
-const CIERRE_FUERA='(ATENDIDO,CANCELADO,REPROGRAMADO,PROSPECTO,"ATENCION VENTAS")';
+const CIERRE_FUERA='(ATENDIDO,CANCELADO,REPROGRAMADO,CONTINUIDAD,PROSPECTO,"ATENCION VENTAS")';
 async function _cuantosAtraso(filtro){
   try{
     const r=await conTiempo(SUPA_URL+"/rest/v1/servicios?select=id"+filtro+"&limit=1",
@@ -603,7 +617,7 @@ async function cargar(){
     /* FUERA los mismos estatus que no cuentan en el reporte: atendido y
        cancelado ya terminaron, y prospecto y atencion ventas todavia no son
        trabajo del area. Si no, la lista se llena de cosas que no hay que cerrar. */
-    const FUERA="(ATENDIDO,CANCELADO,REPROGRAMADO,PROSPECTO,\"ATENCION VENTAS\")";
+    const FUERA="(ATENDIDO,CANCELADO,REPROGRAMADO,CONTINUIDAD,PROSPECTO,\"ATENCION VENTAS\")";
     const filtroAtoro="&status=not.in."+FUERA+
       "&fecha_servicio=lt."+isoDe(-30)+(co?"&coord=eq."+co:"");
     try{
