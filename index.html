@@ -3609,17 +3609,54 @@ async function subirArchivo(item, blob, tipo, i){
    ya van en camino. Más de tres en un celular con mala señal empeora, porque se
    pelean el mismo canal. */
 const A_LA_VEZ = 3;
-async function subirEnParalelo(tareas, avisa){
-  let hechas = 0, siguiente = 0;
+/* Tres intentos con espera creciente -1 s, 2 s-. La mayoria de las fallas de
+   subida en campo son del momento: la antena del sotano se cae un segundo. */
+const INTENTOS = 3;
+async function conReintentos(fn){
+  let ultimo;
+  for(let i = 0; i < INTENTOS; i++){
+    try{ return await fn() }
+    catch(e){
+      ultimo = e;
+      if(i < INTENTOS-1) await new Promise(function(r){ setTimeout(r, 1000*Math.pow(2,i)) });
+    }
+  }
+  throw ultimo;
+}
+
+/* Lo que YA subio no se vuelve a subir.
+   Antes, si fallaba la foto 7 de 10 el cierre entero tronaba, se quedaba en la
+   cola y al reintentarlo volvian a subir las seis que ya estaban. Cada subida
+   lleva la hora al milisegundo en la ruta y no hay upsert, asi que no se
+   pisaban: quedaban SEIS renglones duplicados en `evidencias` por cada
+   reintento. No se perdia nada -por eso nadie lo noto- pero la evidencia se
+   ensuciaba sola, y es justo lo que mas cuidamos.
+
+   El avance se apunta en el propio renglon de la cola despues de cada archivo,
+   para que sobreviva a que se cierre la app o se acabe la bateria. */
+async function subirEnParalelo(tareas, avisa, item){
+  item.subidos = item.subidos || {};
+  const faltan = tareas.filter(function(t){ return !item.subidos[t.k] });
+  let hechas = tareas.length - faltan.length, siguiente = 0;
+  if(avisa && hechas) avisa(hechas, tareas.length);
   async function obrero(){
-    while(siguiente < tareas.length){
-      const mia = tareas[siguiente++];
-      await mia();
+    while(siguiente < faltan.length){
+      const mia = faltan[siguiente++];
+      const ruta = await conReintentos(mia.fn);
+      item.subidos[mia.k] = ruta || true;
+      await guardarAvance(item);
       hechas++;
       if(avisa) avisa(hechas, tareas.length);
     }
   }
-  await Promise.all(Array.from({length: Math.min(A_LA_VEZ, tareas.length)}, obrero));
+  await Promise.all(Array.from({length: Math.min(A_LA_VEZ, faltan.length)}, obrero));
+}
+
+/* Solo si el cierre ya esta en la cola: el primer intento corre antes de
+   encolarse, y ahi no hay renglon que actualizar todavia. */
+async function guardarAvance(item){
+  if(item.key == null) return;
+  try{ await colaPon(item) }catch(e){}
 }
 
 /* La bitácora. Se manda sin esperar y con el error tragado a propósito: si el
@@ -3641,13 +3678,17 @@ function anotar(accion, detalle, x){
 
 async function enviarCierre(item, avisa){
   // primero las evidencias: si fallan, el TKT no debe quedar cerrado sin respaldo
+  /* Cada tarea lleva una LLAVE estable -el tipo y su numero- para poder saber
+     cual ya subio. Sin eso, el reintento no tenia forma de distinguirlas. */
   const tareas = [];
   for(const [campo,tipo] of (item.campos||[])){
     const arr=item[campo]||[];
-    arr.forEach((blob,i)=>tareas.push(()=>subirArchivo(item, blob, tipo, i)));
+    arr.forEach((blob,i)=>tareas.push({k:tipo+"|"+i,
+      fn:()=>subirArchivo(item, blob, tipo, i)}));
   }
-  for(const p of (item.partidas||[])) tareas.push(()=>subirArchivo(item, p.blob, p.tipo, p.n));
-  await subirEnParalelo(tareas, avisa);
+  for(const p of (item.partidas||[])) tareas.push({k:"P|"+p.tipo+"|"+p.n,
+    fn:()=>subirArchivo(item, p.blob, p.tipo, p.n)});
+  await subirEnParalelo(tareas, avisa, item);
   for(const pr of (item.propuestas||[])){
     await api("propuestas?on_conflict=coord,servicio_id,n",
       {method:"POST",
@@ -3669,6 +3710,10 @@ async function enviarCierre(item, avisa){
         obs_coord:"Obra terminada el "+fecha+" en el día "+item.dia_n})});
   }
 
+  /* La bitacora se marca igual que las fotos. Es un POST sin llave, asi que un
+     reintento dejaba dos renglones del mismo cierre: el mismo problema que la
+     evidencia duplicada, en chico. */
+  if(item.subidos && item.subidos._log) return;
   await api("log",{method:"POST",body:JSON.stringify({
     /* `usuario` es QUIEN cerró, no la brigada. Para un técnico da lo mismo
        —cierra lo suyo—, pero cuando cierra el administrativo de una empresa
@@ -3685,6 +3730,9 @@ async function enviarCierre(item, avisa){
             (item.obra?" · "+item.obra+" dia "+item.dia_n:"")+" · "+
             (item.campos||[]).map(([c,t])=>t.toLowerCase()+"="+(item[c]||[]).length).join(" ")+
             (item.nota?" · "+item.nota:"")})});
+  item.subidos = item.subidos || {};
+  item.subidos._log = true;
+  await guardarAvance(item);
 }
 
 async function guardarCierre(s, modo, com){
@@ -3820,6 +3868,16 @@ async function colaAdd(item){
   return new Promise((res,rej)=>{
     const t=db.transaction("cola","readwrite");
     t.objectStore("cola").add(item);
+    t.oncomplete=()=>res(); t.onerror=()=>rej(t.error);
+  });
+}
+/* `put` con la misma llave actualiza el renglon; `add` crearia otro y el
+   cierre se subiria dos veces. */
+async function colaPon(item){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const t=db.transaction("cola","readwrite");
+    t.objectStore("cola").put(item);
     t.oncomplete=()=>res(); t.onerror=()=>rej(t.error);
   });
 }
