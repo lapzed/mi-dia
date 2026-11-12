@@ -62,6 +62,19 @@
   .barra i{display:block;height:100%;border-radius:6px}
   .brig .d{font-size:12px;color:var(--txt2)}
   .brig .h{font-size:11.5px;margin-top:5px;color:var(--txt3)}
+  /* Un renglón por servicio: hora, sitio, y las tres bolitas de campo
+     pegadas a la derecha. El nombre se recorta con puntos suspensivos en vez
+     de empujar las bolitas fuera de la tarjeta. */
+  .hs{display:flex;align-items:center;gap:7px;line-height:1.75}
+  .hs .hh{flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .hs .hn{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  .pasos{flex:0 0 auto;display:flex;gap:3px}
+  /* Hueca = todavía no la tocan. Llena = marcada, y el título trae la hora. */
+  .pasos i{width:8px;height:8px;border-radius:50%;display:block;
+    border:1.5px solid #2E5D8C;box-sizing:border-box}
+  .pasos i.on{background:#5BD79B;border-color:#5BD79B}
+  .pasos i.fin{background:#63B3FF;border-color:#63B3FF}
 
   .alerta{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--warn);
     border-radius:13px;padding:13px 15px;margin-bottom:11px}
@@ -122,6 +135,7 @@
     <button onclick="ver('atoro')">⏳ Lo que se está atorando</button>
     <button onclick="ver('manana')">⚠️ Lo que va a fallar</button>
     <button onclick="ver('hecho')">✅ Lo realizado</button>
+    <button onclick="ver('pasos')">⏱️ Uso de los botones</button>
   </div>
 
   <!-- Supervisar es mirar; a veces hay que meter mano. En vez de duplicar aquí
@@ -408,7 +422,11 @@ async function arrancar(){
       .filter(c=>/^[a-z][a-z0-9_]*$/.test(c));
     const CAMPOS=["id","coord","tkt","nombre","dependencia","direccion","lat","long",
       "fecha_servicio","horario_atencion","status","tecnico","auxiliar","duracion_est",
-      "cita_confirmada","obs_coord","dia_creacion","jen_user","tipo_inmueble"]
+      "cita_confirmada","obs_coord","dia_creacion","jen_user","tipo_inmueble",
+      /* los pasos de campo: alimentan las tres bolitas de «dónde anda cada
+         brigada». Son tres marcas de tiempo, no pesan nada al lado de lo que
+         ya se baja. */
+      "sale_ts","llega_ts","termina_ts"]
       .concat([...new Set(deTiempos)].filter(c=>c!=="tipo_inmueble"))
       .join(",");
     const desde=isoDe(-90);
@@ -487,11 +505,12 @@ function envolverTablas(){
 function ver(v){
   vista=v;
   [...document.querySelectorAll(".tabs button")].forEach((b,i)=>
-    b.classList.toggle("on", ["hoy","atoro","manana","hecho"][i]===v));
+    b.classList.toggle("on", ["hoy","atoro","manana","hecho","pasos"][i]===v));
   if(v==="hoy") pintarHoy();
   if(v==="atoro") pintarAtoro();
   if(v==="manana") pintarManana();
   if(v==="hecho") pintarHecho();
+  if(v==="pasos") pintarPasos();
 }
 
 /* ================= 1. dónde anda cada brigada ================= */
@@ -526,6 +545,32 @@ function zoomConRueda(m){
   }, {passive:true});
   return m;
 }
+/* ---------- las tres bolitas de campo ----------
+   Salió · Llegó · Terminó, al final del renglón de cada servicio. Es el mismo
+   dato que ya guarda Mi día, puesto donde el coordinador ya está mirando: de
+   un vistazo se ve quién va en camino, quién está adentro y quién ya salió,
+   sin preguntar por WhatsApp.
+
+   Hueca es "todavía no", no "va mal": una brigada que apenas va a salir las
+   tiene las tres huecas y está perfectamente. Por eso no se pintan en rojo.
+   La hora exacta va en el título, para no llenar la tarjeta de números. */
+function horaCorta(ts){
+  if(!ts) return "";
+  const d=new Date(ts);
+  return isNaN(d) ? "" : String(d.getHours()).padStart(2,"0")+":"+
+                         String(d.getMinutes()).padStart(2,"0");
+}
+function bolitas(s){
+  const pasos=[["sale_ts","Salió a sitio","on"],
+               ["llega_ts","Llegó a sitio","on"],
+               ["termina_ts","Salió del sitio","fin"]];
+  return '<span class="pasos">'+pasos.map(function(p){
+    const t=s[p[0]];
+    return '<i class="'+(t?p[2]:"")+'" title="'+p[1]+
+           (t?" a las "+horaCorta(t):": todavía no")+'"></i>';
+  }).join("")+'</span>';
+}
+
 function pintarHoy(){
   const hoy=hoyISO();
   const dia=todos.filter(x=>x.fecha_servicio===hoy);
@@ -553,9 +598,11 @@ function pintarHoy(){
         <div class="d">${ss.length} servicio${ss.length>1?"s":""} ·
           ${hechos} cerrado${hechos!==1?"s":""} ·
           ${(min/60).toFixed(1)} h estimadas</div>
-        <div class="h">${ss.slice(0,4).map(s=>
-          (limpio(s.horario_atencion)||"--:--")+"  "+esc((s.nombre||"").slice(0,26))).join("<br>")}
-          ${ss.length>4?"<br>…y "+(ss.length-4)+" más":""}</div>
+        <div class="h">${ss.slice(0,4).map(s=>`<div class="hs">
+            <span class="hh">${esc(limpio(s.horario_atencion)||"--:--")}</span>
+            <span class="hn">${esc(s.nombre||"")}</span>
+            ${bolitas(s)}</div>`).join("")}
+          ${ss.length>4?'<div class="hs">…y '+(ss.length-4)+" más</div>":""}</div>
       </div>`;
     }).join("")}</div>`;
 
@@ -914,6 +961,189 @@ async function pintarHecho(){
           Acota el periodo para verlos todos.</td></tr>`:""}
       </tbody></table>`).join("")
       ||'<p class="sub">No hay servicios en ese periodo.</p>'}`;
+}
+
+/* ================= 5. uso de los botones de campo =================
+   Los botones Salí / Llegué / Terminé de Mi día llevan desde el 25-sep y casi
+   nadie los toca. "Hoy en campo", en Coordinación, solo mira el día de hoy y
+   solo saca los atrasos: sirve para operar, no para exigir.
+
+   Esta pestaña es la otra mitad: cuánto se usan, por brigada y en un periodo,
+   que es el número que se pide en la junta. Y de pasada da dos tiempos que
+   hasta ahora nadie medía —el traslado y el rato en sitio—, porque salen
+   solos de restar las horas que ya se están guardando.
+
+   Los externos (Possam, Sore, Michang) se dejan fuera por omisión: no entran a
+   Mi día, así que contarlos solo hunde el porcentaje de los que sí podrían.
+
+   Las distancias se calculan igual que en Coordinación: se resta el error que
+   reportó el teléfono y todavía se piden 300 m de margen. Un dato dudoso no se
+   pinta; vale más callar que señalar en falso. */
+let pPeriodo=null, pExternos=false;
+let cachePasos={clave:null, filas:null};
+const PASOS_FUERA=["CANCELADO","PROSPECTO","ATENCION VENTAS"];
+function esExterno(t){ return /externo|possam|sore\b|michang|por asignar/i.test(t||"") }
+
+function mesCorrido(){
+  const h=new Date(), d=new Date(); d.setDate(h.getDate()-29);
+  const iso=x=>x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+
+               String(x.getDate()).padStart(2,"0");
+  return [iso(d), iso(h)];
+}
+function pMetros(la1,lo1,la2,lo2){
+  const r=Math.PI/180, R=6371000;
+  const a=Math.pow(Math.sin((la2-la1)*r/2),2)+
+          Math.cos(la1*r)*Math.cos(la2*r)*Math.pow(Math.sin((lo2-lo1)*r/2),2);
+  return R*2*Math.asin(Math.sqrt(a));
+}
+function pCoordBuena(la,lo){ return la>=14 && la<=33 && lo>=-118 && lo<=-86 }
+function pLejos(x){
+  const sla=parseFloat(x.lat), slo=parseFloat(x.long);
+  const mla=parseFloat(x.llega_lat), mlo=parseFloat(x.llega_long);
+  if(!(sla&&slo&&mla&&mlo)) return null;
+  if(!pCoordBuena(sla,slo) || !pCoordBuena(mla,mlo)) return null;
+  const d=pMetros(sla,slo,mla,mlo);
+  const err=Math.max(0, parseFloat(x.llega_exac)||0);
+  return (d-err > 300) ? Math.round(d) : null;
+}
+/* Minutos entre dos marcas, solo cuando el número puede ser cierto: una resta
+   negativa o de más de diez horas es un toque hecho al día siguiente, no un
+   traslado. */
+function pMin(a, b, tope){
+  if(!a || !b) return null;
+  const m=(new Date(b)-new Date(a))/60000;
+  return (m>0 && m<tope) ? m : null;
+}
+function pProm(l){
+  const v=l.filter(x=>x!=null);
+  return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : null;
+}
+function hm(m){
+  if(m==null) return "—";
+  return m<60 ? m+" min" : (Math.floor(m/60)+" h "+String(m%60).padStart(2,"0"));
+}
+
+async function traerPasos(de,a){
+  const clave=de+"|"+a;
+  if(cachePasos.clave===clave) return cachePasos.filas;
+  const C="coord,id,nombre,fecha_servicio,status,tecnico,lat,long,"+
+          "sale_ts,llega_ts,termina_ts,llega_lat,llega_long,llega_exac";
+  let out=[];
+  for(let off=0;off<6000;off+=1000){
+    const t=await api("servicios?select="+C+"&fecha_servicio=gte."+de+
+      "&fecha_servicio=lte."+a+"&order=fecha_servicio&limit=1000&offset="+off);
+    out=out.concat(t);
+    if(t.length<1000) break;
+  }
+  cachePasos={clave:clave, filas:out};
+  return out;
+}
+
+async function pintarPasos(){
+  if(!pPeriodo) pPeriodo=mesCorrido();
+  const [de,a]=pPeriodo;
+  document.getElementById("cuerpo").innerHTML='<div class="load">Cargando el periodo…</div>';
+  let filas;
+  try{ filas=await traerPasos(de,a); }
+  catch(e){
+    document.getElementById("cuerpo").innerHTML=
+      '<div class="vacio">No se pudo consultar el periodo.<br><span class="sub">'+
+      esc(String(e&&(e.message||e)).slice(0,140))+'</span></div>';
+    return;
+  }
+  const hoy=hoyISO();
+  const v=filas.filter(x=>
+    PASOS_FUERA.indexOf((x.status||"").toUpperCase().trim())<0 &&
+    (x.fecha_servicio||"")<=hoy &&
+    (pExternos || !esExterno(limpio(x.tecnico))));
+
+  const porTec={};
+  v.forEach(x=>{
+    const t=limpio(x.tecnico)||"sin técnico";
+    const d=porTec[t]=porTec[t]||{n:0,s:0,l:0,t:0,tres:0,tras:[],sitio:[],lejos:0};
+    d.n++;
+    if(x.sale_ts) d.s++;
+    if(x.llega_ts) d.l++;
+    if(x.termina_ts) d.t++;
+    if(x.sale_ts&&x.llega_ts&&x.termina_ts) d.tres++;
+    d.tras.push(pMin(x.sale_ts, x.llega_ts, 600));
+    d.sitio.push(pMin(x.llega_ts, x.termina_ts, 900));
+    if(pLejos(x)!=null) d.lejos++;
+  });
+  const lista=Object.entries(porTec).sort((x,y)=>y[1].n-x[1].n);
+  const tot=v.length;
+  const conAlgo=v.filter(x=>x.sale_ts||x.llega_ts||x.termina_ts).length;
+  const conTres=v.filter(x=>x.sale_ts&&x.llega_ts&&x.termina_ts).length;
+  const pct=tot?Math.round(100*conAlgo/tot):0;
+  const usan=lista.filter(([,d])=>d.s+d.l+d.t>0).length;
+  const lejosTot=v.filter(x=>pLejos(x)!=null).length;
+
+  document.getElementById("cuerpo").innerHTML=`
+    <h2>Uso de los botones de campo</h2>
+    <p class="sub">Del ${de} al ${a}. Qué tanto se tocan «Salí», «Llegué» y
+      «Terminé» en Mi día${pExternos?"":", sin contar a los externos, que no entran a la app"}.</p>
+
+    <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+      <div><label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Desde</label>
+        <input type="date" id="qDe" value="${de}"></div>
+      <div><label style="display:block;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Hasta</label>
+        <input type="date" id="qA" value="${a}"></div>
+      <button class="pri" onclick="pPeriodo=[document.getElementById('qDe').value,
+        document.getElementById('qA').value];pintarPasos()">Ver ese periodo</button>
+      <button onclick="pPeriodo=mesCorrido();pintarPasos()">Últimos 30 días</button>
+      <button onclick="pExternos=!pExternos;pintarPasos()">${
+        pExternos?"Ocultar externos":"Incluir externos"}</button>
+    </div>
+
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px">
+      <div class="alerta" style="flex:1;min-width:160px;margin:0;border-left-color:${
+        pct>=50?"#1E8E5A":(pct>=15?"#E8A33D":"#C6413B")}">
+        <span class="num" style="color:${pct>=50?"#5BD79B":(pct>=15?"#F0BE6E":"#F0A9A5")}">${pct}%</span>
+        <h3>de los servicios</h3><div class="q">${conAlgo} de ${tot} con algún paso marcado</div></div>
+      <div class="alerta" style="flex:1;min-width:160px;margin:0;border-left-color:#2A5D8F">
+        <span class="num">${conTres}</span>
+        <h3>con los tres</h3><div class="q">salió, llegó y terminó</div></div>
+      <div class="alerta" style="flex:1;min-width:160px;margin:0;border-left-color:#2A5D8F">
+        <span class="num">${usan}<span style="font-size:13px;color:var(--txt3)">/${lista.length}</span></span>
+        <h3>brigadas</h3><div class="q">tocaron el botón al menos una vez</div></div>
+      ${lejosTot?`<div class="alerta" style="flex:1;min-width:160px;margin:0;border-left-color:#E8A33D">
+        <span class="num" style="color:#F0BE6E">${lejosTot}</span>
+        <h3>«Llegué» lejos</h3><div class="q">a más de 300 m del sitio, ya descontado el error del GPS</div></div>`:""}
+    </div>
+
+    <table><thead><tr>
+      <th>Brigada</th><th>Servicios</th><th>Uso</th><th>Salí</th><th>Llegué</th>
+      <th>Terminé</th><th>Los tres</th><th>Traslado</th><th>En sitio</th><th>Lejos</th>
+    </tr></thead><tbody>
+    ${lista.map(([t,d])=>{
+      const p=Math.round(100*d.tres/d.n);
+      const col=p>=50?"#5BD79B":(p>0?"#F0BE6E":"#F0A9A5");
+      return `<tr>
+        <td>${esc(t)}${esExterno(t)?' <span class="tag">externo</span>':""}</td>
+        <td class="dias">${d.n}</td>
+        <td style="min-width:92px"><div class="barra" style="margin:3px 0">
+            <i style="width:${p}%;background:${col}"></i></div>
+          <span style="font-size:11px;color:${col};font-weight:700">${p}%</span></td>
+        <td>${d.s||"—"}</td><td>${d.l||"—"}</td><td>${d.t||"—"}</td>
+        <td class="dias">${d.tres||"—"}</td>
+        <td>${hm(pProm(d.tras))}</td>
+        <td>${hm(pProm(d.sitio))}</td>
+        <td>${d.lejos?'<span class="dias ambar">'+d.lejos+'</span>':"—"}</td>
+      </tr>`}).join("")
+      || '<tr><td colspan="10" class="q">No hay servicios en ese periodo.</td></tr>'}
+    </tbody></table>
+
+    <p class="sub" style="margin-top:14px">
+      <b>Uso</b> es el porcentaje de servicios con los TRES pasos marcados, que es
+      lo que se pide. <b>Traslado</b> es de «Salí» a «Llegué» y <b>En sitio</b> de
+      «Llegué» a «Terminé»; solo promedian los servicios donde ambas marcas existen
+      y la resta es creíble. <b>Lejos</b> cuenta los «Llegué» a más de 300 m del
+      sitio después de restarle el error que reportó el teléfono: es para
+      preguntar, no para acusar —dentro de una bodega el GPS se pierde solo.</p>
+    ${conAlgo? "" : `<p class="sub" style="margin-top:10px;color:#F0BE6E">
+      Nadie marcó un solo paso en este periodo. Si acaban de empezar a usarlos,
+      amplía el rango; si no, el problema no es la pantalla.</p>`}`;
+  envolverTablas();
 }
 
 (async function(){
