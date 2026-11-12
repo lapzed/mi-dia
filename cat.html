@@ -297,7 +297,13 @@ async function arrancar(){
     const c=await api("catalogos?select=catalogo,valor,orden&order=catalogo,orden&limit=1000");
     CAT={}; c.forEach(x=>(CAT[x.catalogo]=CAT[x.catalogo]||[]).push(x.valor));
   }catch(e){ CAT={} }
-  if(!CAT.CAT_TIPO) CAT.CAT_TIPO=["Seguimiento","Queja","Incidencia","Llamada de cliente"];
+  /* El respaldo de abajo solo entra si la consulta de catalogos falla -sin
+     internet, por ejemplo-. Tiene que decir LO MISMO que la tabla `catalogos`:
+     si ofrece opciones que la base no conoce, se guardan valores que luego no
+     filtran ni cuentan. Estos tres estan copiados de la base el 11-nov-2026.
+     Antes CAT_TIPO decia Seguimiento/Queja/Incidencia/Llamada de cliente, que
+     fue la idea de julio y nunca llego a la base. */
+  if(!CAT.CAT_TIPO) CAT.CAT_TIPO=["Duda","Falla","Sismo","Simulacro","Seguimiento"];
   if(!CAT.CAT_ESTATUS) CAT.CAT_ESTATUS=["Abierto","En proceso","Resuelto"];
   if(!CAT.MEDIO_CONTACTO) CAT.MEDIO_CONTACTO=["Correo","Llamada","WhatsApp","Presencial"];
   try{
