@@ -979,10 +979,32 @@ async function pintarHecho(){
    Las distancias se calculan igual que en Coordinación: se resta el error que
    reportó el teléfono y todavía se piden 300 m de margen. Un dato dudoso no se
    pinta; vale más callar que señalar en falso. */
-let pPeriodo=null, pExternos=false;
+let pPeriodo=null, pExternos=false, pViejos=false;
 let cachePasos={clave:null, filas:null};
 const PASOS_FUERA=["CANCELADO","PROSPECTO","ATENCION VENTAS"];
 function esExterno(t){ return /externo|possam|sore\b|michang|por asignar/i.test(t||"") }
+
+/* ---------- quién sigue en la plantilla ----------
+   `servicios.tecnico` es texto libre y arrastra quince años de historia: gente
+   que ya no está, parejas escritas a mano ("LALO / AURELIO"), nombres mal
+   escritos. El padrón de verdad es el catálogo TECNICOS, que es de donde
+   salen los desplegables al programar.
+
+   Quien no está ahí no puede recibir un servicio nuevo, así que tampoco tiene
+   caso exigirle que use los botones: se saca del conteo y del porcentaje, y se
+   deja ver aparte para que su historia no desaparezca. */
+let TECS=null;
+async function plantilla(){
+  if(TECS) return TECS;
+  try{
+    const c=await api("catalogos?select=valor&catalogo=eq.TECNICOS&limit=200");
+    TECS=new Set((c||[]).map(x=>String(x.valor||"").trim()).filter(Boolean));
+  }catch(e){ TECS=new Set() }
+  return TECS;
+}
+/* Sin catálogo (se cayó la consulta) se da por vigente a todo el mundo: vale
+   más un porcentaje de más que esconder a media plantilla sin avisar. */
+function enPlantilla(t){ return !TECS || !TECS.size || TECS.has(t) }
 
 function mesCorrido(){
   const h=new Date(), d=new Date(); d.setDate(h.getDate()-29);
@@ -1044,7 +1066,7 @@ async function pintarPasos(){
   const [de,a]=pPeriodo;
   document.getElementById("cuerpo").innerHTML='<div class="load">Cargando el periodo…</div>';
   let filas;
-  try{ filas=await traerPasos(de,a); }
+  try{ await plantilla(); filas=await traerPasos(de,a); }
   catch(e){
     document.getElementById("cuerpo").innerHTML=
       '<div class="vacio">No se pudo consultar el periodo.<br><span class="sub">'+
@@ -1052,25 +1074,54 @@ async function pintarPasos(){
     return;
   }
   const hoy=hoyISO();
-  const v=filas.filter(x=>
+  const base=filas.filter(x=>
     PASOS_FUERA.indexOf((x.status||"").toUpperCase().trim())<0 &&
     (x.fecha_servicio||"")<=hoy &&
     (pExternos || !esExterno(limpio(x.tecnico))));
+  /* Los que ya no están en la plantilla se apartan: ni cuentan para el
+     porcentaje ni se les puede pedir nada, pero su historia se puede ver. */
+  const v      = base.filter(x=>  enPlantilla(limpio(x.tecnico)||"sin técnico"));
+  const salidos= base.filter(x=> !enPlantilla(limpio(x.tecnico)||"sin técnico"));
 
-  const porTec={};
-  v.forEach(x=>{
-    const t=limpio(x.tecnico)||"sin técnico";
-    const d=porTec[t]=porTec[t]||{n:0,s:0,l:0,t:0,tres:0,tras:[],sitio:[],lejos:0};
-    d.n++;
-    if(x.sale_ts) d.s++;
-    if(x.llega_ts) d.l++;
-    if(x.termina_ts) d.t++;
-    if(x.sale_ts&&x.llega_ts&&x.termina_ts) d.tres++;
-    d.tras.push(pMin(x.sale_ts, x.llega_ts, 600));
-    d.sitio.push(pMin(x.llega_ts, x.termina_ts, 900));
-    if(pLejos(x)!=null) d.lejos++;
-  });
-  const lista=Object.entries(porTec).sort((x,y)=>y[1].n-x[1].n);
+  const agrupar=function(filas){
+    const m={};
+    filas.forEach(x=>{
+      const t=limpio(x.tecnico)||"sin técnico";
+      const d=m[t]=m[t]||{n:0,s:0,l:0,t:0,tres:0,tras:[],sitio:[],lejos:0};
+      d.n++;
+      if(x.sale_ts) d.s++;
+      if(x.llega_ts) d.l++;
+      if(x.termina_ts) d.t++;
+      if(x.sale_ts&&x.llega_ts&&x.termina_ts) d.tres++;
+      d.tras.push(pMin(x.sale_ts, x.llega_ts, 600));
+      d.sitio.push(pMin(x.llega_ts, x.termina_ts, 900));
+      if(pLejos(x)!=null) d.lejos++;
+    });
+    return Object.entries(m).sort((x,y)=>y[1].n-x[1].n);
+  };
+  const lista=agrupar(v), listaSalidos=agrupar(salidos);
+  const filaPasos=function(par){
+    const t=par[0], d=par[1];
+    const p=Math.round(100*d.tres/d.n);
+    const col=p>=50?"#5BD79B":(p>0?"#F0BE6E":"#F0A9A5");
+    return `<tr>
+      <td>${esc(t)}${esExterno(t)?' <span class="tag">externo</span>':""}${
+        enPlantilla(t)?"":' <span class="tag" style="background:#4A2A2A;color:#F0A9A5">ya no está</span>'}</td>
+      <td class="dias">${d.n}</td>
+      <td style="min-width:92px"><div class="barra" style="margin:3px 0">
+          <i style="width:${p}%;background:${col}"></i></div>
+        <span style="font-size:11px;color:${col};font-weight:700">${p}%</span></td>
+      <td>${d.s||"—"}</td><td>${d.l||"—"}</td><td>${d.t||"—"}</td>
+      <td class="dias">${d.tres||"—"}</td>
+      <td>${hm(pProm(d.tras))}</td>
+      <td>${hm(pProm(d.sitio))}</td>
+      <td>${d.lejos?'<span class="dias ambar">'+d.lejos+'</span>':"—"}</td>
+    </tr>`;
+  };
+  const ENCABEZADO=`<thead><tr>
+      <th>Brigada</th><th>Servicios</th><th>Uso</th><th>Salí</th><th>Llegué</th>
+      <th>Terminé</th><th>Los tres</th><th>Traslado</th><th>En sitio</th><th>Lejos</th>
+    </tr></thead>`;
   const tot=v.length;
   const conAlgo=v.filter(x=>x.sale_ts||x.llega_ts||x.termina_ts).length;
   const conTres=v.filter(x=>x.sale_ts&&x.llega_ts&&x.termina_ts).length;
@@ -1111,27 +1162,22 @@ async function pintarPasos(){
         <h3>«Llegué» lejos</h3><div class="q">a más de 300 m del sitio, ya descontado el error del GPS</div></div>`:""}
     </div>
 
-    <table><thead><tr>
-      <th>Brigada</th><th>Servicios</th><th>Uso</th><th>Salí</th><th>Llegué</th>
-      <th>Terminé</th><th>Los tres</th><th>Traslado</th><th>En sitio</th><th>Lejos</th>
-    </tr></thead><tbody>
-    ${lista.map(([t,d])=>{
-      const p=Math.round(100*d.tres/d.n);
-      const col=p>=50?"#5BD79B":(p>0?"#F0BE6E":"#F0A9A5");
-      return `<tr>
-        <td>${esc(t)}${esExterno(t)?' <span class="tag">externo</span>':""}</td>
-        <td class="dias">${d.n}</td>
-        <td style="min-width:92px"><div class="barra" style="margin:3px 0">
-            <i style="width:${p}%;background:${col}"></i></div>
-          <span style="font-size:11px;color:${col};font-weight:700">${p}%</span></td>
-        <td>${d.s||"—"}</td><td>${d.l||"—"}</td><td>${d.t||"—"}</td>
-        <td class="dias">${d.tres||"—"}</td>
-        <td>${hm(pProm(d.tras))}</td>
-        <td>${hm(pProm(d.sitio))}</td>
-        <td>${d.lejos?'<span class="dias ambar">'+d.lejos+'</span>':"—"}</td>
-      </tr>`}).join("")
+    <table>${ENCABEZADO}<tbody>
+    ${lista.map(filaPasos).join("")
       || '<tr><td colspan="10" class="q">No hay servicios en ese periodo.</td></tr>'}
     </tbody></table>
+
+    ${listaSalidos.length?`
+      <h2 style="margin-top:26px">Los que ya no están</h2>
+      <p class="sub">${salidos.length} servicio${salidos.length===1?"":"s"} del periodo
+        a nombre de gente que ya no aparece en el catálogo de técnicos: se dieron
+        de baja, o el nombre quedó escrito de otra forma. No cuentan para el
+        porcentaje de arriba —no se les puede pedir que usen los botones— pero su
+        trabajo sigue ahí.
+        <a href="javascript:;" onclick="pViejos=!pViejos;pintarPasos()"
+           style="color:var(--acc)">${pViejos?"ocultarlos":"verlos"}</a>.</p>
+      ${pViejos?`<table>${ENCABEZADO}<tbody>
+        ${listaSalidos.map(filaPasos).join("")}</tbody></table>`:""}`:""}
 
     <p class="sub" style="margin-top:14px">
       <b>Uso</b> es el porcentaje de servicios con los TRES pasos marcados, que es
