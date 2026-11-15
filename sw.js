@@ -12,7 +12,7 @@
    Ahora es al reves: se sirve lo guardado de inmediato y la copia se refresca
    por detras. La app abre siempre, y como el CACHE cambia en cada publicacion,
    una version nueva se recoge igual. */
-const CACHE  = "mdcontrol-v239";
+const CACHE  = "mdcontrol-v240";
 const LIMITE = 8000;   // lo que se espera a la red cuando no hay copia guardada
 
 const SHELL = ["./inicio.html", "./index.html", "./entregables.html", "./manifest.json",
@@ -20,7 +20,12 @@ const SHELL = ["./inicio.html", "./index.html", "./entregables.html", "./manifes
                /* El ofrecimiento de instalar y el icono recortado para Android
                   tienen que estar guardados tambien: si el aviso solo apareciera
                   con senal, no lo veria justo quien mas lo necesita. */
-               "./instalar.js", "./icon-maskable.png"];
+               "./instalar.js", "./icon-maskable.png",
+               /* Dice que version se esta corriendo y avisa cuando hay una
+                  nueva. Tiene que estar guardado como todo lo demas: sin senal
+                  la app abre igual y el numero sigue a la vista, que es
+                  justamente cuando uno pide una foto de la pantalla. */
+               "./version.js"];
 
 /* Uno por uno y aguantando fallas. `addAll` es todo-o-nada: en datos moviles
    basta que UNO de los dieciocho no baje para que no se guarde NINGUNO, y el

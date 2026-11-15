@@ -225,6 +225,11 @@
   .cam-disparo{width:66px;height:66px;border-radius:50%;background:#fff;
     border:4px solid #9DB6D2 !important;padding:0 !important}
   .cam-aviso{color:#F0A9A5;font-size:12.5px;text-align:center;padding:14px 20px}
+  /* La salida de emergencia: visible siempre, pero que no compita con el
+     disparador. Quien ve bien su encuadre no tiene por que fijarse en ella. */
+  .cam-salida{text-align:center;padding:6px 16px 0}
+  .cam-salida button{background:none;border:none;color:#8FB4DC;font-size:12px;
+    text-decoration:underline;padding:6px 10px}
   .cam-disparo.ok{background:#1E8E5A;border-color:#5BD79B !important;color:#fff;
     font-size:26px;font-weight:800}
   .cam-barra .quita{color:#F0A9A5}
@@ -404,7 +409,10 @@
       <svg class="tri" viewBox="0 0 100 100"><path d="M50 8 L92 88 L8 88 Z" fill="none" stroke="#63B3FF" stroke-width="11" stroke-linejoin="round"/></svg>
       <div>
         <div class="bt">MD Control</div>
-        <div class="bs">MI DÍA</div>
+        <!-- El número de versión va aquí, junto al nombre de la pantalla: es
+             lo primero que se ve en una foto del celular, y con eso se sabe si
+             el teléfono trae la app al día. Lo llena version.js. -->
+        <div class="bs">MI DÍA <span id="mdver" style="opacity:.45;font-weight:400;letter-spacing:.3px"></span></div>
       </div>
       <a class="ayuda" href="ayuda.html" title="Cómo se usa">?</a>
       <div class="who" id="who" onclick="pedirTecnico()"></div>
@@ -483,6 +491,21 @@
     <div class="cam-pista" id="camPista">Acerca hasta que llene el recuadro. Solo el equipo, derecho y centrado.</div>
   </div>
   <div class="cam-aviso" id="camAviso" style="display:none"></div>
+  <!-- La salida, SIEMPRE a la vista.
+
+       A Diego le abrió el visor en blanco el 14-nov-2026: sin error, sin
+       aviso, y por lo tanto sin el botón de respaldo, que hasta entonces solo
+       aparecía cuando la cámara no abría. Se quedó parado frente a un equipo
+       que tenía que fotografiar, sin manera de hacerlo.
+
+       Intenté adivinar desde el código cuándo la imagen no llega -mirando si
+       los cuadros salen lisos e iguales-, y no pude comprobar que esa
+       adivinanza no moleste a quien sí tiene cámara. Así que no se adivina: la
+       salida está puesta todo el tiempo, chiquita, y la usa quien la necesita.
+       Quien ve bien ni la voltea a ver. -->
+  <div class="cam-salida">
+    <button onclick="camDesdeAviso(camDestino && camDestino.campo)">¿No se ve nada? Usa la cámara del teléfono</button>
+  </div>
   <div class="cam-barra">
     <button onclick="camCerrar()">Cancelar</button>
     <button class="cam-disparo" id="camBtn" onclick="camDisparar()"></button>
@@ -3129,6 +3152,9 @@ async function camAbrir(campo, titulo, pista, guia){
       const v = document.getElementById("camVideo");
       v.srcObject = camStream;
       await v.play();
+      /* Abrir no es ver. Se vigila por detras, sin detener al tecnico: si en
+         un par de segundos no llega una imagen de verdad, se le ofrece salida. */
+      camVigilarImagen(v, campo);
       return true;
     }catch(e){ camPorQue = e && (e.name||e.message) }
   }
@@ -3144,13 +3170,57 @@ async function camAbrir(campo, titulo, pista, guia){
      Ahora se dice por que fallo -el motivo ya se guardaba en `camPorQue` y no
      se mostraba en ningun lado- y se ofrece un boton de verdad. Al tocarlo
      trae su propio gesto, y entonces la camara del sistema si abre. */
+  camDecir(camMotivo(camPorQue), campo);
+  return false;
+}
+
+/* El aviso dentro del visor, con un boton que SI abre la camara del sistema
+   porque trae su propio gesto del dedo. */
+function camDecir(motivo, campo){
   const av = document.getElementById("camAviso");
   av.style.display = "block";
-  av.innerHTML = camMotivo(camPorQue) +
+  av.innerHTML = motivo +
     '<button style="margin-top:12px;width:100%;padding:13px;border-radius:11px;'+
     'border:none;background:var(--acc);color:#07203a;font-weight:700;font-size:14px" '+
     'onclick="camDesdeAviso(\'' + campo + '\')">Usar la cámara del teléfono</button>';
-  return false;
+}
+
+/* ---------------- abrio el visor pero no se ve nada ----------------
+
+   A Diego le paso el 14-nov-2026: toco "Fotos de la atencion", el visor abrio
+   -sin error, sin aviso- y lo que vio fue una PANTALLA EN BLANCO. Como
+   getUserMedia no fallo, el codigo creia que todo iba bien.
+
+   Que la camara ABRA y que llegue una IMAGEN son dos cosas distintas.
+
+   Aqui solo se mira `track.muted`, que no es una adivinanza: el navegador lo
+   pone en true cuando la camara no esta entregando cuadros -tomada por otra
+   app, bloqueada por el sistema, driver atorado-.
+
+   Intente ademas deducirlo de los pixeles, viendo si los cuadros salian lisos
+   e iguales entre si. Lo quite: para fiarme de eso tendria que haber
+   comprobado que NO le sale a quien si tiene camara -alguien encuadrando una
+   pared, por ejemplo-, y eso no lo pude comprobar. Una adivinanza sin probar,
+   corriendo en el telefono de todos, estorba mas de lo que resuelve. Para ese
+   caso esta la salida fija de abajo del visor, que no se equivoca nunca.
+
+   No cierra nada ni interrumpe: solo explica y ofrece. */
+async function camVigilarImagen(v, campo){
+  const mio = camStream;
+  await new Promise(r => setTimeout(r, 1800));
+  if(camStream !== mio) return;            // ya giro la camara o cerro el visor
+
+  const t = camStream && camStream.getVideoTracks()[0];
+  if(!t || !t.muted) return;               // esta entregando: todo bien
+
+  camPorQue = "sin cuadros (track muted)";
+  camDecir(
+    "La cámara abrió pero <b>no está entregando imagen</b>.<br>" +
+    "<span style='color:var(--txt2)'>Casi siempre es otra aplicación que la " +
+    "dejó tomada —WhatsApp, la cámara del teléfono, Google Lens—. Ciérralas y " +
+    "vuelve a entrar, o prueba <b>Girar</b> aquí abajo para usar la otra " +
+    "cámara. Si no, toma la foto con la cámara del teléfono:</span>",
+    campo);
 }
 
 /* ¿Estamos DENTRO de otra app?
@@ -3923,7 +3993,8 @@ async function sincronizar(avisar){
 /* ============ arranque ============ */
 window.addEventListener("online", ()=>sincronizar(true));
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) sincronizar(true) });
-if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
+/* El registro del service worker vive en version.js, junto con el numero
+   de version a la vista y el aviso de "hay una version nueva". */
 
 /* Lo que YA esta en el telefono, pintado antes de tocar la red.
 
@@ -4004,5 +4075,6 @@ async function arrancarSesion(){
 })();
 </script>
 <script src="instalar.js" defer></script>
+<script src="version.js" defer></script>
 </body>
 </html>

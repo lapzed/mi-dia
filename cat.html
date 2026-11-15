@@ -819,7 +819,9 @@ try{ recordarQuien(); }catch(e){}
 /* Sin esto, esta pantalla no guarda nada en el telefono y cada apertura
    necesita internet vivo. Iba solo en Mi dia; las demas puertas -inicio
    incluida, que es por donde arranca la app instalada- se quedaban fuera. */
-if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(function(){});
+/* El registro del service worker vive en version.js, junto con el numero
+   de version a la vista y el aviso de "hay una version nueva". */
 </script>
+<script src="version.js" defer></script>
 </body>
 </html>
