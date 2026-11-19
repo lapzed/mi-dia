@@ -84,6 +84,40 @@
     document.body.appendChild(c);
   }
 
+  /* ------------- si el menú de usuarios se quedó vacío -------------
+
+     Desde el 19-nov-2026 la lista de quién puede entrar vive en usuarios.js,
+     en un solo lugar en vez de trece copias. El precio de eso es que si ese
+     archivo no carga —red que se cae a media descarga, caché a medio
+     escribir—, el menú de acceso queda SIN OPCIONES y nadie puede entrar a
+     ninguna pantalla. Dejar a toda el área afuera es peor que cualquier
+     problema que esto resuelva.
+
+     Así que si el menú está vacío, se convierte en un campo de texto: el
+     usuario se escribe a mano. La clave se sigue pidiendo igual y quien
+     decide es la base, no esta pantalla; el menú siempre fue comodidad.
+
+     Esto vive aquí y no en usuarios.js a propósito: tiene que correr
+     justamente cuando usuarios.js NO está. */
+  function menuVacio(){
+    try{
+      const sel = document.getElementById("inUsr");
+      if(!sel || sel.tagName !== "SELECT" || sel.options.length) return;
+      const caja = document.createElement("input");
+      caja.id = "inUsr";
+      caja.type = "text";
+      caja.autocomplete = "username";
+      caja.placeholder = "escribe tu usuario";
+      caja.value = (function(){ try{ return localStorage.getItem("md_quien") || "" }catch(e){ return "" } })();
+      caja.className = sel.className;
+      caja.setAttribute("style", sel.getAttribute("style") || "");
+      sel.parentNode.replaceChild(caja, sel);
+    }catch(e){}
+  }
+  if(document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", menuVacio);
+  else menuVacio();
+
   /* ---------------------------------------------------------- service worker */
   if (!("serviceWorker" in navigator)) {
     mostrarVersion("");

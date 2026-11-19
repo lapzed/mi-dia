@@ -91,38 +91,12 @@
   <!-- 1 · quién eres -->
   <div class="panel" id="pLogin">
     <label>¿Quién eres?</label>
-    <select id="inUsr" onchange="recordar()">
-      <optgroup label="Campo">
-        <option value="TECNICO">Técnico de campo</option>
-      </optgroup>
-      <optgroup label="Coordinaciones">
-        <option value="est.ivan">Iván · Mantenimientos</option>
-        <option value="est.jair">Jair · Levantamientos</option>
-        <option value="est.alin">Alin · Instalaciones</option>
-        <option value="est.proyectos">Karina · Proyectos especiales</option>
-        <option value="est.mario">Mario Manríquez · Proyectos especiales</option>
-        <option value="est.antonio">Antonio Álvarez · Proyectos especiales</option>
-        <option value="est.yu">Fernando Yu · Proyectos especiales</option>
-        <option value="est.ariana">Berenice · CAT</option>
-        <option value="est.gloria">Monse · Mantenimientos</option>
-      </optgroup>
-      <optgroup label="Ventas">
-        <option value="est.ventas">Ventas · ejecutivos de cuenta</option>
-        <option value="est.joseluis">José Luis García · Dirección</option>
-      </optgroup>
-      <optgroup label="Administración">
-        <option value="est.ximena">Ximena · Captura · Mantenimientos</option>
-        <option value="est.jocelyn">Jocelyn · Aux administrativo · Gerencia</option>
-        <option value="jesus.acosta">Jesús · Aux administrativo</option>
-        <option value="est.subgerencia">Subgerencia</option>
-        <option value="est.gerencia">Gerencia</option>
-      </optgroup>
-        <!-- Empresas externas: una cuenta por empresa, no por brigada -->
-        <optgroup label="Externos">
-          <option value="ext.sore">Sore · Administrativo externo</option>
-          <option value="ext.possam">Possam · Administrativo externo</option>
-        </optgroup>
-    </select>
+    <!-- El menú lo arma usuarios.js, que es donde vive la lista de quién
+         puede entrar. Estaba escrita a mano aquí y en doce pantallas más, y
+         se desviaron solas: así fue como Mario se quedó sin poder entrar. -->
+    <select id="inUsr" onchange="recordar()"></select>
+    <script src="usuarios.js"></script>
+    <script>llenarUsuariosInicio()</script>
 
     <label>Tu clave</label>
     <input id="inPwd" type="password" placeholder="••••••••"

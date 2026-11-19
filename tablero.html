@@ -143,12 +143,8 @@
   <div class="box">
     <h2>Tablero de dirección</h2>
     <p>Los números del área, al momento.</p>
-    <select id="inUsr">
-      <option value="est.gerencia">Gerencia</option>
-      <option value="est.jocelyn">Jocelyn · Aux administrativo · Gerencia</option>
-      <option value="est.subgerencia">Subgerencia</option>
-      <option value="est.gloria">Monse · Mantenimientos</option>
-    </select>
+    <select id="inUsr" data-grupos="DIR"></select>
+    <script src="usuarios.js"></script>
     <input id="inPwd" type="password" placeholder="clave"
            onkeydown="if(event.key==='Enter')entrar()">
     <div class="aviso" id="err" style="display:none"></div>

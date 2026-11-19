@@ -147,14 +147,8 @@
     <!-- El usuario de ventas iba primero que nadie y faltaba en la lista: esta
          es SU pantalla. Quien abría el enlace directo no podía elegirse y la
          entrada fallaba sin decir por qué. -->
-    <select id="inUsr">
-      <option value="est.ventas">Ventas · ejecutivos de cuenta</option>
-      <option value="est.joseluis">José Luis García · Dirección</option>
-      <option value="est.gloria">Monse · Mantenimientos</option>
-      <option value="est.gerencia">Gerencia</option>
-      <option value="est.jocelyn">Jocelyn · Aux administrativo · Gerencia</option>
-      <option value="est.subgerencia">Subgerencia</option>
-    </select>
+    <select id="inUsr" data-grupos="VENTAS,DIR"></select>
+    <script src="usuarios.js"></script>
     <input id="inPwd" type="password" placeholder="clave"
            onkeydown="if(event.key==='Enter')entrar()">
     <div class="aviso" id="err" style="display:none"></div>

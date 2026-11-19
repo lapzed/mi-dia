@@ -186,21 +186,8 @@
   <div class="box">
     <h2>Semana</h2>
     <p>La semana de cada técnico, como la agenda de papel: quién trae qué, qué está confirmado y quién no está.</p>
-    <select id="inUsr">
-      <option value="est.ivan">Iván · Mantenimientos</option>
-      <option value="est.ximena">Ximena · Captura · Mantenimientos</option>
-      <option value="est.jair">Jair · Levantamientos</option>
-      <option value="est.alin">Alin · Instalaciones</option>
-      <option value="est.proyectos">Karina · Proyectos especiales</option>
-      <option value="est.mario">Mario Manríquez · Proyectos especiales</option>
-      <option value="est.antonio">Antonio Álvarez · Proyectos especiales</option>
-      <option value="est.yu">Fernando Yu · Proyectos especiales</option>
-      <option value="est.ariana">Berenice · CAT</option>
-      <option value="est.gloria">Monse · Mantenimientos</option>
-      <option value="est.gerencia">Gerencia</option>
-      <option value="est.jocelyn">Jocelyn · Aux administrativo · Gerencia</option>
-      <option value="est.subgerencia">Subgerencia</option>
-    </select>
+    <select id="inUsr" data-grupos="MANT,LEV,INST,PRY,CAT,DIR"></select>
+    <script src="usuarios.js"></script>
     <input id="inPwd" type="password" placeholder="clave"
            onkeydown="if(event.key==='Enter')entrar()">
     <div class="aviso" id="err" style="display:none"></div>
