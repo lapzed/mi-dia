@@ -97,6 +97,19 @@
   .plazos .ok{color:#9EE7C2;font-size:12.5px;margin-top:8px}
   @media (max-width:640px){ .plazos .it{grid-template-columns:1fr} }
   @media (max-width:640px){ .campo li{grid-template-columns:44px 1fr} .campo li .por{grid-column:2} }
+  /* ---- equipos fuera del sitio ---- */
+  .eqfuera{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
+  .eqf{border:1px solid var(--bor);border-radius:12px;padding:10px 12px;
+       background:rgba(255,255,255,.02)}
+  .eqf-t{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .eqf-et{font-size:11px;font-weight:700;color:#F5CE93;
+          background:rgba(232,163,61,.14);border-radius:999px;padding:2px 9px}
+  .eqf-d{font-size:11px;color:var(--txt2);margin-left:auto}
+  .eqf-d.mal{color:#F3B0AC;font-weight:700}
+  .eqf-s{font-size:12px;color:var(--txt2);margin-top:5px;line-height:1.45}
+  .eqf-b{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .eqf-b button{background:rgba(99,179,255,.12);border:1px solid rgba(99,179,255,.4);
+    color:#9CCBFF;border-radius:9px;padding:6px 11px;font-size:12px;font-weight:700}
   .cinta b{font-weight:800}
   .cinta .det{color:var(--txt2);font-size:12px}
   .cinta a{margin-left:auto;color:inherit;font-weight:700;text-decoration:none;
@@ -183,6 +196,7 @@
   <div id="cinta"></div>
   <div id="campo"></div>
   <div id="plazos"></div>
+  <div id="equipos"></div>
 
   <div class="barra" id="barra" style="display:none">
     <div class="f"><label>Desde</label><input type="date" id="fDe" onchange="cargar()"></div>
@@ -465,7 +479,44 @@ async function arrancar(){
   cargar();
   cargarCampo();
   cargarPlazos();
-  setInterval(function(){ cargarCampo(); cargarPlazos() }, 5*60*1000);   // el campo cambia solo
+  setInterval(refrescarArriba, 5*60*1000);   // el campo cambia solo
+}
+
+/* ---------- repintar lo de arriba sin mover la tabla ----------
+
+   Los recuadros que van encima de la tabla —la cinta, "Hoy en campo", Plazos—
+   se repintan solos cada cinco minutos, y otra vez 800 ms después de cada
+   edición de cita. Cuando cambian de alto, TODO lo de abajo se recorre.
+
+   Para quien tiene dos renglones arriba no se nota. Para Mario, que trae
+   dieciséis servicios en "Hoy en campo", la tabla se desliza bajo el cursor: el
+   desplegable que tenía abierto se cierra, el clic siguiente cae en otro
+   renglón —o en los filtros de arriba, que recargan la pantalla entera— y
+   parece que la pantalla "no lo deja hacer nada". Lo reportó el 19-nov-2026 en
+   video, y ahí se ve el "Cargando…" de una recarga que él nunca pidió.
+
+   Dos reglas:
+     1. Si está escribiendo o tiene un desplegable abierto, NO se repinta. El
+        refresco puede esperar cinco minutos más; su trabajo no.
+     2. Si se repinta, se mide dónde estaba la tabla antes y después y se
+        corrige el desplazamiento. Visualmente la tabla no se mueve. */
+function estaTrabajando(){
+  const a = document.activeElement;
+  if(!a) return false;
+  const t = (a.tagName || "").toUpperCase();
+  if(t !== "SELECT" && t !== "TEXTAREA" && t !== "INPUT") return false;
+  const lista = document.getElementById("lista");
+  return !!(lista && lista.contains(a));
+}
+
+async function refrescarArriba(){
+  if(estaTrabajando()) return;
+  const tabla = document.getElementById("lista");
+  const antes = tabla ? tabla.getBoundingClientRect().top : null;
+  try{ await Promise.all([cargarCampo(), cargarPlazos()]) }catch(e){}
+  if(antes === null || !tabla) return;
+  const desp = tabla.getBoundingClientRect().top - antes;
+  if(desp) window.scrollBy(0, desp);
 }
 
 /* ---------- plazos: accesos a 3 dias y la cita de manana ----------
@@ -1212,7 +1263,7 @@ function irAlDia(f, coord){
 }
 
 
-function pintar(){ setTimeout(filtrarVista,0); pintarCinta();
+function pintar(){ setTimeout(filtrarVista,0); pintarCinta(); pintarEquipos();
   pintarLote();
   const v=vistas(), cont=document.getElementById("lista");
   const pend=filas.filter(porConfirmar).length;
@@ -1426,6 +1477,134 @@ async function avanzarLote(){
   pintar();
 }
 
+/* ---------- equipos que están fuera del sitio ----------
+
+   Un equipo que se baja de un sitio pasa por cuatro manos antes de volver:
+   coordinación, almacén, laboratorio y otra vez almacén. Hasta hoy ese camino
+   no se registraba en ningún lado: el técnico lo escribía en el comentario del
+   cierre y ahí moría.
+
+   Lo que eso costaba, con nombre y fecha:
+     "EL EQUIPO FUE RETIRADO CON ANTERIORIDAD"   BAE Camino a Santa, 30-oct
+     "Equipo fue retirado hace 6 meses aprox."   Walmart 1503, 03-nov
+   Dos brigadas que fueron a dar servicio a un equipo que ya no estaba.
+
+   Este recuadro es para que eso no vuelva a pasar, y para que Ventas se entere
+   el día que uno queda listo en almacén.
+
+   LAS ETAPAS Y QUIEN SIGUE
+
+   Mientras almacén y laboratorio no tengan su propia sesión, TODO lo mueve la
+   coordinación desde aquí, con lo que le reportan. Eso significa que la hora
+   que queda es la hora en que alguien lo anotó, no la hora en que el equipo
+   cambió de manos: sirve para saber dónde está, no para medir cuánto tarda
+   cada área. */
+const EQ_SIGUE = {
+  "RETIRADO":            ["EN COORDINACION"],
+  "EN COORDINACION":     ["EN ALMACEN"],
+  "EN ALMACEN":          ["EN LABORATORIO", "LISTO EN ALMACEN"],
+  /* Aquí se bifurca según la cobertura, y por eso NO se pregunta: la garantía
+     se repara sin molestar al cliente; la póliza que no alcanza tiene que
+     esperar a que el cliente autorice. */
+  "EN LABORATORIO":      ["EN REPARACION", "ESPERA AUTORIZACION", "BAJA"],
+  "ESPERA AUTORIZACION": ["EN REPARACION", "BAJA"],
+  "EN REPARACION":       ["LISTO EN ALMACEN", "BAJA"],
+  "LISTO EN ALMACEN":    ["TKT GENERADO"],
+  "TKT GENERADO":        ["CERRADO"]
+};
+let EQUIPOS_FUERA = [];
+
+function eqDias(ts){
+  if(!ts) return 0;
+  return Math.max(0, Math.round((Date.now() - new Date(ts)) / 86400000));
+}
+
+async function pintarEquipos(){
+  const c = document.getElementById("equipos");
+  if(!c) return;
+  const sel = document.getElementById("fCoord");
+  const co  = sel ? sel.value : "";
+  try{
+    EQUIPOS_FUERA = await api("equipos_retirados?select=*&cerrado=is.false" +
+      "&etapa=not.in.(CERRADO,BAJA)" + (co ? "&coord=eq." + encodeURIComponent(co) : "") +
+      "&order=etapa_ts.asc");
+  }catch(e){ c.innerHTML = ""; return }
+
+  if(!EQUIPOS_FUERA.length){
+    c.innerHTML = '<div class="cinta verde"><span class="foco">●</span>' +
+      '<b>Ningún equipo fuera del sitio</b><span class="det">Nada en almacén ' +
+      'ni en laboratorio' + (co ? " de " + esc(co) : "") + '.</span></div>';
+    return;
+  }
+
+  const listos = EQUIPOS_FUERA.filter(x => x.etapa === "LISTO EN ALMACEN").length;
+  const viejo  = Math.max.apply(null, EQUIPOS_FUERA.map(x => eqDias(x.etapa_ts)));
+
+  c.innerHTML =
+    '<div class="cinta ' + (viejo > 30 ? "rojo" : "ambar") + '">' +
+      '<span class="foco">●</span><b>' + EQUIPOS_FUERA.length + ' equipo' +
+      (EQUIPOS_FUERA.length > 1 ? "s" : "") + ' fuera del sitio</b>' +
+      '<span class="det">' +
+      (listos ? listos + ' ya listo' + (listos > 1 ? "s" : "") + ' en almacén, ' +
+                'falta que Ventas levante el TKT. ' : "") +
+      'El que lleva más tiempo sin moverse: ' + viejo + ' días.</span></div>' +
+    '<div class="eqfuera">' + EQUIPOS_FUERA.map(eqRenglon).join("") + '</div>';
+}
+
+function eqRenglon(x){
+  const d = eqDias(x.etapa_ts);
+  const sigue = EQ_SIGUE[x.etapa] || [];
+  /* La cobertura decide cuál de las salidas es la natural, y ésa va primero.
+     La garantía se repara sin molestar al cliente; la póliza cuyo porcentaje
+     no alcanza tiene que esperar a que el cliente autorice. Ofrecer el orden
+     al revés es invitar a saltarse la autorización, que es justo el paso que
+     cuesta dinero si se omite. */
+  const natural = x.cobertura === "GARANTIA" ? "EN REPARACION"
+                : x.cobertura === "POLIZA"   ? "ESPERA AUTORIZACION" : null;
+  const ord = natural && sigue.indexOf(natural) > 0
+    ? [natural].concat(sigue.filter(e => e !== natural))
+    : sigue;
+  return '<div class="eqf">' +
+    '<div class="eqf-t"><b>' + esc(x.cliente || "") + '</b>' +
+      (x.tkt ? '<span class="tag">' + esc(x.tkt) + '</span>' : "") +
+      '<span class="eqf-et">' + esc(x.etapa) + '</span>' +
+      '<span class="eqf-d' + (d > 30 ? " mal" : "") + '">' + d + ' día' + (d === 1 ? "" : "s") + '</span>' +
+    '</div>' +
+    '<div class="eqf-s">' + esc(x.equipo || "equipo sin nombrar") +
+      ' · serie <b>' + esc(x.serie || "—") + '</b>' +
+      ' · ' + esc(x.cobertura || "sin cobertura") +
+      (x.motivo ? ' · ' + esc(x.motivo) : "") +
+      (x.presto ? ' · dejó a préstamo: ' + esc(x.presto) : "") +
+      '<br>Lo bajó ' + esc(x.tecnico || "—") + ' el ' + esc(x.fecha_retiro || "") +
+      (x.entrego ? ', se lo entregó ' + esc(x.entrego) : "") + '</div>' +
+    '<div class="eqf-b">' + ord.map(e =>
+      '<button onclick="eqMover(' + x.id + ',\'' + e + '\')">' + esc(e) + ' →</button>'
+    ).join("") + '</div></div>';
+}
+
+async function eqMover(id, etapa){
+  const x = EQUIPOS_FUERA.find(e => e.id === id);
+  if(!x) return;
+  if(!confirm(x.cliente + "\n" + x.equipo + " serie " + x.serie +
+              "\n\n¿Pasa de «" + x.etapa + "» a «" + etapa + "»?")) return;
+  const body = {etapa: etapa, etapa_quien: nombreDe(ses && ses.usuario) || "coordinación"};
+  if(etapa === "CERRADO") body.cerrado = true;
+  try{
+    /* return=representation a propósito: una política que falte hace que la
+       base acepte el cambio y no cambie nada, sin decir una palabra. Si no
+       vuelve el renglón, no se movió, y hay que decirlo en vez de repintar
+       como si hubiera funcionado. */
+    const r = await api("equipos_retirados?id=eq." + id,
+      {method:"PATCH", headers:{Prefer:"return=representation"},
+       body: JSON.stringify(body)});
+    if(!r || !r.length) throw new Error("no se movió");
+    anotar("EQUIPO " + etapa, x.cliente + " · " + x.equipo + " serie " + x.serie, x);
+    pintarEquipos();
+  }catch(e){
+    alert("No se pudo mover el equipo.\n" + String(e).slice(0, 120));
+  }
+}
+
 /* ---------- bitacora: quien movio que ----------
    Es el mismo LOG que llevaba la estacion de Excel (LogSupa). Al pasar a web se
    habia quedado sin anotar, y con la gente migrando el rastro se perdia.
@@ -1457,7 +1636,11 @@ async function editar(i, campo, valor){
      es un campo más que nadie llena y luego no se sabe cuándo se confirmó. */
   if(campo==="cita_confirmada" && valor==="SI" && !limpio(x.fecha_confirmacion))
     cuerpo.fecha_confirmacion=hoyISO();
-  if(campo==="cita_confirmada" || campo==="medio_contacto") setTimeout(cargarPlazos, 800);
+  /* Antes esto llamaba a cargarPlazos a secas, y al repintarse el recuadro de
+     Plazos la tabla se recorría justo cuando el usuario iba por el siguiente
+     renglón. Va por refrescarArriba, que respeta lo que está haciendo y deja
+     la tabla donde estaba. */
+  if(campo==="cita_confirmada" || campo==="medio_contacto") setTimeout(refrescarArriba, 800);
   x[campo]=valor;
   if(celda) celda.innerHTML='<span class="sub">guardando…</span>';
   try{

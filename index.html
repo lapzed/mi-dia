@@ -1128,6 +1128,81 @@ function pintar(){
   }).join("");
 }
 
+/* ============ el equipo que se lleva ============
+
+   Los catálogos no se escriben aquí: se traen de la base, como todo. Mi día no
+   los cargaba porque hasta hoy no los necesitaba, así que se piden una sola
+   vez, cuando el técnico abre la sección.
+
+   El respaldo de abajo solo entra si esa consulta falla —sin señal, parado en
+   un sótano— y tiene que decir LO MISMO que la tabla `catalogos`. Si algún día
+   cambias los motivos allá, cámbialos aquí. */
+let RET_CAT = {
+  EQUIPOS: [],
+  EQ_MOTIVO: ["REVISION EN LABORATORIO", "EQUIPO APAGADO", "FALLA REPORTADA",
+              "CAMBIO POR GARANTIA", "BAJA DEL SITIO"]
+};
+let _retCatPedido = false;
+async function retiroCatalogos(){
+  if(_retCatPedido) return;
+  _retCatPedido = true;
+  try{
+    const f = await api("catalogos?select=catalogo,valor,orden" +
+                        "&catalogo=in.(EQUIPOS,EQ_MOTIVO)&order=catalogo,orden");
+    const n = {};
+    f.forEach(function(x){ (n[x.catalogo] = n[x.catalogo] || []).push(x.valor) });
+    Object.keys(n).forEach(function(k){ if(n[k].length) RET_CAT[k] = n[k] });
+    pintarCierre();
+  }catch(e){ /* se queda con el respaldo y el técnico puede seguir */ }
+}
+
+/* POLIZA o GARANTIA no se pregunta: ya lo dice el tipo de servicio del que
+   salió el equipo. Preguntar algo que la base sabe es invitar a contestarlo
+   mal, y de ese dato depende si el cliente tiene que autorizar la reparación. */
+function retiroCobertura(srv){
+  const t = (limpio(srv && srv.tipo_servicio) || "").toUpperCase();
+  if(t.indexOf("GARANTIA") >= 0) return "GARANTIA";
+  if(t.indexOf("POLIZA")   >= 0) return "POLIZA";
+  return "SIN COBERTURA";
+}
+
+function retiroAbrir(){
+  cie.retiro = {equipo:"", serie:"", motivo:"", entrego:"",
+                presto:"", presto_serie:""};
+  retiroCatalogos();
+  pintarCierre();
+}
+function retiroQuitar(){ cie.retiro = null; pintarCierre() }
+function retiroCampo(k, v){
+  if(!cie.retiro) return;
+  cie.retiro[k] = v;
+  /* no se repinta en cada tecla: el cursor se perdería a media serie */
+  if(k === "equipo" || k === "motivo") pintarCierre();
+}
+
+/* El expediente se abre DESPUES de que el servicio quedó guardado. Si se
+   abriera antes y el cierre fallara, quedaría un equipo retirado de un
+   servicio que sigue abierto. */
+async function retiroGuardar(srv){
+  const r = cie.retiro;
+  if(!r || !limpio(r.equipo) || !limpio(r.serie)) return;
+  const fila = {
+    coord: srv.coord, servicio_id: srv.id, tkt: srv.tkt || null,
+    cliente: srv.nombre || "", sitio: limpio(srv.direccion) || null,
+    fecha_retiro: fecha,
+    tecnico: tecnico || limpio(srv.tecnico) || null,
+    entrego: limpio(r.entrego) || null,
+    equipo: limpio(r.equipo), serie: limpio(r.serie),
+    motivo: limpio(r.motivo) || null,
+    presto: limpio(r.presto) || null,
+    presto_serie: limpio(r.presto_serie) || null,
+    cobertura: retiroCobertura(srv),
+    etapa: "RETIRADO",
+    etapa_quien: tecnico || limpio(srv.tecnico) || null
+  };
+  await api("equipos_retirados", {method:"POST", body:JSON.stringify(fila)});
+}
+
 /* ============ salí / llegué / terminé ============
    El libro pide al coordinador monitorear al técnico antes, durante y después
    del servicio, y eso era preguntar por WhatsApp: ¿vas en camino?, ¿ya
@@ -2233,6 +2308,60 @@ function pintarCierre(){
     <button class="b-part" style="width:100%" onclick="propAgregar()">
       + Agregar otra sonorización</button>`;
 
+  /* ---------------- el equipo que se lleva ----------------
+
+     Hasta hoy esto se escribía en el recuadro de Comentarios y ahí se quedaba.
+     Encontré 47 retiros escritos así, 28 de ellos SIN número de serie, y dos
+     servicios donde la brigada llegó a un sitio del que alguien se había
+     llevado el equipo meses antes sin que nadie lo supiera.
+
+     Lo que se pregunta aquí es lo que nadie más va a poder contestar después:
+     qué se llevó, con qué serie y quién se lo entregó. El camino que sigue
+     -almacén, laboratorio, la reparación, el regreso- lo marca Coordinación en
+     su tablero; el técnico declara y suelta. */
+  const seccionRetiro = () => {
+    if(cie.estatus === "REPROGRAMADO") return "";
+    const r = cie.retiro;
+    if(!r) return `
+      <div class="lbl">¿Te llevas algún equipo?</div>
+      <p class="pista">Si bajas un equipo del sitio —para laboratorio, por
+         garantía o de baja—, anótalo aquí. Es lo que evita que dentro de tres
+         meses mandemos una brigada a revisarlo.</p>
+      <div class="eqs"><button onclick="retiroAbrir()">Sí, me llevo un equipo</button></div>`;
+
+    const listo = !!(limpio(r.equipo) && limpio(r.serie) && limpio(r.motivo));
+    const ops = l => (RET_CAT[l] || []).map(o =>
+      `<option${o === r[l === "EQ_MOTIVO" ? "motivo" : "equipo"] ? " selected" : ""}>${esc(o)}</option>`).join("");
+    return `
+      <div class="lbl">Equipo que te llevas
+        <span class="req ${listo ? "listo" : ""}">${listo ? "listo" : "falta la serie"}</span></div>
+      <p class="pista">La serie es lo importante: sin ella, el equipo que vuelva
+         del laboratorio no se puede amarrar con el sitio del que salió.</p>
+      <div class="prop">
+        <div class="pcs">
+          <label class="pc" style="width:48%"><span>¿Qué equipo?</span>
+            <select onchange="retiroCampo('equipo',this.value)">
+              <option value=""></option>${ops("EQUIPOS")}</select></label>
+          <label class="pc" style="width:48%"><span>Número de serie</span>
+            <input value="${esc(r.serie)}" placeholder="como viene en la etiqueta"
+                   oninput="retiroCampo('serie',this.value)"></label>
+          <label class="pc" style="width:100%"><span>¿Por qué te lo llevas?</span>
+            <select onchange="retiroCampo('motivo',this.value)">
+              <option value=""></option>${ops("EQ_MOTIVO")}</select></label>
+          <label class="pc" style="width:100%"><span>¿Quién te lo entregó en el sitio?</span>
+            <input value="${esc(r.entrego)}" placeholder="nombre y puesto de quien te lo dio"
+                   oninput="retiroCampo('entrego',this.value)"></label>
+          <label class="pc" style="width:48%"><span>¿Dejaste equipo a préstamo?</span>
+            <input value="${esc(r.presto)}" placeholder="cuál, si dejaste alguno"
+                   oninput="retiroCampo('presto',this.value)"></label>
+          <label class="pc" style="width:48%"><span>Serie del que dejaste</span>
+            <input value="${esc(r.presto_serie)}"
+                   oninput="retiroCampo('presto_serie',this.value)"></label>
+        </div>
+        <button class="liga-gal" onclick="retiroQuitar()">No, al final no me llevo nada</button>
+      </div>`;
+  };
+
   const bloque = b => {
     const ok=cubierto(b), ya=s._ev&&s._ev[b.tipo];
     return `
@@ -2365,6 +2494,7 @@ function pintarCierre(){
       ${seccionCond()}
       ${seccionProp()}
       ${seccionAvance()}
+      ${seccionRetiro()}
     `}
 
     <div class="lbl">${esRep?"":(cie._bloques.length+1)+" · "}Comentarios ${
@@ -3644,6 +3774,14 @@ function confirmarCierre(){
       return;
     }
   }
+  /* Un retiro a medias es peor que no declararlo: deja un equipo "fuera" que
+     nadie puede identificar cuando vuelva del laboratorio. La serie es la que
+     lo amarra con el sitio del que salio; de 47 retiros que encontre escritos
+     a mano, 28 no la traian. */
+  if(cie.retiro && !(limpio(cie.retiro.equipo) && limpio(cie.retiro.serie))){
+    toast("Falta el equipo y su número de serie, o quita el retiro", true);
+    return;
+  }
   const btn=document.getElementById("btnGo");
   btn.disabled=true; btn.textContent="Guardando…";
   guardarCierre(s, cie.estatus, com);
@@ -3903,6 +4041,16 @@ async function guardarCierre(s, modo, com){
       const b=document.getElementById("btnGo");
       if(b && total>1) b.textContent=`Subiendo foto ${n} de ${total}…`;
     });
+    /* El expediente del equipo retirado se abre DESPUES de que el servicio
+       quedó guardado, y a propósito no tumba el cierre si falla: el trabajo ya
+       está hecho y subido, y perderlo por no haber podido registrar el retiro
+       sería un mal negocio. Si falla se dice y se acabó: que la coordinación
+       lo capture a mano, que es como se hacía hasta hoy. */
+    if(cie.retiro){
+      try{ await retiroGuardar(s) }
+      catch(e){ toast("El servicio se cerró, pero el equipo retirado no se "+
+                      "registró. Avísale a tu coordinación.", true) }
+    }
     toast(listos[modo]||"Guardado ✓");
     cerrarHoja(); cargar();
   }catch(e){
