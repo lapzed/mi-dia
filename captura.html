@@ -1883,8 +1883,42 @@ async function arrancar(){
   }catch(e){ CAT={} }
   pintarCampos();
   cargarBandeja();
-  setInterval(cargarBandeja, 5*60*1000);
+  setInterval(refrescarBandeja, 5*60*1000);
   ultimos();
+}
+
+/* ---------- refrescar la bandeja sin mover el formulario ----------
+
+   La bandeja del CRM va ARRIBA del formulario de captura y cambia de alto
+   según cuántos tickets traiga. Al repintarse cada cinco minutos, todo lo de
+   abajo se recorre: quien está capturando ve saltar el campo que iba a
+   llenar, y el clic siguiente cae donde no era.
+
+   Es el mismo defecto que Mario Manríquez reportó en Coordinación el
+   19-nov-2026 -"no me deja hacer nada"-, en otra pantalla. Allá lo encontré
+   porque alguien se quejó; aquí lo busqué después, y estaba.
+
+   Dos reglas, iguales a las de allá:
+     1. Si hay algo con el foco -un campo, una nota, un menú-, no se repinta.
+        La bandeja puede esperar cinco minutos; la captura de alguien no.
+     2. Si se repinta, se mide dónde estaba el formulario antes y después y se
+        corrige el desplazamiento. Visualmente no se mueve nada. */
+function estaCapturando(){
+  const a = document.activeElement;
+  if(!a) return false;
+  const t = (a.tagName || "").toUpperCase();
+  return t === "INPUT" || t === "TEXTAREA" || t === "SELECT";
+}
+
+async function refrescarBandeja(){
+  if(estaCapturando()) return;
+  const caja  = document.getElementById("bandeja");
+  const abajo = caja && caja.nextElementSibling;
+  const antes = abajo ? abajo.getBoundingClientRect().top : null;
+  try{ await cargarBandeja() }catch(e){}
+  if(antes === null || !abajo) return;
+  const desp = abajo.getBoundingClientRect().top - antes;
+  if(desp) window.scrollBy(0, desp);
 }
 
 /* ---------- barra de etapas, como en la estacion de Excel ----------
