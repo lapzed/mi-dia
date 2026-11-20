@@ -248,8 +248,25 @@
   /* poco relleno en la celda de la foto: el estrobo lleva tres fotos solas
      -es el componente mas alto- y sin esto no cabia entero en su hoja */
   #salida table.comp2 td.ph{text-align:center;padding:2px}
-  #salida table.comp2 .evfoto{display:flex;gap:2mm;justify-content:center;
-    align-items:flex-start}
+  /* `flex-wrap:wrap` no es adorno: es lo que impide que las fotos se encimen.
+
+     La clase `par` se pone con CUALQUIER cantidad mayor a una, y con dos cabe
+     -43 mm cada una, 86 en una columna de 92.5-. Con TRES ya no: 129 mm en 92.5,
+     y como el grupo va centrado se desbordaba por los dos lados, encima del
+     texto de ACTIVIDAD a la izquierda y fuera de la tabla a la derecha. Asi
+     llego el informe de un mantenimiento de trompeta el 20-nov-2026.
+
+     Con `wrap`, la tercera baja de renglon. El componente crece de alto y el
+     reparto en hojas lo nota -mide el alto real, por eso las fotos tienen alto
+     fijo-, asi que se acomoda en la siguiente hoja en vez de recortarse en
+     silencio. Mas vale un informe de una hoja mas que uno con la evidencia
+     encimada. */
+  #salida table.comp2 .evfoto{display:flex;flex-wrap:wrap;gap:2mm;
+    justify-content:center;align-items:flex-start}
+  /* NO poner `max-width` aqui. Ya paso una vez: `max-width` le gana a `width`
+     por mucha especificidad que tenga el otro, y dejo las fotos a la mitad del
+     tamaño pedido. El desbordamiento se arregla con el `wrap` de arriba, no
+     encogiendo la evidencia. */
   /* el pie va bajo SU foto y centrado con ella, como en el machote */
   #salida table.comp2 .evfoto figure{margin:0;display:flex;flex-direction:column;
     align-items:center}
