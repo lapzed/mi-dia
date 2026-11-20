@@ -797,7 +797,22 @@ async function cargar(){
   /* el cuestionario que captura la estacion VBA, que vive en el servicio */
   "eq_especializado,tipo,amplificador_cap,coaxial,pot,ur,p_gruesa,p_delgada,f_zapa,materiales"+
   "&status=eq.ATENDIDO"+
-        "&order=fecha_atencion.desc,dependencia";
+  /* `id` al final NO es adorno: es lo que impide que un servicio salga DOS
+     VECES en la lista.
+
+     La lista se baja de mil en mil. Con un orden que tiene empates -decenas de
+     servicios comparten fecha de atencion y cliente-, Postgres no promete que
+     la pagina 1 y la pagina 2 esten ordenadas igual, asi que una fila puede
+     caer en las dos... y otra en ninguna.
+
+     Medido contra la base el 20-nov-2026: 4796 filas bajadas, 4765 servicios
+     distintos. 31 repetidos, y por lo tanto 31 ATENDIDOS que no aparecian en
+     la lista y a los que nunca se les pudo generar informe.
+
+     Repetido en la lista = repetido en el informe: Mantenimientos mando un PDF
+     de 34 hojas donde las 17 primeras y las 17 ultimas eran la misma cosa.
+     Con `id` de desempate, 4796 de 4796 distintos. */
+        "&order=fecha_atencion.desc,dependencia,id";
   if(cli) q+="&dependencia=eq."+encodeURIComponent(cli);
   if(co)  q+="&coord=eq."+co;
   if(de)  q+="&fecha_servicio=gte."+de;
