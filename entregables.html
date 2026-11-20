@@ -2795,7 +2795,10 @@ async function informeDe(x, num, ident, conLog){
   for(const c of (P.componentes === false ? [] : COMPONENTES)){
     const suyas = fotos.filter(f=>f.partida===c.id && f.clase!=="REPORTE");
     if(!suyas.length && !hayEn(c)) continue;
-    suyas.forEach(f=>usada.add(f));
+    /* Antes aqui se daban por USADAS todas las fotos del componente, cupieran o
+       no. Por eso las de mas se quedaban apretadas en la celda en vez de bajar
+       a la cuadricula del final: ya estaban marcadas y `resto` no las veia.
+       Ahora cada foto se marca cuando de verdad se coloca. */
 
     /* Por ETAPA, que es como están en el machote: lo de antes en la revisión
        física, lo de durante en parámetros y lo de después en funcionamiento.
@@ -2810,7 +2813,26 @@ async function informeDe(x, num, ident, conLog){
     const ETAPA_DE = ["ANTES","DURANTE","DESPUES"];
     const filas = c.act.map((a,i)=>{
       const pies = (a[2]||[]).map(resolver).filter(p=>p!==undefined);
-      const mias = (reparto[i]||[]).slice();
+      /* CADA ACTIVIDAD TOMA TANTAS FOTOS COMO PIES TIENE.
+
+         El machote fija cuantas caben: la revision fisica de la trompeta lleva
+         dos -Estado inicial y Limpieza-, parametros una, funcionamiento una.
+         Sin tope, TODO lo que el tecnico etiquetara como "trompeta" caia en la
+         misma celda: en el informe del 20-nov-2026 la hoja de la trompeta
+         llego con 29 fotos, y las que no cabian se dibujaban FUERA DE LA HOJA
+         -el PDF las reporta con altura cero-. Esa evidencia no existia en el
+         documento que firma el cliente.
+
+         Lo que sobra no se pierde: al no marcarse como usada baja a la
+         cuadricula de evidencia del final, que es justo lo que hace la hoja
+         "Evidencia fotografica · Foto 1 · Foto 2 · Foto 3" de la version que
+         quedo como buena.
+
+         El tope minimo es 1 por si algun pie condicional se queda vacio: mas
+         vale una foto sin pie que una actividad sin evidencia. */
+      const tope = Math.max(pies.length, 1);
+      const mias = (reparto[i]||[]).slice(0, tope);
+      mias.forEach(f => usada.add(f));
       /* cada actividad sabe cuantas fotos espera —una por pie—; los huecos se
          llenan con la evidencia que vino sin partida, prefiriendo la de la
          misma etapa */
