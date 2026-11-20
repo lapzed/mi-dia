@@ -166,11 +166,7 @@
        imprime en blanco los encabezados azules y los recuadros */
     *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
     body{background:#fff;color:#000}
-    /* `.aviso` tambien: los avisos de pantalla -el de "salio el informe" y
-       el de una falla al armarlo- viven fuera de #salida pero dentro de la
-       pagina, y sin esto acababan impresos en el PDF que se le manda al
-       cliente. */
-    header,.filtros,.resumen,#tabla,#pie,.modal,.aviso{display:none !important}
+    header,.filtros,.resumen,#tabla,#pie,.modal{display:none !important}
     #salida{display:block !important}
     .wrap{padding:0;max-width:none}
   }
@@ -248,25 +244,8 @@
   /* poco relleno en la celda de la foto: el estrobo lleva tres fotos solas
      -es el componente mas alto- y sin esto no cabia entero en su hoja */
   #salida table.comp2 td.ph{text-align:center;padding:2px}
-  /* `flex-wrap:wrap` no es adorno: es lo que impide que las fotos se encimen.
-
-     La clase `par` se pone con CUALQUIER cantidad mayor a una, y con dos cabe
-     -43 mm cada una, 86 en una columna de 92.5-. Con TRES ya no: 129 mm en 92.5,
-     y como el grupo va centrado se desbordaba por los dos lados, encima del
-     texto de ACTIVIDAD a la izquierda y fuera de la tabla a la derecha. Asi
-     llego el informe de un mantenimiento de trompeta el 20-nov-2026.
-
-     Con `wrap`, la tercera baja de renglon. El componente crece de alto y el
-     reparto en hojas lo nota -mide el alto real, por eso las fotos tienen alto
-     fijo-, asi que se acomoda en la siguiente hoja en vez de recortarse en
-     silencio. Mas vale un informe de una hoja mas que uno con la evidencia
-     encimada. */
-  #salida table.comp2 .evfoto{display:flex;flex-wrap:wrap;gap:2mm;
-    justify-content:center;align-items:flex-start}
-  /* NO poner `max-width` aqui. Ya paso una vez: `max-width` le gana a `width`
-     por mucha especificidad que tenga el otro, y dejo las fotos a la mitad del
-     tamaño pedido. El desbordamiento se arregla con el `wrap` de arriba, no
-     encogiendo la evidencia. */
+  #salida table.comp2 .evfoto{display:flex;gap:2mm;justify-content:center;
+    align-items:flex-start}
   /* el pie va bajo SU foto y centrado con ella, como en el machote */
   #salida table.comp2 .evfoto figure{margin:0;display:flex;flex-direction:column;
     align-items:center}
@@ -932,7 +911,6 @@ function pintar(){
       <td><button class="mini" onclick="abrirSubir('${x.coord}',${x.id})">+ evidencia</button></td>
     </tr>`).join("")+"</tbody></table>";
   document.getElementById("btnGen").disabled = marcados.size===0;
-  document.getElementById("btnGen").textContent = textoBoton();
 }
 
 function marcar(coord,id,on){
@@ -2947,27 +2925,6 @@ async function informeDe(x, num, ident, conLog){
    en esa tanda. */
 /* Lo que salio mal, donde se pueda leer. Va arriba de la lista y no en un
    `alert`, para poder copiarlo tal cual. */
-/* Una nota tranquila, para lo que salio bien. Hermana de avisarFalla y, como
-   ella, vive FUERA de #salida: ese contenedor es lo que se imprime, y un aviso
-   de pantalla no tiene por que acabar en el PDF del cliente.
-
-   Se quita sola: si se quedara pegada, en diez minutos la pantalla seria una
-   pila de avisos viejos que nadie lee. */
-function avisar(texto){
-  const c = document.getElementById("salida");
-  if(!c) return;
-  const antes = document.getElementById("notaGen");
-  if(antes) antes.remove();
-  const caja = document.createElement("div");
-  caja.id = "notaGen";
-  caja.className = "aviso";
-  caja.style.cssText = "display:block;margin:12px 0;border-color:rgba(30,142,90,.45);" +
-                       "background:rgba(30,142,90,.12);color:#9EE7C2";
-  caja.textContent = texto;
-  c.parentNode.insertBefore(caja, c);
-  setTimeout(function(){ if(caja.parentNode) caja.remove() }, 12000);
-}
-
 function avisarFalla(e, cual){
   const c = document.getElementById("salida");
   const msg = String((e && (e.message || e)) || "error sin mensaje");
@@ -3020,25 +2977,10 @@ async function generarInformes(sel){
   return partes.join("");
 }
 
-/* El boton dice CUANTOS van a salir.
-
-   Jair reporto el 20-nov-2026 que al generar el segundo informe le salia
-   pegado el anterior. No era el generador: los servicios se quedan marcados
-   despues de generar -`marcados` solo se limpiaba al recargar la lista con
-   los filtros-, asi que al marcar el segundo seguian siendo dos.
-
-   Y nada lo decia: el boton rezaba igual con uno marcado que con cinco. Ahora
-   lleva la cuenta, que es el aviso mas barato que hay. */
-function textoBoton(){
-  const esInf = document.getElementById("fForm").value === "informe";
-  const n = marcados.size;
-  return (esInf ? "Generar informe final" : "Generar entregable") +
-         (n ? " · " + n + (n === 1 ? " servicio" : " servicios") : "");
-}
 function verFormato(){
   const esInf=document.getElementById("fForm").value==="informe";
   document.getElementById("opsInforme").style.display=esInf?"flex":"none";
-  document.getElementById("btnGen").textContent=textoBoton();
+  document.getElementById("btnGen").textContent=esInf?"Generar informe final":"Generar entregable";
 }
 
 async function generar(){
@@ -3056,26 +2998,10 @@ async function generar(){
     try{
       document.getElementById("salida").innerHTML=await generarInformes(sel);
       setTimeout(()=>window.print(),400);
-      /* Se desmarcan en cuanto salieron. Si se quedaran marcados, el siguiente
-         informe se armaria otra vez con estos -que es justo lo que le pasaba a
-         Jair- y nadie lo notaria hasta tener el PDF en la mano.
-
-         Lo impreso NO se toca: ya esta en #salida y se imprime igual aunque la
-         lista quede en blanco. Si hiciera falta repetir la tanda, se vuelven a
-         marcar, que cuesta dos clics; descubrir en el correo del cliente que
-         le mandaste el informe de otro sitio cuesta mucho mas. */
-      const cuantos = sel.length;
-      marcados.clear(); pintar();
-      avisar(cuantos === 1
-        ? "El informe salio. El servicio se desmarco para que el siguiente no lo arrastre."
-        : "Salieron " + cuantos + " informes. Se desmarcaron para que el siguiente no los arrastre.");
     }catch(e){
       avisarFalla(e);
     }finally{
-      /* `t0` es el texto de ANTES de generar, y ya no es cierto: los
-         servicios se acaban de desmarcar. Restaurarlo dejaba el boton
-         diciendo «1 servicio» con cero marcados. */
-      btn.textContent=textoBoton(); btn.disabled = marcados.size===0;
+      btn.textContent=t0; btn.disabled=false;
     }
     return;
   }
