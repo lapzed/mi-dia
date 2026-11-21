@@ -242,134 +242,170 @@ sube solo cuando vuelve la señal. No tienes que hacer nada especial ni volver a
 
 <!-- ================= COORDINACIÓN ================= -->
 <h1 id="coordinacion" style="margin-top:52px">💻 Para las coordinaciones</h1>
-<p class="intro">La estación en la computadora. Cada quien ve su tramo del trabajo.</p>
+<p class="intro">Las pantallas de la computadora. Cada quien ve su tramo del trabajo.</p>
 
 <h2>Cómo entrar</h2>
-<p>Abre tu archivo <b>Estacion_TuNombre.xlsm</b> y da clic en
-<span class="btn">ABRIR MI ESTACION</span>. El sistema ya sabe quién eres y a qué
-coordinación perteneces.</p>
+<div class="paso"><div class="num">1</div><div>
+  Abre <b>lapzed.github.io/mi-dia</b> en la computadora. Es la misma dirección que
+  usan los técnicos en el celular: según quién entra, salen unas pantallas
+  u otras.</div></div>
+<div class="paso"><div class="num">2</div><div>
+  Escribe <b>tu usuario</b> y tu clave. El usuario <b>no es tu correo</b>.</div></div>
 
-<h2>Las cuatro etapas</h2>
-<p>Un servicio camina por cuatro momentos. Cada quien trabaja el suyo:</p>
+<div class="ojo"><b>Ya no se abre ningún archivo de Excel.</b> Las estaciones
+<b>Estacion_TuNombre.xlsm</b> quedaron en <b>solo lectura</b> el 9 de noviembre de 2026.
+Se conservan para consultar lo viejo —guardan historia que la base no tiene—,
+pero lo que se capture ahí no llega a ninguna parte. Todo el trabajo vive en la web.</div>
+
+<h2>Las cinco etapas</h2>
+<p>Un servicio camina por cinco momentos. Arriba de cada pantalla hay una barra que los
+muestra en orden y te deja saltar entre ellos; a un lado está la <b>coordinación</b>
+en la que estás trabajando —Levantamientos, Instalaciones, Mantenimientos, CAT o
+Proyectos especiales— y todo lo que ves depende de esa elección.</p>
 <table>
-  <tr><th>Etapa</th><th>Qué se hace</th></tr>
-  <tr><td><b>1 · Captura</b></td><td>Dar de alta el servicio: sitio, dirección, contacto,
-      qué equipo lleva.</td></tr>
-  <tr><td><b>2 · Programación</b></td><td>Asignar técnico, fecha, vehículo y viáticos.</td></tr>
-  <tr><td><b>3 · Coordinación</b></td><td>Confirmar la cita con el cliente y poner el estatus.</td></tr>
-  <tr><td><b>4 · Supervisión</b></td><td>Ver todo lo de todos, sin modificar. Es el tablero.</td></tr>
+  <tr><th>Etapa</th><th>Pantalla</th><th>Qué se hace</th></tr>
+  <tr><td><b>1 · Captura</b></td><td>Captura</td>
+      <td>Dar de alta el servicio: sitio, dirección, contacto, qué equipo lleva.</td></tr>
+  <tr><td><b>2 · Programa</b></td><td>Programación</td>
+      <td>Asignar brigada y fecha, y mandar el aviso.</td></tr>
+  <tr><td><b>3 · Coordina</b></td><td>Coordinación</td>
+      <td>Confirmar la cita con el cliente y poner el estatus.</td></tr>
+  <tr><td><b>4 · Supervisa</b></td><td>Cierre</td>
+      <td>Cerrar el servicio y pedir el informe.</td></tr>
+  <tr><td><b>5 · Entrega</b></td><td>Entregables</td>
+      <td>Generar el informe y el reporte que recibe el cliente.</td></tr>
 </table>
-<div class="ojo"><b>Cada servicio tiene que pasar por su etapa.</b> Si intentas
-guardar uno que todavía va en una etapa anterior a la tuya, el sistema te avisa y no
-lo guarda. No es un capricho: si se brinca un paso, ese servicio se queda con los
-campos de antes vacíos y después nadie sabe qué pasó.</div>
+<div class="ojo"><b>La entrega es una etapa, no un apartado suelto.</b> El servicio no
+termina cuando se cierra: termina cuando el cliente tiene su informe.</div>
 
-<h2>La pantalla</h2>
-<div class="pantalla">
-  <div class="t">Cómo está acomodada</div>
-  <b>Izquierda:</b> tu cola de trabajo, con un buscador arriba para hallar por ticket o
-  por nombre. Lo más viejo aparece primero.<br><br>
-  <b>Derecha:</b> el detalle del servicio que elegiste. Aquí capturas.<br><br>
-  <b>Abajo:</b> los botones.
-</div>
+<h2>1 · Captura</h2>
+<div class="item"><span class="btn">Bandeja del CRM</span>
+  <div class="q">Lo que Ventas ya levantó en el CRM aparece aquí solo, cada
+  cuarto de hora. <b>Empieza siempre por aquí:</b> lo que ya está no se vuelve
+  a teclear.</div>
+  <div class="cuando">Con <b>Capturar ▸</b> lo jalas al formulario. Si resultó
+  que no era ese, <b>Es otro servicio: darlo de alta</b>.</div></div>
 
-<h3>El buscador y el filtro</h3>
-<div class="item"><b>Buscar</b> (arriba de la cola)
-  <div class="q">Escribe el ticket, el proyecto o el nombre del sitio y la lista se
-  reduce sola.</div></div>
-<div class="item"><span class="btn">☐ Ver todos (no solo pendientes)</span>
-  <div class="q">Normalmente ves solo lo que te toca ahora. Al marcarlo ves todos los
-  servicios, incluidos los que ya pasaron por ti.</div>
-  <div class="cuando">Útil para consultar; recuerda que aun así no puedes guardar
-  sobre un servicio que va en una etapa anterior.</div></div>
-<div class="item"><b>Filtro de supervisión</b> <span class="cuando">(solo etapa 4)</span>
-  <div class="q">Filtra por periodo (hoy, semana, mes o un rango) y por técnico.</div></div>
+<div class="item"><span class="btn">¿Ya habíamos ido a ese sitio?</span>
+  <div class="q">Busca un sitio atendido antes y <b>llena solo</b> dirección,
+  contacto, teléfono y equipo.</div>
+  <div class="cuando">Úsalo siempre antes de capturar a mano. Si de veras es
+  nuevo, <b>Empezar en blanco</b>.</div></div>
 
-<h2>Los botones, uno por uno</h2>
-<p>No todos salen siempre: cada uno aparece cuando sirve.</p>
-
-<div class="item"><span class="btn">+ Nuevo registro</span>
-  <div class="q">Da de alta un servicio que no existía.</div>
-  <div class="cuando">Aparece en la etapa 1 (Captura).</div></div>
-
-<div class="item"><span class="btn">Buscar sitio y jalar datos</span>
-  <div class="q">Busca un sitio que ya se atendió antes y <b>llena solo</b> dirección,
-  contacto, teléfono y equipo. Evita volver a teclear todo.</div>
-  <div class="cuando">Etapa 1. Úsalo siempre antes de capturar a mano.</div></div>
-
-<div class="item"><span class="btn">Cargar varias sucursales (archivo)</span>
+<div class="item"><span class="btn">📥 Carga masiva</span>
   <div class="q">Cuando un cliente compró lo mismo para muchas sucursales. Se ponen
-  los datos comunes una vez, se elige el kit y se sube el archivo con la lista.
-  Cada sucursal queda como un servicio aparte, editable.</div>
-  <div class="cuando">Etapa 1.</div></div>
+  los datos comunes una vez y se sube la lista; cada sucursal queda como un servicio
+  aparte.</div>
+  <div class="cuando">Con <b>↓ Bajar plantilla de sitios</b> obtienes el archivo
+  que hay que llenar.</div></div>
 
-<div class="item"><span class="btn">Mapa + demanda de técnicos</span>
-  <div class="q">Muestra la semana de cada técnico —cuántas horas trae por día, en
-  verde, ámbar o rojo— y el mapa de los sitios. Sirve para no saturar a uno y dejar
-  a otro sin trabajo.</div>
-  <div class="cuando">Etapas 2 y 3.</div></div>
+<div class="item"><span class="btn">👯 Duplicados</span>
+  <div class="q">Servicios repetidos: el mismo sitio dado de alta dos veces.</div></div>
 
-<div class="item"><span class="btn">Obra varios días</span>
-  <div class="q">Para instalaciones que duran más de un día. Pones cuántos días y
-  crea un registro por día, de lunes a sábado, saltando domingos.</div>
-  <div class="cuando">La instalación cuenta como atendida <b>solo cuando termina</b>.
-  Mientras tanto son días de continuidad — pero se registran, porque el recurso se
-  usó y eso se cobra.</div></div>
+<div class="item"><span class="btn">📍 Buscar coordenadas</span>
+  <div class="q">Convierte la dirección en un punto del mapa. Con esto el
+  técnico llega al lugar exacto y no a la calle.</div></div>
 
-<div class="item"><span class="btn">Brigadas / auxiliares</span>
-  <div class="q">Cuando un servicio necesita <b>más de una cuadrilla</b> o un apoyo
-  extra. Todos quedan colgados del <b>mismo servicio</b>, no se duplica el registro.</div>
-  <div class="cuando">Quien quede asignado <b>ve el servicio en su celular</b>,
-  aunque no sea el técnico titular.</div></div>
+<div class="ojo"><b>El semáforo de información mínima.</b> Si al TKT le
+falta algo que el técnico va a necesitar en el sitio, la pantalla te lo marca.
+<b>Avisa, no bloquea:</b> puedes guardar igual, pero lo que falte pídeselo a
+Ventas antes de programar, no el día de la visita.</div>
 
-<div class="item"><span class="btn">Generar programacion (WhatsApp)</span>
-  <div class="q">Arma el mensaje del día ya formateado, agrupado por brigada y con la
-  liga del mapa de cada sitio. Lo copias y lo pegas en el grupo.</div>
-  <div class="cuando">Etapas 3 y 4.</div></div>
+<h2>2 · Programación</h2>
+<div class="item"><span class="btn">📊 Demanda de técnicos</span>
+  <div class="q">Cuánto trae cada brigada y qué falta asignar. Sirve para no
+  saturar a uno y dejar a otro sin trabajo.</div></div>
+<div class="item"><span class="btn">◀ Día anterior</span> &nbsp;
+  <span class="btn">Día siguiente ▶</span>
+  <div class="q">Te mueves por el calendario sin perder lo que llevas seleccionado.</div></div>
+<div class="item"><span class="btn">Apartados</span>
+  <div class="q">Las visitas de garantía que ya tienen lugar guardado: cada
+  instalación deja apartadas las suyas. No programes encima de ellas.</div></div>
+<div class="item"><span class="btn">Pasar a coordinación →</span>
+  <div class="q">Manda el servicio a la etapa 3. Es el botón que hace caminar el
+  trabajo.</div></div>
 
-<div class="item"><span class="btn">Ficha cotizacion</span>
-  <div class="q">Arma la ficha con lo que se levantó, para pasarla a costos.</div>
-  <div class="cuando">Solo en Levantamientos.</div></div>
+<h2>3 · Coordinación</h2>
+<div class="item"><span class="btn">✓ Confirmada</span>
+  <div class="q">La cita quedó acordada con el cliente. Mientras no lo esté,
+  el servicio no debería avanzar.</div></div>
+<div class="item"><span class="btn">📩 Mensaje a técnicos</span>
+  <div class="q">Arma el mensaje del día ya formateado, por brigada y con la liga
+  del mapa de cada sitio. <b>Copiar</b> y pegarlo, o <b>Abrir WhatsApp</b>.</div></div>
+<div class="item"><span class="btn">Reagendar la visita</span>
+  <div class="q">Cuando se cae una cita. <b>Crear la visita nueva</b> deja la vieja como
+  reprogramada y abre la siguiente.</div>
+  <div class="cuando">Un reprogramado <b>no es un pendiente</b>: lo que queda pendiente
+  es el reprogramado al que nadie le puso fecha nueva.</div></div>
+<div class="item"><span class="btn">Plazos</span>
+  <div class="q">Compara cuándo se registró la cita contra cuándo se hizo
+  el servicio.</div>
+  <div class="cuando">Hoy media coordinación registra la cita <b>después</b>
+  de la visita. Eso deja a Programación trabajando a ciegas.</div></div>
+<div class="item"><span class="btn">Hoy en campo</span>
+  <div class="q">Quién salió, quién llegó y quién terminó,
+  en vivo, con lo que los técnicos van tocando en el celular.</div></div>
+<div class="item"><span class="btn">Equipos fuera del sitio</span>
+  <div class="q">Equipo que se retiró y está en laboratorio, con en qué
+  parte del camino va cada uno.</div>
+  <div class="cuando"><b>No mandes brigada a un sitio cuyo equipo está fuera.</b>
+  Es una visita perdida.</div></div>
+<div class="item"><span class="btn">Pasar a cierre →</span>
+  <div class="q">Manda el servicio a la etapa 4.</div></div>
 
-<div class="item"><span class="btn">Cierre del dia</span>
-  <div class="q">Revisa cómo cerró la jornada.</div>
-  <div class="cuando">Etapa 4.</div></div>
+<h2>4 · Cierre</h2>
+<div class="item"><span class="btn">Aplicar a los seleccionados</span>
+  <div class="q">Cierra varios de una vez cuando salieron igual. Con
+  <b>Quitar selección</b> empiezas de nuevo.</div></div>
+<div class="item"><span class="btn">+ fotos</span>
+  <div class="q">Los servicios que se cerraron <b>sin una sola foto</b> quedan marcados
+  aquí, y desde aquí se les puede subir lo que el técnico tenga guardado.</div>
+  <div class="cuando">Casi todos los servicios están así. Es la deuda más
+  grande que trae el área.</div></div>
+<div class="item"><span class="btn">Pedir informe</span>
+  <div class="q">Manda el servicio a Entregables para que se genere el documento del
+  cliente.</div></div>
+<div class="item"><span class="btn">Último mes</span> &nbsp;
+  <span class="btn">Últimos 4 meses</span>
+  <div class="q">Cuánto hacia atrás quieres ver.</div></div>
 
-<div class="item"><span class="btn">Monitoreo</span>
-  <div class="q">Captura de los equipos en línea por zona. Se llena <b>una sola vez</b>
-  y de ahí sale la tabla y la gráfica del tablero.</div>
-  <div class="cuando">Solo en CAT y Gerencia.</div></div>
+<h2>5 · Entregables</h2>
+<p>Aquí se arma el informe que recibe el cliente con lo que el técnico capturó
+en el sitio: las mediciones, las fotos en sus tres momentos y el reporte firmado.</p>
+<div class="bien">Si una hoja del informe sale corta o sin fotos, <b>no es la
+pantalla</b>: es que esa evidencia no se capturó en campo. El informe no inventa lo
+que no existe.</div>
 
-<div class="item"><span class="btn">Reporte a direccion</span>
-  <div class="q">Genera de un tirón los tres archivos de la semana y actualiza el
-  tablero. Antes se armaban a mano.</div>
-  <div class="cuando">Solo en Gerencia.</div></div>
-
-<h3>Los de abajo, que siempre están</h3>
-<div class="item"><span class="btn">Guardar</span>
-  <div class="q">Guarda lo que capturaste, <b>sin</b> mandarlo a la siguiente etapa.
-  Para cuando te falta un dato y vas a seguir después.</div></div>
-<div class="item"><span class="btn">Guardar y enviar &gt;&gt;</span>
-  <div class="q">Guarda <b>y pasa el servicio a la siguiente etapa</b>. Es el que
-  hace caminar el trabajo.</div>
-  <div class="cuando">En la etapa 3 solo avanza si la cita está confirmada.</div></div>
-<div class="item"><span class="btn">Refrescar</span>
-  <div class="q">Vuelve a bajar la información. Úsalo si alguien más capturó algo
-  mientras tenías la ventana abierta.</div></div>
-<div class="item"><span class="btn">&lt;&lt; Anterior etapa</span> &nbsp;
-  <span class="btn">Siguiente etapa &gt;&gt;</span>
-  <div class="q">Cambia entre etapas sin cerrar la ventana.</div>
-  <div class="cuando">Solo para quien trabaja varias etapas (Gerencia, Subgerencia,
-  Patricia, Jair, Alin, Iván).</div></div>
-<div class="item"><span class="btn">Cerrar</span>
-  <div class="q">Cierra la ventana. Lo guardado ya está guardado.</div></div>
+<h2>Las demás pantallas</h2>
+<p>No son etapas: son para consultar y para el trabajo propio de cada
+coordinación.</p>
+<div class="item"><span class="btn">🗓 Semana</span>
+  <div class="q">La semana de cada técnico, como la agenda de papel. Aquí
+  también viven las ausencias.</div></div>
+<div class="item"><span class="btn">📊 Demanda de técnicos</span>
+  <div class="q">Cuánto trae cada brigada y qué falta asignar.</div></div>
+<div class="item"><span class="btn">🛰 Supervisión</span>
+  <div class="q">Brigadas, atorones y lo realizado.</div></div>
+<div class="item"><span class="btn">💼 Ventas</span>
+  <div class="q">Los servicios por ejecutivo de cuenta.</div></div>
+<div class="item"><span class="btn">📐 Levantamientos</span>
+  <div class="q">Propuestas, croquis y fichas. De aquí sale lo que se
+  <b>envía a Costos</b>.</div></div>
+<div class="item"><span class="btn">🏗 Proyectos especiales</span>
+  <div class="q">Las obras y su avance.</div></div>
+<div class="item"><span class="btn">🎧 CAT</span>
+  <div class="q">Atenciones y centro de monitoreo.</div></div>
+<div class="item"><span class="btn">📈 Tablero de dirección</span>
+  <div class="q">Los números del área, para la reunión.</div></div>
 
 <h2>Dos cosas que evitan problemas</h2>
-<div class="ojo"><b>Cierra tu estación cuando termines.</b> Si la dejas abierta y se
-manda una actualización, se crea una copia en conflicto y puedes quedarte trabajando
-con una versión vieja sin darte cuenta.</div>
-<div class="ojo"><b>Si sale un error de programación</b>, elige <b>Finalizar</b>.
-Nunca "Depurar". Y si te pregunta si guardas los cambios al cerrar, di que <b>no</b>.</div>
+<div class="ojo"><b>Si no te aparece una pantalla, es permiso, no es falla.</b> Cada
+cuenta ve solo lo suyo. Si necesitas una que no tienes, pídela a la gerencia en vez
+de pedirle a alguien más que capture por ti.</div>
+<div class="ojo"><b>Si algo se ve raro, o un botón no está donde dice aquí,
+cierra la pestaña y vuelve a entrar.</b> Abajo a la izquierda, en chiquito, está
+el número de versión: si pides ayuda, manda una foto de la pantalla donde se
+alcance a leer. Con eso se sabe qué trae tu equipo.</div>
 
 <div class="pie">
   MDreieck S.A. de C.V. · Área Técnica<br>
