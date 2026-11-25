@@ -12,7 +12,7 @@
    Ahora es al reves: se sirve lo guardado de inmediato y la copia se refresca
    por detras. La app abre siempre, y como el CACHE cambia en cada publicacion,
    una version nueva se recoge igual. */
-const CACHE  = "mdcontrol-v253";
+const CACHE  = "mdcontrol-v254";
 const LIMITE = 8000;   // lo que se espera a la red cuando no hay copia guardada
 
 const SHELL = ["./inicio.html", "./index.html", "./entregables.html", "./manifest.json",
@@ -30,7 +30,11 @@ const SHELL = ["./inicio.html", "./index.html", "./entregables.html", "./manifes
                   menu de acceso aparece vacio sin senal; version.js lo
                   convierte en un campo de texto para que nadie se quede
                   afuera, pero lo correcto es que este aqui. */
-               "./usuarios.js"];
+               "./usuarios.js",
+               /* Las preguntas que Captura le hace al inventario: watts donde
+                  van piezas, y los PA20 sin antena. Guardado como todo lo
+                  demas, porque se captura igual cuando la red va mal. */
+               "./inventario.js"];
 
 /* Uno por uno y aguantando fallas. `addAll` es todo-o-nada: en datos moviles
    basta que UNO de los dieciocho no baje para que no se guarde NINGUNO, y el

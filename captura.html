@@ -136,6 +136,14 @@
   .minimoForm.rojo{border-color:rgba(198,65,59,.45);background:rgba(198,65,59,.08)}
   .minimoForm.ambar{border-color:rgba(232,163,61,.45);background:rgba(232,163,61,.08)}
   .minimoForm.verde{border-color:rgba(30,142,90,.45);background:rgba(30,142,90,.08)}
+  /* coherencia del inventario (inventario.js). Ambar y no rojo a proposito:
+     son preguntas sobre lo capturado, no datos que falten. */
+  .invForm{border-radius:10px;padding:9px 11px;font-size:12px;margin:10px 0 0;
+    border:1px solid rgba(232,163,61,.45);background:rgba(232,163,61,.08);color:var(--txt2)}
+  .invForm b{color:var(--txt)}
+  .invForm .t{color:#F0BE6E;font-weight:700;display:block;margin-bottom:4px}
+  .invForm ul{margin:0;padding-left:17px}
+  .invForm li{margin:3px 0;line-height:1.45}
   .minimo{font-size:12px;cursor:help;margin-right:3px}
   .minimo.verde{color:#5BD79B} .minimo.ambar{color:#F0BE6E} .minimo.rojo{color:#F0877F}
   .bien{background:rgba(30,142,90,.16);border:1px solid rgba(30,142,90,.45);color:#9EE7C2;
@@ -333,6 +341,7 @@
 
 
 <script src="minimo.js"></script>
+<script src="inventario.js"></script>
 <script>
 const SUPA_URL="https://buwoxejgnmyvshwznbaj.supabase.co";
 const SUPA_KEY="sb_publishable_Pts8K36Tj4vZ7UzSAwwicw_K6I11-Aw";
@@ -588,7 +597,8 @@ function pintarCampos(){
   if(CON_EQUIPO.indexOf(co)>=0){
     h+=`<h2 style="font-size:13.5px;margin:16px 0 4px">Equipo instalado en el sitio</h2>
         <div class="q">Lo que ya está puesto ahí. Si el sitio se buscó arriba, viene lleno.</div>
-        <div class="rej">`+EQUIPO.map(([id,e,t])=>control(id,e,t,0)).join("")+`</div>`;
+        <div class="rej">`+EQUIPO.map(([id,e,t])=>control(id,e,t,0)).join("")+`</div>
+        <div id="invForm"></div>`;
   }
   document.getElementById("qSel").textContent = co==="LEV"
     ? "En levantamientos el equipo no se captura aquí: es el resultado de la visita y se llena al cerrar."
@@ -598,6 +608,7 @@ function pintarCampos(){
   ayudasDeDireccion();
   if(sitioSel) volcarSitio(sitioSel);
   revisarMinimo();
+  revisarInv();
 }
 
 /* ---------- informacion minima, mientras se captura ----------
@@ -623,11 +634,27 @@ function revisarMinimo(){
       ' <span style="opacity:.75">Se puede dar de alta igual.</span>';
 }
 document.addEventListener("input", function(e){
-  if(e.target && e.target.id && e.target.id.indexOf("c_")===0) revisarMinimo();
+  if(e.target && e.target.id && e.target.id.indexOf("c_")===0){ revisarMinimo(); revisarInv() }
 });
 document.addEventListener("change", function(e){
-  if(e.target && e.target.id && e.target.id.indexOf("c_")===0) revisarMinimo();
+  if(e.target && e.target.id && e.target.id.indexOf("c_")===0){ revisarMinimo(); revisarInv() }
 });
+
+/* ---------- el inventario se contradice solo (inventario.js) ----------
+   Va pegado al bloque de equipo y no al de minimos porque pregunta por lo que
+   se acaba de teclear ahi. No detiene el alta: el servicio se guarda igual. */
+function revisarInv(){
+  const c=document.getElementById("invForm");
+  if(!c) return;
+  const x={};
+  INVENTARIO_CAMPOS.forEach(function(id){ x[id]=leer(id) });
+  const d=revisarInventario(x);
+  if(!d.length){ c.className=""; c.innerHTML=""; return }
+  c.className="invForm";
+  c.innerHTML='<span class="t">Revisa esto del equipo</span><ul>'+
+    d.map(function(p){ return '<li>'+p.html+'</li>' }).join("")+
+    '</ul><span style="opacity:.75">Se puede dar de alta igual.</span>';
+}
 
 /* El CP y las coordenadas no son un campo más: son los dos que, mal puestos,
    mandan a la brigada a otra dirección. Se les cuelga su ayuda. */
