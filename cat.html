@@ -83,6 +83,9 @@
   .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;
     background:#17456E;color:var(--acc);white-space:nowrap}
   .nota{width:100%;min-height:34px;font-size:12px;resize:vertical}
+  .tktrel{width:104px;font-family:ui-monospace,Consolas,monospace;letter-spacing:.3px}
+  .liga{font-size:11px;color:var(--acc);text-decoration:none}
+  .noliga{font-size:11px;color:#F0BE6E}
   .guardado{color:#5BD79B;font-size:11px}
   .fallo{color:#F0A9A5;font-size:11px}
 
@@ -408,7 +411,7 @@ async function cargarAt(){
   try{
     filas=await api("servicios?select=id,coord,tkt,nombre,dependencia,fecha_servicio,"+
       "fecha_atencion,status,tecnico,ejecutivo,tipo_servicio,cat_tipo,cat_medio,"+
-      "cat_estatus,cat_descripcion,cat_resolucion,personal_atiende,telefono"+
+      "cat_estatus,cat_descripcion,cat_resolucion,cat_tkt_rel,personal_atiende,telefono"+
       "&coord=eq.CAT&fecha_servicio=gte."+de+"&fecha_servicio=lte."+a+
       "&order=fecha_servicio.desc&limit=400");
     pintarAt();
@@ -543,7 +546,8 @@ function pintarAt(){ setTimeout(filtrarVista,0); pintarCinta();
   if(!v.length){ cont.innerHTML='<div class="vacio">Nada aquí.</div>'; return }
   cont.innerHTML=`<div class="tabla"><table><thead><tr>
     <th>Fecha</th><th>Cliente</th><th>Ejecutivo</th><th>Tipo</th><th>Medio</th>
-    <th>Estatus</th><th>Qué pasó</th><th>Cómo se resolvió</th><th></th>
+    <th>Estatus</th><th>Qué pasó</th><th>Cómo se resolvió</th>
+    <th>TKT que lo atendió</th><th></th>
     </tr></thead><tbody>
     ${v.map(x=>{ const i=filas.indexOf(x), ej=ejecutivoDe(x); return `<tr>
       <td>${esc(x.fecha_servicio||"")}
@@ -575,8 +579,35 @@ function pintarAt(){ setTimeout(filtrarVista,0); pintarCinta();
             placeholder="lo que pidió el cliente">${esc(x.cat_descripcion||"")}</textarea></td>
       <td><textarea class="nota" onchange="editarAt(${i},'cat_resolucion',this.value)"
             placeholder="qué se hizo">${esc(x.cat_resolucion||"")}</textarea></td>
+      <td><input class="tktrel" id="rel${i}" value="${esc(x.cat_tkt_rel||"")}"
+            placeholder="TKT" onchange="ligarTkt(${i},this.value)">
+        <div class="sub" id="relnota${i}"></div></td>
       <td id="est${i}"></td></tr>`}).join("")}
   </tbody></table></div>`;
+  pintarLigas(v);
+}
+
+/* Las ligas ya guardadas se resuelven de una sola consulta al terminar de
+   pintar, no una por renglon. Si falla, los renglones se quedan sin la liga y
+   el TKT escrito sigue a la vista: es un adorno, no el dato. */
+async function pintarLigas(v){
+  const con=v.filter(x=>limpio(x.cat_tkt_rel));
+  if(!con.length) return;
+  const tkts=[...new Set(con.map(x=>x.cat_tkt_rel.trim()))];
+  let d=[];
+  try{
+    d=await api("servicios?select=id,coord,tkt,nombre,fecha_servicio&tkt=in.("+
+                tkts.map(t=>'"'+t.replace(/"/g,"")+'"').join(",")+")&limit=400");
+  }catch(e){ return }
+  const por={}; (d||[]).forEach(s=>{ por[(s.tkt||"").trim().toUpperCase()]=s });
+  con.forEach(x=>{
+    const nota=document.getElementById("relnota"+filas.indexOf(x)); if(!nota) return;
+    const s=por[x.cat_tkt_rel.trim().toUpperCase()];
+    nota.innerHTML = s
+      ? '<a class="liga" href="captura.html?corregir='+esc(s.coord)+'-'+s.id+
+        '" title="'+esc(s.nombre||"")+'">'+esc(s.coord)+' · '+esc(s.fecha_servicio||"")+' →</a>'
+      : '<span class="noliga">ese TKT no está en la base</span>';
+  });
 }
 const ETAPA_AQUI=5;
 
@@ -600,6 +631,34 @@ function anotar(accion, detalle, x){
       tkt:(x&&x.tkt)||"", accion:accion, detalle:detalle||""
     })}).catch(function(){});
   }catch(e){}
+}
+
+/* ---------- ligar el caso con el servicio que lo atendio ----------
+   El CAT recibe la llamada, pero quien va al sitio es MANT o INST con su propio
+   TKT. Sin esta liga una falla reportada por el cliente y el servicio que la
+   atendio son dos renglones que nadie vuelve a juntar.
+
+   Se guarda el TKT tal como lo escriben, aunque no exista todavia: a veces el
+   caso se liga antes de que el servicio este capturado. Lo que si se hace es
+   avisar, y cuando el TKT ya existe se deja la liga para abrirlo. */
+async function ligarTkt(i, valor){
+  const x=filas[i], nota=document.getElementById("relnota"+i);
+  const t=(valor||"").trim().toUpperCase();
+  if(nota) nota.innerHTML="";
+  await editarAt(i,"cat_tkt_rel",t);
+  const caja=document.getElementById("rel"+i); if(caja) caja.value=t;
+  if(!t || !nota) return;
+  try{
+    const d=await api("servicios?select=id,coord,tkt,nombre,fecha_servicio"+
+                      "&tkt=eq."+encodeURIComponent(t)+"&limit=1");
+    if(d && d.length){
+      const s=d[0];
+      nota.innerHTML='<a class="liga" href="captura.html?corregir='+esc(s.coord)+'-'+s.id+
+        '" title="'+esc(s.nombre||"")+'">'+esc(s.coord)+' · '+esc(s.fecha_servicio||"")+' →</a>';
+    }else{
+      nota.innerHTML='<span class="noliga">ese TKT no está en la base</span>';
+    }
+  }catch(e){ /* la liga es un extra: si falla, el dato ya quedo guardado */ }
 }
 
 async function editarAt(i, campo, valor){
